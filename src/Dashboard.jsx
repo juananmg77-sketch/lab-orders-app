@@ -44,9 +44,12 @@ export default function Dashboard({ orders, articles, onTabChange }) {
         return false;
       }
 
-      const orderDate = order.date.includes('-') 
-        ? new Date(order.date) 
-        : new Date(order.date.split('/').reverse().join('-'));
+      const dateStr = order.date || '';
+      if (!dateStr) return false;
+
+      const orderDate = dateStr.includes('-') 
+        ? new Date(dateStr) 
+        : new Date(dateStr.split('/').reverse().join('-'));
 
       const matchesDate = (!dateRange.start || orderDate >= new Date(dateRange.start)) &&
                          (!dateRange.end || orderDate <= new Date(dateRange.end));
@@ -72,11 +75,14 @@ export default function Dashboard({ orders, articles, onTabChange }) {
       supplierSpending[order.supplier] = (supplierSpending[order.supplier] || 0) + order.total;
 
       // Monthly aggregate
-      const date = order.date.includes('-') 
-        ? new Date(order.date) 
-        : new Date(order.date.split('/').reverse().join('-'));
+      const dateStr = order.date || '';
+      if (!dateStr) return;
+      
+      const date = dateStr.includes('-') 
+        ? new Date(dateStr) 
+        : new Date(dateStr.split('/').reverse().join('-'));
       const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
-      monthlySpending[monthKey] = (monthlySpending[monthKey] || 0) + order.total;
+      monthlySpending[monthKey] = (monthlySpending[monthKey] || 0) + (order.total || 0);
 
       // Reference aggregate
       if (order.cart) {
