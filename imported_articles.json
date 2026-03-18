@@ -1,0 +1,972 @@
+[
+  {
+    "id": "ART-NEW-1",
+    "name": "ESCOBILLON AMIES PS+VISCOSA C/100",
+    "category": "General",
+    "supplierName": "BIOLINEA",
+    "supplierRef": "AUL300287NEW",
+    "price": "35,13 €",
+    "stock": 0,
+    "minStock": 5
+  },
+  {
+    "id": "ART-NEW-2",
+    "name": "FILTRO NITRATO CELULOSA EST. 0.45 47MM C/100",
+    "category": "General",
+    "supplierName": "BIOLINEA",
+    "supplierRef": "CHMMNW045047HSG",
+    "price": "30,00 €",
+    "stock": 0,
+    "minStock": 5
+  },
+  {
+    "id": "ART-NEW-3",
+    "name": "TUBO 50ML PP C/FALDON ESTERIL B/50",
+    "category": "General",
+    "supplierName": "BIOLINEA",
+    "supplierRef": "LB-CTSP-E50-050",
+    "price": "9,50 €",
+    "stock": 0,
+    "minStock": 5
+  },
+  {
+    "id": "ART-NEW-4",
+    "name": "TUBO 50ML PP S/FALDON ESTERIL C/500",
+    "category": "General",
+    "supplierName": "BIOLINEA",
+    "supplierRef": "LB-CTGP-E50-500",
+    "price": "76,00 €",
+    "stock": 0,
+    "minStock": 5
+  },
+  {
+    "id": "ART-NEW-5",
+    "name": "PLACA PETRI 90 MM, C/600 UDS",
+    "category": "General",
+    "supplierName": "BIOLINEA",
+    "supplierRef": "LB-PDIP-090-600",
+    "price": "65,00 €",
+    "stock": 0,
+    "minStock": 5
+  },
+  {
+    "id": "ART-NEW-6",
+    "name": "ASPIRADOR MANUAL PIPETAS ROJO 25ML",
+    "category": "General",
+    "supplierName": "BIOLINEA",
+    "supplierRef": "LB-EAS8-025-001",
+    "price": "6,11 €",
+    "stock": 0,
+    "minStock": 5
+  },
+  {
+    "id": "ART-NEW-7",
+    "name": "GUANTE NITRILO S/POLVO, T/S, C/100 UDS",
+    "category": "General",
+    "supplierName": "BIOLINEA",
+    "supplierRef": "PS-GN11",
+    "price": "5,50 €",
+    "stock": 0,
+    "minStock": 5
+  },
+  {
+    "id": "ART-NEW-8",
+    "name": "GUANTE NITRILO S/POLVO T/M, C/100 UDS",
+    "category": "General",
+    "supplierName": "BIOLINEA",
+    "supplierRef": "PS-GN22",
+    "price": "5,50 €",
+    "stock": 0,
+    "minStock": 5
+  },
+  {
+    "id": "ART-NEW-9",
+    "name": "FRASCO ISO GRADUADO 1 L, C/10 UDS",
+    "category": "General",
+    "supplierName": "BIOLINEA",
+    "supplierRef": "LB-LBG3-1K0-010",
+    "price": "50,21 €",
+    "stock": 0,
+    "minStock": 5
+  },
+  {
+    "id": "ART-NEW-10",
+    "name": "RECAMBIO MECHA MECHERO ALCOHOL 150 ML, B/10 UDS",
+    "category": "General",
+    "supplierName": "BIOLINEA",
+    "supplierRef": "LB-ALBN-W12-010",
+    "price": "3,73 €",
+    "stock": 0,
+    "minStock": 5
+  },
+  {
+    "id": "ART-NEW-11",
+    "name": "TIRAS OXIDASA C/50",
+    "category": "General",
+    "supplierName": "BIOLINEA",
+    "supplierRef": "PANR416444.0050",
+    "price": "55,70 €",
+    "stock": 0,
+    "minStock": 5
+  },
+  {
+    "id": "ART-NEW-12",
+    "name": "MICROTUBO EPPENDORF 1.5 ML, ROSA, C/500 UDS",
+    "category": "General",
+    "supplierName": "BIOLINEA",
+    "supplierRef": "LB-PCRP-P15-500",
+    "price": "4,77 €",
+    "stock": 0,
+    "minStock": 5
+  },
+  {
+    "id": "ART-NEW-13",
+    "name": "NANOCOLOR CLORURO 5-200 PPM",
+    "category": "General",
+    "supplierName": "BIOLINEA",
+    "supplierRef": "PANR985019RM",
+    "price": "91,17 €",
+    "stock": 0,
+    "minStock": 5
+  },
+  {
+    "id": "ART-NEW-14",
+    "name": "FILTRO MEMBRANA PES 0.2UM, 47 MM, EST, C/100 UDS",
+    "category": "General",
+    "supplierName": "BIOLINEA",
+    "supplierRef": "CHMMPE020047H-S",
+    "price": "90,60 €",
+    "stock": 0,
+    "minStock": 5
+  },
+  {
+    "id": "ART-NEW-15",
+    "name": "GUANTE NITRILO S/POLVO T/L, C/100 UDS",
+    "category": "General",
+    "supplierName": "BIOLINEA",
+    "supplierRef": "PS-GN33",
+    "price": "5,50 €",
+    "stock": 0,
+    "minStock": 5
+  },
+  {
+    "id": "ART-NEW-16",
+    "name": "ESCOBILLON CERDAS NATURALES 355MM",
+    "category": "General",
+    "supplierName": "BIOLINEA",
+    "supplierRef": "LB-BRU4-003-001",
+    "price": "3,14 €",
+    "stock": 0,
+    "minStock": 5
+  },
+  {
+    "id": "ART-NEW-17",
+    "name": "ESCOBILLON CERDAS NATURALES 600MM",
+    "category": "General",
+    "supplierName": "BIOLINEA",
+    "supplierRef": "LB-BRU4-004-001",
+    "price": "5,59 €",
+    "stock": 0,
+    "minStock": 5
+  },
+  {
+    "id": "ART-NEW-18",
+    "name": "MECHAS PARA LAMPARA DE ALCOHOL 60 ML, C/10",
+    "category": "General",
+    "supplierName": "BIOLINEA",
+    "supplierRef": "LB-ALBN-WI1-010",
+    "price": "1,34 €",
+    "stock": 0,
+    "minStock": 5
+  },
+  {
+    "id": "ART-NEW-19",
+    "name": "MICROPIPETA EASY 40 ELITE 100-1000UL",
+    "category": "General",
+    "supplierName": "BIOLINEA",
+    "supplierRef": "LB-EASD-1KE-001",
+    "price": "91,80 €",
+    "stock": 0,
+    "minStock": 5
+  },
+  {
+    "id": "ART-NEW-20",
+    "name": "FRASCO PET ESTERIL C/TIOSULFATO 1L C/48",
+    "category": "General",
+    "supplierName": "BIOLINEA",
+    "supplierRef": "LB-WSBE-1KT-048",
+    "price": "78,95 €",
+    "stock": 0,
+    "minStock": 5
+  },
+  {
+    "id": "ART-NEW-21",
+    "name": "EMBUDO DECANTACION LL/PTFE 29/32 250M",
+    "category": "General",
+    "supplierName": "BIOLINEA",
+    "supplierRef": "LB-SFTG-250-001",
+    "price": "32,08 €",
+    "stock": 0,
+    "minStock": 5
+  },
+  {
+    "id": "ART-NEW-22",
+    "name": "MICROPIPETA VOLUMEN VARIABLE 20-200UL",
+    "category": "General",
+    "supplierName": "BIOLINEA",
+    "supplierRef": "LB-EASD-20P-001",
+    "price": "86,70 €",
+    "stock": 0,
+    "minStock": 5
+  },
+  {
+    "id": "ART-NEW-23",
+    "name": "PUNTA UNIVERSAL AMARILLA B/1000",
+    "category": "General",
+    "supplierName": "BIOLINEA",
+    "supplierRef": "NIR162001-3100",
+    "price": "7,60 €",
+    "stock": 0,
+    "minStock": 5
+  },
+  {
+    "id": "ART-NEW-24",
+    "name": "PUNTA PIPETA AZUL 100-1000UL C/500",
+    "category": "General",
+    "supplierName": "BIOLINEA",
+    "supplierRef": "LB-TIPP-1K2-500",
+    "price": "3,57 €",
+    "stock": 0,
+    "minStock": 5
+  },
+  {
+    "id": "ART-NEW-25",
+    "name": "ETANOL 96% EPR 5L",
+    "category": "General",
+    "supplierName": "BIOLINEA",
+    "supplierRef": "LB-ETHA-6TP-5K0",
+    "price": "83,99 €",
+    "stock": 0,
+    "minStock": 5
+  },
+  {
+    "id": "ART-NEW-26",
+    "name": "CUBETA MACRO PARA FLUORIMETRIA C/100",
+    "category": "General",
+    "supplierName": "BIOLINEA",
+    "supplierRef": "LB-MAPM-F10-100",
+    "price": "14,90 €",
+    "stock": 0,
+    "minStock": 5
+  },
+  {
+    "id": "ART-NEW-27",
+    "name": "AGUA DE PEPTONA TAMPONADA 500G",
+    "category": "General",
+    "supplierName": "BIOLINEA",
+    "supplierRef": "CONDA1402",
+    "price": "45,17 €",
+    "stock": 0,
+    "minStock": 5
+  },
+  {
+    "id": "ART-NEW-28",
+    "name": "AGAR BAIRD PARKER 500 G,",
+    "category": "General",
+    "supplierName": "BIOLINEA",
+    "supplierRef": "LB-ABBP-0EP-500",
+    "price": "91,63 €",
+    "stock": 0,
+    "minStock": 5
+  },
+  {
+    "id": "ART-NEW-29",
+    "name": "SOPORTE PIE PLATO 300X150MM",
+    "category": "General",
+    "supplierName": "BIOLINEA",
+    "supplierRef": "LB-RTMM-300-001",
+    "price": "16,00 €",
+    "stock": 0,
+    "minStock": 5
+  },
+  {
+    "id": "ART-NEW-30",
+    "name": "NUEZ DOBLE ALTA RESISTENCIA",
+    "category": "General",
+    "supplierName": "BIOLINEA",
+    "supplierRef": "LB-BOSH-001-001",
+    "price": "11,54 €",
+    "stock": 0,
+    "minStock": 5
+  },
+  {
+    "id": "ART-NEW-31",
+    "name": "AGITADOR MAGNETICO C/CALEFACCION B02, 2L",
+    "category": "General",
+    "supplierName": "BIOLINEA",
+    "supplierRef": "LB-STIH-B02-001",
+    "price": "76,00 €",
+    "stock": 0,
+    "minStock": 5
+  },
+  {
+    "id": "ART-NEW-32",
+    "name": "PUNTA MICROPIPETA 2-200 UL, TIPO GILSON, C/1000 UDS",
+    "category": "General",
+    "supplierName": "BIOLINEA",
+    "supplierRef": "LB-TIPC-201-1K0",
+    "price": "3,66 €",
+    "stock": 0,
+    "minStock": 5
+  },
+  {
+    "id": "ART-NEW-33",
+    "name": "AGAR METODOS ESTANDARD (PCA) 500G",
+    "category": "General",
+    "supplierName": "BIOLINEA",
+    "supplierRef": "LB-AGSM-00I-500",
+    "price": "57,35 €",
+    "stock": 0,
+    "minStock": 5
+  },
+  {
+    "id": "ART-NEW-34",
+    "name": "PUNTA AZUL UNIVERSAL, 100-1000 UL, B/500 UDS",
+    "category": "General",
+    "supplierName": "BIOLINEA",
+    "supplierRef": "LB-TIPC-1K0-500",
+    "price": "4,34 €",
+    "stock": 0,
+    "minStock": 5
+  },
+  {
+    "id": "ART-NEW-35",
+    "name": "AGAR VRBG 500G",
+    "category": "General",
+    "supplierName": "BIOLINEA",
+    "supplierRef": "CONDA1092",
+    "price": "71,04 €",
+    "stock": 0,
+    "minStock": 5
+  },
+  {
+    "id": "ART-NEW-36",
+    "name": "GLICERINA 99% AGR 1L",
+    "category": "General",
+    "supplierName": "BIOLINEA",
+    "supplierRef": "LB-GLIO-00A-1K0",
+    "price": "27,38 €",
+    "stock": 0,
+    "minStock": 5
+  },
+  {
+    "id": "ART-NEW-37",
+    "name": "SODIO TIOSULFATO 0,1N SV 1000ML",
+    "category": "General",
+    "supplierName": "BIOLINEA",
+    "supplierRef": "LB-SOTH-01V-1K0",
+    "price": "11,84 €",
+    "stock": 0,
+    "minStock": 5
+  },
+  {
+    "id": "ART-NEW-38",
+    "name": "AGAR DEXTROSA SABOURAUD 500G",
+    "category": "General",
+    "supplierName": "BIOLINEA",
+    "supplierRef": "LB-AGDS-0EP-500",
+    "price": "55,30 €",
+    "stock": 0,
+    "minStock": 5
+  },
+  {
+    "id": "ART-NEW-39",
+    "name": "ASA SIEMBRA CALIBRADA 1UL, B/10X100",
+    "category": "General",
+    "supplierName": "BIOLINEA",
+    "supplierRef": "LB-LOOH-E01-1K0",
+    "price": "29,00 €",
+    "stock": 0,
+    "minStock": 5
+  },
+  {
+    "id": "ART-NEW-40",
+    "name": "TUBO 50ML PP C/FALDON ESTERIL C/500",
+    "category": "General",
+    "supplierName": "BIOLINEA",
+    "supplierRef": "LB-CTSP-E50-500",
+    "price": "85,00 €",
+    "stock": 0,
+    "minStock": 5
+  },
+  {
+    "id": "ART-NEW-41",
+    "name": "CITOSCANN ABSOLUTO (ETANOL) 5L",
+    "category": "General",
+    "supplierName": "BIOLINEA",
+    "supplierRef": "SOR999701",
+    "price": "30,00 €",
+    "stock": 0,
+    "minStock": 5
+  },
+  {
+    "id": "ART-NEW-42",
+    "name": "YEMA DE HUEVO CON TELURITO 100ML",
+    "category": "General",
+    "supplierName": "BIOLINEA",
+    "supplierRef": "CONDA5129",
+    "price": "43,54 €",
+    "stock": 0,
+    "minStock": 5
+  },
+  {
+    "id": "ART-NEW-43",
+    "name": "TUBO GRADUADO PP 15ML ESTERIL C/500",
+    "category": "General",
+    "supplierName": "BIOLINEA",
+    "supplierRef": "LB-CTGP-E15-500",
+    "price": "65,00 €",
+    "stock": 0,
+    "minStock": 5
+  },
+  {
+    "id": "ART-NEW-44",
+    "name": "REJILLA DE ACERO PARA ESTUFA ICN 35",
+    "category": "General",
+    "supplierName": "BIOLINEA",
+    "supplierRef": "LPROC-451101122",
+    "price": "66,00 €",
+    "stock": 0,
+    "minStock": 5
+  },
+  {
+    "id": "ART-NEW-45",
+    "name": "REJILLA ACERO INOX ESTUFA ICN",
+    "category": "General",
+    "supplierName": "BIOLINEA",
+    "supplierRef": "LPROC-41101142",
+    "price": "2129,00 €",
+    "stock": 0,
+    "minStock": 5
+  },
+  {
+    "id": "ART-NEW-46",
+    "name": "SONDA PT100 3M PTFE P/DATALOGGERS SERIE 200",
+    "category": "General",
+    "supplierName": "BIOLINEA",
+    "supplierRef": "LPROC-6000-0201",
+    "price": "96,00 €",
+    "stock": 0,
+    "minStock": 5
+  },
+  {
+    "id": "ART-NEW-47",
+    "name": "VISOCOLOR ECO NITRATOS 1 KIT",
+    "category": "General",
+    "supplierName": "BIOLINEA",
+    "supplierRef": "PANR931041.0110",
+    "price": "80,50 €",
+    "stock": 0,
+    "minStock": 5
+  },
+  {
+    "id": "ART-NEW-48",
+    "name": "PLACA PETRI 90MM ASEPTICA C/500",
+    "category": "General",
+    "supplierName": "BIOLINEA",
+    "supplierRef": "AUL200200-3100",
+    "price": "62,82 €",
+    "stock": 0,
+    "minStock": 5
+  },
+  {
+    "id": "ART-NEW-49",
+    "name": "PAPEL PARAFILM ROLLO 38MX10CM 1UD",
+    "category": "General",
+    "supplierName": "BIOLINEA",
+    "supplierRef": "LB-PRFL-001-001",
+    "price": "42,00 €",
+    "stock": 0,
+    "minStock": 5
+  },
+  {
+    "id": "ART-NEW-50",
+    "name": "FILTRO MEMBRANA MCE, EST. 47 MM, 0.45 UM, C/100",
+    "category": "General",
+    "supplierName": "BIOLINEA",
+    "supplierRef": "LB-MCNB-447-100",
+    "price": "28,40 €",
+    "stock": 0,
+    "minStock": 5
+  },
+  {
+    "id": "ART-NEW-51",
+    "name": "FRASCO PP 120ML B/UNITARIA C/350",
+    "category": "General",
+    "supplierName": "BIOLINEA",
+    "supplierRef": "AUL409726",
+    "price": "58,33 €",
+    "stock": 0,
+    "minStock": 5
+  },
+  {
+    "id": "ART-NEW-52",
+    "name": "PUNTA MICROPIPETA 2-200 UL TIPO EPPE, C/1000 UDS",
+    "category": "General",
+    "supplierName": "BIOLINEA",
+    "supplierRef": "LB-TIPC-200-1K0",
+    "price": "4,49 €",
+    "stock": 0,
+    "minStock": 5
+  },
+  {
+    "id": "ART-NEW-53",
+    "name": "TSA 500G",
+    "category": "General",
+    "supplierName": "BIOLINEA",
+    "supplierRef": "LB-AGST-0EP-500",
+    "price": "59,53 €",
+    "stock": 0,
+    "minStock": 5
+  },
+  {
+    "id": "ART-NEW-54",
+    "name": "PINZA PUNTA ANCHA INOXIDABLE C/2",
+    "category": "General",
+    "supplierName": "BIOLINEA",
+    "supplierRef": "LB-FORS-004-002",
+    "price": "6,15 €",
+    "stock": 0,
+    "minStock": 5
+  },
+  {
+    "id": "ART-NEW-55",
+    "name": "IMAN AGITADOR PTFE 8X13MM C/5",
+    "category": "General",
+    "supplierName": "BIOLINEA",
+    "supplierRef": "LB-MAGO-013-005",
+    "price": "9,88 €",
+    "stock": 0,
+    "minStock": 5
+  },
+  {
+    "id": "ART-NEW-56",
+    "name": "VARILLA RECOGE IMANES PTFE 150MM",
+    "category": "General",
+    "supplierName": "BIOLINEA",
+    "supplierRef": "LB-MAGR-150-001",
+    "price": "17,09 €",
+    "stock": 0,
+    "minStock": 5
+  },
+  {
+    "id": "ART-NEW-57",
+    "name": "ESPATULA CUCHARA PLANA 150 MM. INOX 304, C/3 UDS",
+    "category": "General",
+    "supplierName": "BIOLINEA",
+    "supplierRef": "LB-SPPL-P15-003",
+    "price": "4,62 €",
+    "stock": 0,
+    "minStock": 5
+  },
+  {
+    "id": "ART-NEW-58",
+    "name": "PUNTA AZUL 100-1000UL B/1000",
+    "category": "General",
+    "supplierName": "BIOLINEA",
+    "supplierRef": "NIR162222-3100",
+    "price": "12,85 €",
+    "stock": 0,
+    "minStock": 5
+  },
+  {
+    "id": "ART-NEW-59",
+    "name": "PUNTA AMARILLA 2-200UL B/1000",
+    "category": "General",
+    "supplierName": "BIOLINEA",
+    "supplierRef": "LB-TIPP-200-1K0",
+    "price": "5,10 €",
+    "stock": 0,
+    "minStock": 5
+  },
+  {
+    "id": "ART-NEW-60",
+    "name": "SOLUCION TAMPON PH 4,01 500ML",
+    "category": "General",
+    "supplierName": "BIOLINEA",
+    "supplierRef": "LPROC-BU4BT500",
+    "price": "12,00 €",
+    "stock": 0,
+    "minStock": 5
+  },
+  {
+    "id": "ART-NEW-61",
+    "name": "PATRON CONDUCTIVIDAD 1413US/CM 500ML",
+    "category": "General",
+    "supplierName": "BIOLINEA",
+    "supplierRef": "LPROCG-51100633",
+    "price": "14,00 €",
+    "stock": 0,
+    "minStock": 5
+  },
+  {
+    "id": "ART-NEW-62",
+    "name": "ÁCIDO CLORHÍDRICO 37% AGR ISO 1L",
+    "category": "General",
+    "supplierName": "BIOLINEA",
+    "supplierRef": "LB-CHAC-0IA-1K0",
+    "price": "15,57 €",
+    "stock": 0,
+    "minStock": 5
+  },
+  {
+    "id": "ART-NEW-63",
+    "name": "POTASIO HIDROXIDO 85% LENT. 500G",
+    "category": "General",
+    "supplierName": "BIOLINEA",
+    "supplierRef": "LB-POHY-P0T-500",
+    "price": "13,41 €",
+    "stock": 0,
+    "minStock": 5
+  },
+  {
+    "id": "ART-NEW-64",
+    "name": "DISOLUCIÓN TAMPÓN PH7  ISO 17034  500ML",
+    "category": "General",
+    "supplierName": "BIOLINEA",
+    "supplierRef": "LPROC-1070525C",
+    "price": "53,00 €",
+    "stock": 0,
+    "minStock": 5
+  },
+  {
+    "id": "ART-NEW-65",
+    "name": "DISOLUCIÓN TAMPÓN PH10 ISO17034 500ML",
+    "category": "General",
+    "supplierName": "BIOLINEA",
+    "supplierRef": "LPROC-1100525C",
+    "price": "53,00 €",
+    "stock": 0,
+    "minStock": 5
+  },
+  {
+    "id": "ART-NEW-66",
+    "name": "POTASIO CLORURO 3M 250ML",
+    "category": "General",
+    "supplierName": "BIOLINEA",
+    "supplierRef": "LB-POCL-30A-250",
+    "price": "9,66 €",
+    "stock": 0,
+    "minStock": 5
+  },
+  {
+    "id": "ART-NEW-67",
+    "name": "POTASIO PERMANGANATO 0,1N SV",
+    "category": "General",
+    "supplierName": "BIOLINEA",
+    "supplierRef": "LB-KMNO-01V-1K0",
+    "price": "19,31 €",
+    "stock": 0,
+    "minStock": 5
+  },
+  {
+    "id": "ART-NEW-68",
+    "name": "ACIDO OXALICO 0,1N SV 1000ML",
+    "category": "General",
+    "supplierName": "BIOLINEA",
+    "supplierRef": "LB-OXAC-01V-1K0",
+    "price": "19,92 €",
+    "stock": 0,
+    "minStock": 5
+  },
+  {
+    "id": "ART-NEW-69",
+    "name": "ACIDO SULFURICO 98% 1L",
+    "category": "General",
+    "supplierName": "BIOLINEA",
+    "supplierRef": "LB-SUAC-00A-1K0",
+    "price": "14,59 €",
+    "stock": 0,
+    "minStock": 5
+  },
+  {
+    "id": "ART-NEW-70",
+    "name": "AGUJA HIPODERMICA 21G, 16 MM X 0.8 MM, C/100 UDS",
+    "category": "General",
+    "supplierName": "BIOLINEA",
+    "supplierRef": "SAN-304434",
+    "price": "6,50 €",
+    "stock": 0,
+    "minStock": 5
+  },
+  {
+    "id": "ART-NEW-71",
+    "name": "ASPIRADOR MANUAL PIPETAS VERDE 10ML",
+    "category": "General",
+    "supplierName": "BIOLINEA",
+    "supplierRef": "LB-EAS8-010-001",
+    "price": "6,05 €",
+    "stock": 0,
+    "minStock": 5
+  },
+  {
+    "id": "ART-NEW-72",
+    "name": "FRASCO ISO GRADUADO 1L C/10",
+    "category": "General",
+    "supplierName": "BIOLINEA",
+    "supplierRef": "LB-SBG3-1K0-010",
+    "price": "76,35 €",
+    "stock": 0,
+    "minStock": 5
+  },
+  {
+    "id": "ART-NEW-73",
+    "name": "BOLSA STOMACHER 180X300 MM, 20X25, 500 UDS",
+    "category": "General",
+    "supplierName": "BIOLINEA",
+    "supplierRef": "AUL15003",
+    "price": "60,00 €",
+    "stock": 0,
+    "minStock": 5
+  },
+  {
+    "id": "ART-NEW-74",
+    "name": "JERINGA DESECHABLE ESTERIL 20ML C/80",
+    "category": "General",
+    "supplierName": "BIOLINEA",
+    "supplierRef": "LB-SYRI-020-080",
+    "price": "18,12 €",
+    "stock": 0,
+    "minStock": 5
+  },
+  {
+    "id": "ART-NEW-75",
+    "name": "MICROPIPETA EASY 40 ELITE 20-200UL",
+    "category": "General",
+    "supplierName": "BIOLINEA",
+    "supplierRef": "LB-EASD-20E-001",
+    "price": "91,80 €",
+    "stock": 0,
+    "minStock": 5
+  },
+  {
+    "id": "ART-NEW-76",
+    "name": "RACK PARA 100 PUNTAS 1 ML TIPO GILSON/EPPENDORF",
+    "category": "General",
+    "supplierName": "BIOLINEA",
+    "supplierRef": "LB-TIPR-1K0-001",
+    "price": "1,64 €",
+    "stock": 0,
+    "minStock": 5
+  },
+  {
+    "id": "ART-NEW-77",
+    "name": "DISOLUCIÓN TAMPÓN PH 1.679 ISO17034 500ML",
+    "category": "General",
+    "supplierName": "BIOLINEA",
+    "supplierRef": "LPROC-101679CRM",
+    "price": "67,00 €",
+    "stock": 0,
+    "minStock": 5
+  },
+  {
+    "id": "ART-NEW-78",
+    "name": "FILTRO JERINGA PES 25MM 0,22UM EST. C/50",
+    "category": "General",
+    "supplierName": "BIOLINEA",
+    "supplierRef": "LB-SFPE-22E-050",
+    "price": "35,37 €",
+    "stock": 0,
+    "minStock": 5
+  },
+  {
+    "id": "ART-NEW-79",
+    "name": "TUBERIA SILICONA 8X12MM 5 METROS",
+    "category": "General",
+    "supplierName": "BIOLINEA",
+    "supplierRef": "LB-SILT-008-005",
+    "price": "16,97 €",
+    "stock": 0,
+    "minStock": 5
+  },
+  {
+    "id": "ART-NEW-80",
+    "name": "BURETA LL/PTFE Y FRANJA SCHELLBACH CL.A 25ML",
+    "category": "General",
+    "supplierName": "BIOLINEA",
+    "supplierRef": "LB-BURT-S25-001",
+    "price": "36,24 €",
+    "stock": 0,
+    "minStock": 5
+  },
+  {
+    "id": "ART-NEW-81",
+    "name": "POTASIO CLORURO AG ISO 1000G",
+    "category": "General",
+    "supplierName": "BIOLINEA",
+    "supplierRef": "LB-POCL-00A-1K0",
+    "price": "20,08 €",
+    "stock": 0,
+    "minStock": 5
+  },
+  {
+    "id": "ART-NEW-82",
+    "name": "ANILLO SILICONA PARA FUSS-047-001",
+    "category": "General",
+    "supplierName": "BIOLINEA",
+    "supplierRef": "LB-FUSS-A05-001",
+    "price": "4,46 €",
+    "stock": 0,
+    "minStock": 5
+  },
+  {
+    "id": "ART-NEW-83",
+    "name": "RELOJ AVISADOR DIGITAL C/TEMPORIZ. 24H",
+    "category": "General",
+    "supplierName": "BIOLINEA",
+    "supplierRef": "LB-TIME-W24-001",
+    "price": "7,00 €",
+    "stock": 0,
+    "minStock": 5
+  },
+  {
+    "id": "ART-NEW-84",
+    "name": "PINZA P/CUBRES Y MEMBRANAS C/2",
+    "category": "General",
+    "supplierName": "BIOLINEA",
+    "supplierRef": "LB-FORS-006-002",
+    "price": "5,37 €",
+    "stock": 0,
+    "minStock": 5
+  },
+  {
+    "id": "ART-NEW-85",
+    "name": "PINZA UNIVERSAL 30-50 MM DIÁMETRO",
+    "category": "General",
+    "supplierName": "BIOLINEA",
+    "supplierRef": "LB-RCP2-001-001",
+    "price": "20,08 €",
+    "stock": 0,
+    "minStock": 5
+  },
+  {
+    "id": "ART-NEW-86",
+    "name": "MASCARILLA RESPIRATORIA FFP2 C/10",
+    "category": "General",
+    "supplierName": "BIOLINEA",
+    "supplierRef": "LB-MASK-002-010",
+    "price": "16,32 €",
+    "stock": 0,
+    "minStock": 5
+  },
+  {
+    "id": "ART-NEW-87",
+    "name": "PATRON CONDUCTIVIDAD 12,88MS/CM 500ML",
+    "category": "General",
+    "supplierName": "BIOLINEA",
+    "supplierRef": "LPROC-G51100643",
+    "price": "14,00 €",
+    "stock": 0,
+    "minStock": 5
+  },
+  {
+    "id": "ART-NEW-88",
+    "name": "GRADILLA PLASTICO 40 TUBOS 20MM",
+    "category": "General",
+    "supplierName": "BIOLINEA",
+    "supplierRef": "LB-TTSP-040-001",
+    "price": "5,19 €",
+    "stock": 0,
+    "minStock": 5
+  },
+  {
+    "id": "ART-NEW-89",
+    "name": "CONTADOR MANUAL DE 4 DIGITOS",
+    "category": "General",
+    "supplierName": "BIOLINEA",
+    "supplierRef": "LB-HCNT-001-001",
+    "price": "8,37 €",
+    "stock": 0,
+    "minStock": 5
+  },
+  {
+    "id": "ART-NEW-90",
+    "name": "GRADILLA INOX 6X4 TUBOS DE 15 ML",
+    "category": "General",
+    "supplierName": "BIOLINEA",
+    "supplierRef": "LB-TTSS-Y24-001",
+    "price": "32,43 €",
+    "stock": 0,
+    "minStock": 5
+  },
+  {
+    "id": "ART-NEW-91",
+    "name": "PLACA PETRI 55MM ASEPTICA PS C/500",
+    "category": "General",
+    "supplierName": "BIOLINEA",
+    "supplierRef": "LB-PDIP-060-500",
+    "price": "54,29 €",
+    "stock": 0,
+    "minStock": 5
+  },
+  {
+    "id": "ART-NEW-92",
+    "name": "PLACA PETRI 90MM PS ASEPTICA C/500",
+    "category": "General",
+    "supplierName": "BIOLINEA",
+    "supplierRef": "LB-PDIP-090-500",
+    "price": "59,87 €",
+    "stock": 0,
+    "minStock": 5
+  },
+  {
+    "id": "ART-NEW-93",
+    "name": "TUBO EPPENDORF C/TAPA 1,5ML C/500",
+    "category": "General",
+    "supplierName": "BIOLINEA",
+    "supplierRef": "NIR175508N-3100",
+    "price": "9,52 €",
+    "stock": 0,
+    "minStock": 5
+  },
+  {
+    "id": "ART-NEW-94",
+    "name": "PINZA UNIVERSAL DOS DEDOS",
+    "category": "General",
+    "supplierName": "BIOLINEA",
+    "supplierRef": "LB-RCL2-001-001",
+    "price": "7,53 €",
+    "stock": 0,
+    "minStock": 5
+  },
+  {
+    "id": "ART-NEW-95",
+    "name": "MECHERO ALCOHOL 250 ML",
+    "category": "General",
+    "supplierName": "BIOLINEA",
+    "supplierRef": "LB-ALBN-250-001",
+    "price": "3,99 €",
+    "stock": 0,
+    "minStock": 5
+  },
+  {
+    "id": "ART-NEW-96",
+    "name": "PUNTA MICROPIPETA RACKS,1000 UL, UNIVERSAL 10 X 96",
+    "category": "General",
+    "supplierName": "BIOLINEA",
+    "supplierRef": "LB-TICD-1K0-960",
+    "price": "36,00 €",
+    "stock": 0,
+    "minStock": 5
+  },
+  {
+    "id": "ART-NEW-97",
+    "name": "PUNTA MICROPIPETA 200 UL RACK 10X96 UDS",
+    "category": "General",
+    "supplierName": "BIOLINEA",
+    "supplierRef": "LB-TICD-200-960",
+    "price": "27,00 €",
+    "stock": 0,
+    "minStock": 5
+  }
+]

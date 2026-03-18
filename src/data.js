@@ -5,8 +5,10 @@ export const mockArticles = [
     "name": "Agar R2A para recuento heterótrofo en agua",
     "category": "Medios de Cultivo",
     "supplierName": "Cultimed",
-    "stock": 5,
+    "supplierRef": "212264.1210",
+    "stock": 3,
     "minStock": 2,
+    "description": "Bote de 500g",
     "price": "55,42 €"
   },
   {
@@ -14,8 +16,10 @@ export const mockArticles = [
     "name": "Agar Slanetz-Bartley (Enterococcus)",
     "category": "Medios de Cultivo",
     "supplierName": "BioMérieux",
-    "stock": 2,
+    "supplierRef": "43011",
+    "stock": 3,
     "minStock": 2,
+    "description": "Caja de 20 placas",
     "price": "63,28 €"
   },
   {
@@ -23,7 +27,8 @@ export const mockArticles = [
     "name": "Caldo Tripticasa Soya (TSB)",
     "category": "Medios de Cultivo",
     "supplierName": "Cultimed",
-    "stock": 6,
+    "supplierRef": "214046.1210",
+    "stock": 5,
     "minStock": 3,
     "price": "46,59 €"
   },
@@ -32,8 +37,10 @@ export const mockArticles = [
     "name": "Agar Columbia + 5% Sangre Carnero (placas)",
     "category": "Medios de Cultivo",
     "supplierName": "BioMérieux",
-    "stock": 8,
+    "supplierRef": "43049",
+    "stock": 7,
     "minStock": 4,
+    "description": "Caja de 20 placas",
     "price": "34,36 €"
   },
   {
@@ -41,7 +48,8 @@ export const mockArticles = [
     "name": "BCYE-alpha (Agar para Legionella)",
     "category": "Medios de Cultivo",
     "supplierName": "Bio-Rad",
-    "stock": 3,
+    "supplierRef": "356208",
+    "stock": 6,
     "minStock": 2,
     "price": "108,54 €"
   },
@@ -50,7 +58,8 @@ export const mockArticles = [
     "name": "Agar CLED (orina)",
     "category": "Medios de Cultivo",
     "supplierName": "Cultimed",
-    "stock": 1,
+    "supplierRef": "212044.1210",
+    "stock": 3,
     "minStock": 1,
     "price": "49,85 €"
   },
@@ -59,8 +68,10 @@ export const mockArticles = [
     "name": "Placas Petri Ø 90mm estériles",
     "category": "Consumibles",
     "supplierName": "VWR",
-    "stock": 14,
+    "supplierRef": "391-0883",
+    "stock": 8,
     "minStock": 10,
+    "description": "Caja de 600 uds",
     "price": "4,66 €"
   },
   {
@@ -68,7 +79,8 @@ export const mockArticles = [
     "name": "Tubos Falcon 50ml estériles",
     "category": "Consumibles",
     "supplierName": "Thermo",
-    "stock": 2,
+    "supplierRef": "339652",
+    "stock": 1,
     "minStock": 5,
     "price": "50,82 €"
   },
@@ -77,7 +89,8 @@ export const mockArticles = [
     "name": "Tubos Falcon 15ml estériles",
     "category": "Consumibles",
     "supplierName": "Thermo",
-    "stock": 7,
+    "supplierRef": "339650",
+    "stock": 10,
     "minStock": 5,
     "price": "45,98 €"
   },
@@ -86,7 +99,8 @@ export const mockArticles = [
     "name": "Puntas micropipeta 1000µl amarillas",
     "category": "Consumibles",
     "supplierName": "VWR",
-    "stock": 7,
+    "supplierRef": "732-2389",
+    "stock": 3,
     "minStock": 3,
     "price": "22,39 €"
   },
@@ -95,6 +109,7 @@ export const mockArticles = [
     "name": "Puntas micropipeta 200µl amarillas",
     "category": "Consumibles",
     "supplierName": "VWR",
+    "supplierRef": "732-2388",
     "stock": 8,
     "minStock": 3,
     "price": "17,91 €"
@@ -104,7 +119,8 @@ export const mockArticles = [
     "name": "Puntas micropipeta 10µl blancas",
     "category": "Consumibles",
     "supplierName": "VWR",
-    "stock": 1,
+    "supplierRef": "732-2387",
+    "stock": 6,
     "minStock": 3,
     "price": "19,60 €"
   },
@@ -113,8 +129,10 @@ export const mockArticles = [
     "name": "Guantes nitrilo talla M (sin polvo)",
     "category": "EPI",
     "supplierName": "Mercaplast",
-    "stock": 6,
+    "supplierRef": "NP-M-100",
+    "stock": 10,
     "minStock": 5,
+    "description": "Caja de 100 uds",
     "price": "10,77 €"
   },
   {
@@ -122,8 +140,10 @@ export const mockArticles = [
     "name": "Guantes nitrilo talla L (sin polvo)",
     "category": "EPI",
     "supplierName": "Mercaplast",
-    "stock": 5,
+    "supplierRef": "NP-L-100",
+    "stock": 1,
     "minStock": 5,
+    "description": "Caja de 100 uds",
     "price": "10,77 €"
   },
   {
@@ -131,7 +151,8 @@ export const mockArticles = [
     "name": "Mascarilla FFP2 sin válvula",
     "category": "EPI",
     "supplierName": "Protekta",
-    "stock": 5,
+    "supplierRef": "3M-8822",
+    "stock": 4,
     "minStock": 3,
     "price": "17,55 €"
   },
@@ -140,7 +161,8 @@ export const mockArticles = [
     "name": "Reactivo DPD nº1 cloro libre (polvo)",
     "category": "Reactivos Químicos",
     "supplierName": "Hanna Inst.",
-    "stock": 11,
+    "supplierRef": "HI-93700-01",
+    "stock": 5,
     "minStock": 5,
     "price": "11,13 €"
   },
@@ -149,7 +171,8 @@ export const mockArticles = [
     "name": "Reactivo DPD nº3 cloro total (polvo)",
     "category": "Reactivos Químicos",
     "supplierName": "Hanna Inst.",
-    "stock": 1,
+    "supplierRef": "HI-93710-01",
+    "stock": 13,
     "minStock": 5,
     "price": "11,13 €"
   },
@@ -158,6 +181,7 @@ export const mockArticles = [
     "name": "Estándar pH 4.01 (solución tampón)",
     "category": "Reactivos Químicos",
     "supplierName": "Crison",
+    "supplierRef": "11-40-04",
     "stock": 3,
     "minStock": 3,
     "price": "8,23 €"
@@ -167,7 +191,8 @@ export const mockArticles = [
     "name": "Estándar pH 7.00 (solución tampón)",
     "category": "Reactivos Químicos",
     "supplierName": "Crison",
-    "stock": 9,
+    "supplierRef": "11-40-07",
+    "stock": 1,
     "minStock": 3,
     "price": "8,23 €"
   },
@@ -176,7 +201,8 @@ export const mockArticles = [
     "name": "Hipoclorito sódico 50L (desinfectante)",
     "category": "Desinfección",
     "supplierName": "Quimidrops",
-    "stock": 6,
+    "supplierRef": "QD-NaClO-50",
+    "stock": 1,
     "minStock": 2,
     "price": "34,49 €"
   },
@@ -185,6 +211,7 @@ export const mockArticles = [
     "name": "Kit detección Legionella Urine Antigen",
     "category": "Kits Rápidos",
     "supplierName": "BioMérieux",
+    "supplierRef": "22190",
     "stock": 3,
     "minStock": 1,
     "price": "223,85 €"
@@ -194,7 +221,8 @@ export const mockArticles = [
     "name": "Filtros membrana 0.45µm Ø47mm (blancas)",
     "category": "Filtración",
     "supplierName": "Millipore",
-    "stock": 4,
+    "supplierRef": "HAWP04700",
+    "stock": 1,
     "minStock": 3,
     "price": "46,71 €"
   },
@@ -203,7 +231,8 @@ export const mockArticles = [
     "name": "Filtros membrana 0.22µm Ø47mm",
     "category": "Filtración",
     "supplierName": "Millipore",
-    "stock": 6,
+    "supplierRef": "GSWP04700",
+    "stock": 3,
     "minStock": 2,
     "price": "51,79 €"
   },
@@ -212,6 +241,7 @@ export const mockArticles = [
     "name": "Probeta graduada 1000ml PP",
     "category": "Material de Vidrio/PP",
     "supplierName": "VWR",
+    "supplierRef": "612-0055",
     "stock": 1,
     "minStock": 2,
     "price": "15,00 €"
@@ -221,7 +251,8 @@ export const mockArticles = [
     "name": "Matraz Erlenmeyer 500ml vidrio",
     "category": "Material de Vidrio/PP",
     "supplierName": "VWR",
-    "stock": 10,
+    "supplierRef": "612-0144",
+    "stock": 7,
     "minStock": 4,
     "price": "10,77 €"
   },
@@ -230,7 +261,8 @@ export const mockArticles = [
     "name": "Agua Destilada estéril 500ml",
     "category": "Reactivos Químicos",
     "supplierName": "Baxter",
-    "stock": 23,
+    "supplierRef": "L7502",
+    "stock": 9,
     "minStock": 10,
     "price": "3,39 €"
   },
@@ -239,7 +271,8 @@ export const mockArticles = [
     "name": "Papel de filtro Whatman nº 1 Ø185mm",
     "category": "Consumibles",
     "supplierName": "Sigma-Aldrich",
-    "stock": 6,
+    "supplierRef": "1001-185",
+    "stock": 1,
     "minStock": 2,
     "price": "33,88 €"
   },
@@ -248,6 +281,7 @@ export const mockArticles = [
     "name": "Bolsas Stomacher 400ml (estériles)",
     "category": "Consumibles",
     "supplierName": "VWR",
+    "supplierRef": "B01064WA",
     "stock": 6,
     "minStock": 2,
     "price": "107,69 €"
@@ -257,7 +291,8 @@ export const mockArticles = [
     "name": "Tiras reactivas pH 0-14 (no sangrado)",
     "category": "Reactivos Químicos",
     "supplierName": "Merck",
-    "stock": 2,
+    "supplierRef": "1095350001",
+    "stock": 8,
     "minStock": 3,
     "price": "17,18 €"
   },
@@ -266,6 +301,7 @@ export const mockArticles = [
     "name": "Etanol 96% (desinfección instrumental)",
     "category": "Reactivos Químicos",
     "supplierName": "Panreac",
+    "supplierRef": "121086.1211",
     "stock": 6,
     "minStock": 3,
     "price": "10,29 €"
@@ -275,7 +311,8 @@ export const mockArticles = [
     "name": "PLACA PETRI 90X14MM",
     "category": "Medios de Cultivo",
     "supplierName": "EQUILABO",
-    "stock": 2,
+    "supplierRef": "200200",
+    "stock": 9,
     "minStock": 3,
     "price": "0,11 €"
   },
@@ -284,7 +321,8 @@ export const mockArticles = [
     "name": "PLACA PETRI 90X14MM (ESTÉRIL)",
     "category": "Medios de Cultivo",
     "supplierName": "EQUILABO",
-    "stock": 8,
+    "supplierRef": "200200E",
+    "stock": 9,
     "minStock": 3,
     "price": "0,11 €"
   },
@@ -293,7 +331,8 @@ export const mockArticles = [
     "name": "PLACA PETRI 55X14MM ASÉPTICA",
     "category": "Medios de Cultivo",
     "supplierName": "EQUILABO",
-    "stock": 1,
+    "supplierRef": "200201",
+    "stock": 5,
     "minStock": 3,
     "price": "0,08 €"
   },
@@ -302,7 +341,8 @@ export const mockArticles = [
     "name": "FILTRO MEMBRANA CN 0.45µm 47mmØ BLANCA CUADRIC. ST",
     "category": "Filtración",
     "supplierName": "EQUILABO",
-    "stock": 9,
+    "supplierRef": "100-1003",
+    "stock": 4,
     "minStock": 3,
     "price": "0,22 €"
   },
@@ -311,7 +351,8 @@ export const mockArticles = [
     "name": "ASA DIGRALSKY B/5",
     "category": "Consumibles",
     "supplierName": "EQUILABO",
-    "stock": 3,
+    "supplierRef": "200500.1",
+    "stock": 2,
     "minStock": 3,
     "price": "0,09 €"
   },
@@ -320,7 +361,8 @@ export const mockArticles = [
     "name": "BOTELLA ESTÉRIL RECOGIDA AGUAS C/TIOSULFATO 500 ML",
     "category": "Consumibles",
     "supplierName": "EQUILABO",
-    "stock": 9,
+    "supplierRef": "282323",
+    "stock": 7,
     "minStock": 3,
     "price": "0,86 €"
   },
@@ -329,7 +371,8 @@ export const mockArticles = [
     "name": "BOTELLA ESTÉRIL RECOGIDA AGUAS C/TIOSULFATO 1000 ML",
     "category": "Consumibles",
     "supplierName": "EQUILABO",
-    "stock": 7,
+    "supplierRef": "282324",
+    "stock": 8,
     "minStock": 3,
     "price": "1,10 €"
   },
@@ -338,7 +381,8 @@ export const mockArticles = [
     "name": "AMIES PS+VISCOSA",
     "category": "Medios de Cultivo",
     "supplierName": "EQUILABO",
-    "stock": 4,
+    "supplierRef": "300287",
+    "stock": 7,
     "minStock": 3,
     "price": "0,27 €"
   },
@@ -347,7 +391,8 @@ export const mockArticles = [
     "name": "FRASCO 120ML PP B/U ESTÉRIL",
     "category": "Consumibles",
     "supplierName": "EQUILABO",
-    "stock": 8,
+    "supplierRef": "409726",
+    "stock": 3,
     "minStock": 3,
     "price": "0,15 €"
   },
@@ -356,7 +401,8 @@ export const mockArticles = [
     "name": "RAPID SALMONELLA CAPSULE X100 (BIO RAD FOOD)",
     "category": "Medios de Cultivo",
     "supplierName": "EQUILABO",
-    "stock": 4,
+    "supplierRef": "3564710.0100",
+    "stock": 8,
     "minStock": 3,
     "price": "56,87 €"
   },
@@ -365,7 +411,8 @@ export const mockArticles = [
     "name": "SUPLEMENTO ESTÉRIL CEFSULODINA P/MUG PLUS 100 ML",
     "category": "Reactivos Químicos",
     "supplierName": "EQUILABO",
-    "stock": 1,
+    "supplierRef": "SMS400",
+    "stock": 3,
     "minStock": 1,
     "price": "276,36 €"
   },
@@ -374,7 +421,8 @@ export const mockArticles = [
     "name": "QUANTITATIVE PACKAGE RONDA MC358 (INTERCOMPARACIÓN)",
     "category": "Control de Calidad",
     "supplierName": "EQUILABO",
-    "stock": 1,
+    "supplierRef": "PT-MC-36",
+    "stock": 3,
     "minStock": 1,
     "price": "1.234,20 €"
   },
@@ -383,7 +431,8 @@ export const mockArticles = [
     "name": "QUALITATIVE PACKAGE (INTERCOMPARACIÓN)",
     "category": "Control de Calidad",
     "supplierName": "EQUILABO",
-    "stock": 3,
+    "supplierRef": "PT-MC-37",
+    "stock": 2,
     "minStock": 1,
     "price": "1.234,20 €"
   },
@@ -392,7 +441,8 @@ export const mockArticles = [
     "name": "PIPETA GRADUADA CLASE A 10ML C/5",
     "category": "Consumibles",
     "supplierName": "BIOLINEA",
-    "stock": 5,
+    "supplierRef": "LB-MPIA-010-005",
+    "stock": 7,
     "minStock": 3,
     "price": "13,55 €"
   },
@@ -401,7 +451,8 @@ export const mockArticles = [
     "name": "PIPETA GRADUADA CLASE A 20ML C/5",
     "category": "Consumibles",
     "supplierName": "BIOLINEA",
-    "stock": 1,
+    "supplierRef": "LB-MPIA-020-005",
+    "stock": 2,
     "minStock": 3,
     "price": "20,96 €"
   },
@@ -410,7 +461,8 @@ export const mockArticles = [
     "name": "FRASCO PET ESTÉRIL C/TIOSULFATO 1L C/48",
     "category": "Consumibles",
     "supplierName": "BIOLINEA",
-    "stock": 7,
+    "supplierRef": "LB-WSBE-1KT-048",
+    "stock": 1,
     "minStock": 3,
     "price": "95,53 €"
   },
@@ -419,7 +471,8 @@ export const mockArticles = [
     "name": "TUBO GRADUADO PP 15ML ESTÉRIL C/500",
     "category": "Consumibles",
     "supplierName": "BIOLINEA",
-    "stock": 4,
+    "supplierRef": "LB-CTGP-E15-500",
+    "stock": 6,
     "minStock": 3,
     "price": "78,65 €"
   },
@@ -428,6 +481,7 @@ export const mockArticles = [
     "name": "TUBO 50ML PP C/FALDÓN ESTÉRIL C/500 EN BOLSAS",
     "category": "Consumibles",
     "supplierName": "BIOLINEA",
+    "supplierRef": "LB-CTSP-E50-500",
     "stock": 4,
     "minStock": 3,
     "price": "90,75 €"
@@ -437,7 +491,8 @@ export const mockArticles = [
     "name": "PATRÓN CONDUCTIVIDAD 12,88 mS/cm 500ML",
     "category": "Patrones y Calibración",
     "supplierName": "BIOLINEA",
-    "stock": 4,
+    "supplierRef": "LPROC-G51100643",
+    "stock": 5,
     "minStock": 2,
     "price": "16,94 €"
   },
@@ -446,7 +501,8 @@ export const mockArticles = [
     "name": "TUBERÍA SILICONA 8X12MM 5 METROS",
     "category": "Consumibles",
     "supplierName": "BIOLINEA",
-    "stock": 1,
+    "supplierRef": "LB-SILT-008-005",
+    "stock": 2,
     "minStock": 3,
     "price": "20,53 €"
   },
@@ -455,7 +511,8 @@ export const mockArticles = [
     "name": "DISOLUCIÓN TAMPÓN pH 1.679 ISO 17034 500ML",
     "category": "Patrones y Calibración",
     "supplierName": "BIOLINEA",
-    "stock": 3,
+    "supplierRef": "LPROC-101679CRM",
+    "stock": 5,
     "minStock": 2,
     "price": "81,07 €"
   },
@@ -464,7 +521,8 @@ export const mockArticles = [
     "name": "DISOLUCIÓN TAMPÓN pH 7 ISO 17034 500ML",
     "category": "Patrones y Calibración",
     "supplierName": "BIOLINEA",
-    "stock": 6,
+    "supplierRef": "LPROC-1070525C",
+    "stock": 5,
     "minStock": 2,
     "price": "64,13 €"
   },
@@ -473,7 +531,8 @@ export const mockArticles = [
     "name": "DISOLUCIÓN TAMPÓN pH 10 ISO 17034 500ML",
     "category": "Patrones y Calibración",
     "supplierName": "BIOLINEA",
-    "stock": 5,
+    "supplierRef": "LPROC-1100525C",
+    "stock": 3,
     "minStock": 2,
     "price": "64,13 €"
   },
@@ -482,6 +541,7 @@ export const mockArticles = [
     "name": "AGITADOR VORTEX MULTITUBO DMT",
     "category": "Equipos",
     "supplierName": "BIOLINEA",
+    "supplierRef": "LAB55990",
     "stock": 2,
     "minStock": 1,
     "price": "1.724,25 €"
@@ -491,7 +551,8 @@ export const mockArticles = [
     "name": "SOPORTE UNIVERSAL PARA ADAPTADORES VORTEX",
     "category": "Consumibles",
     "supplierName": "BIOLINEA",
-    "stock": 3,
+    "supplierRef": "LB-VORX-A04-001",
+    "stock": 7,
     "minStock": 3,
     "price": "21,85 €"
   },
@@ -500,6 +561,7 @@ export const mockArticles = [
     "name": "SOPORTE ESTÁNDAR P/TUBOS DE MENOS 30MM VORTEX",
     "category": "Consumibles",
     "supplierName": "BIOLINEA",
+    "supplierRef": "LB-VORX-A03-001",
     "stock": 2,
     "minStock": 3,
     "price": "10,09 €"
@@ -509,7 +571,8 @@ export const mockArticles = [
     "name": "ADAPTADOR PARA 8 TUBOS DE 20MM VORTEX",
     "category": "Consumibles",
     "supplierName": "BIOLINEA",
-    "stock": 3,
+    "supplierRef": "LB-VORX-A81-001",
+    "stock": 6,
     "minStock": 3,
     "price": "29,04 €"
   },
@@ -518,7 +581,8 @@ export const mockArticles = [
     "name": "GLICERINA 99% AGR 1L",
     "category": "Reactivos Químicos",
     "supplierName": "BIOLINEA",
-    "stock": 2,
+    "supplierRef": "LB-GLIO-00A-1K0",
+    "stock": 4,
     "minStock": 2,
     "price": "33,13 €"
   },
@@ -527,7 +591,8 @@ export const mockArticles = [
     "name": "HIERRO VISOCOLOR 0.04-2.0",
     "category": "Reactivos Químicos",
     "supplierName": "BIOLINEA",
-    "stock": 2,
+    "supplierRef": "PANR931225RM",
+    "stock": 3,
     "minStock": 2,
     "price": "110,72 €"
   },
@@ -536,7 +601,8 @@ export const mockArticles = [
     "name": "YEMA DE HUEVO CON TELURITO 100ML",
     "category": "Reactivos Químicos",
     "supplierName": "BIOLINEA",
-    "stock": 3,
+    "supplierRef": "CONDA5129",
+    "stock": 2,
     "minStock": 2,
     "price": "48,40 €"
   },
@@ -545,7 +611,8 @@ export const mockArticles = [
     "name": "GUANTE NITRILO S/POLVO TALLA S C/100 UDS",
     "category": "EPI",
     "supplierName": "BIOLINEA",
-    "stock": 5,
+    "supplierRef": "PS-GN11",
+    "stock": 3,
     "minStock": 3,
     "price": "6,66 €"
   },
@@ -554,7 +621,8 @@ export const mockArticles = [
     "name": "GUANTE NITRILO S/POLVO TALLA M C/100 UDS",
     "category": "EPI",
     "supplierName": "BIOLINEA",
-    "stock": 7,
+    "supplierRef": "PS-GN22",
+    "stock": 5,
     "minStock": 3,
     "price": "6,66 €"
   },
@@ -563,7 +631,8 @@ export const mockArticles = [
     "name": "GUANTE NITRILO S/POLVO TALLA L C/100 UDS",
     "category": "EPI",
     "supplierName": "BIOLINEA",
-    "stock": 2,
+    "supplierRef": "PS-GN33",
+    "stock": 7,
     "minStock": 3,
     "price": "6,66 €"
   },
@@ -572,7 +641,8 @@ export const mockArticles = [
     "name": "LEGIONELLA ANISA WDCM 00106 VITROIDS (CEPA REF.)",
     "category": "Cepas de Referencia",
     "supplierName": "MERCK",
-    "stock": 2,
+    "supplierRef": "VT001066-10EA",
+    "stock": 1,
     "minStock": 1,
     "price": "94,86 €"
   },
@@ -581,7 +651,8 @@ export const mockArticles = [
     "name": "LEGIONELLA PNEUMOPHILA SEROGROUP 1 WDCM (CEPA REF.)",
     "category": "Cepas de Referencia",
     "supplierName": "MERCK",
-    "stock": 3,
+    "supplierRef": "VT001076-10EA",
+    "stock": 1,
     "minStock": 1,
     "price": "103,70 €"
   },
@@ -590,6 +661,7 @@ export const mockArticles = [
     "name": "STAPHYLOCOCCUS AUREUS SUSP. AUREUS WDCM (CEPA REF.)",
     "category": "Cepas de Referencia",
     "supplierName": "MERCK",
+    "supplierRef": "VT000326-10EA",
     "stock": 2,
     "minStock": 1,
     "price": "111,32 €"
@@ -599,7 +671,8 @@ export const mockArticles = [
     "name": "BACILLUS SUBTILIS WDCM 00003 VITROIDS (CEPA REF.)",
     "category": "Cepas de Referencia",
     "supplierName": "MERCK",
-    "stock": 2,
+    "supplierRef": "VT000036-10EA",
+    "stock": 3,
     "minStock": 1,
     "price": "122,21 €"
   },
@@ -608,7 +681,8 @@ export const mockArticles = [
     "name": "REACTIVO FOTÓMETRO LOVIBOND DPD-1 TABLETA 250 UD.",
     "category": "Reactivos Químicos",
     "supplierName": "COMERCIAL PEDRO",
-    "stock": 2,
+    "supplierRef": "1141",
+    "stock": 1,
     "minStock": 2,
     "price": "19,70 €"
   },
@@ -617,7 +691,8 @@ export const mockArticles = [
     "name": "REACTIVO FOTÓMETRO LOVIBOND DPD-3 TABLETA 250 UD.",
     "category": "Reactivos Químicos",
     "supplierName": "COMERCIAL PEDRO",
-    "stock": 2,
+    "supplierRef": "1142",
+    "stock": 1,
     "minStock": 2,
     "price": "20,67 €"
   },
@@ -626,7 +701,8 @@ export const mockArticles = [
     "name": "REACTIVO FOTÓMETRO LOVIBOND pH PHENOL RED TABLETA 250 UD.",
     "category": "Reactivos Químicos",
     "supplierName": "COMERCIAL PEDRO",
-    "stock": 6,
+    "supplierRef": "1143",
+    "stock": 4,
     "minStock": 2,
     "price": "20,09 €"
   },
@@ -635,7 +711,8 @@ export const mockArticles = [
     "name": "PATRÓN CLORO LOVIBOND MD100/200 REF. STD KIT 0.2-1 PPM",
     "category": "Patrones y Calibración",
     "supplierName": "COMERCIAL PEDRO",
-    "stock": 3,
+    "supplierRef": "57180",
+    "stock": 4,
     "minStock": 2,
     "price": "129,47 €"
   },
@@ -644,7 +721,8 @@ export const mockArticles = [
     "name": "PATRÓN pH MD100/200 REF. STD KIT 7.45 (LOVIBOND)",
     "category": "Patrones y Calibración",
     "supplierName": "COMERCIAL PEDRO",
-    "stock": 2,
+    "supplierRef": "57181",
+    "stock": 5,
     "minStock": 2,
     "price": "120,03 €"
   },
@@ -653,7 +731,8 @@ export const mockArticles = [
     "name": "TOALLAS SECAMANOS TORK H2 2C PLEG Z CJ 21 PQ 190S",
     "category": "Fungibles / Limpieza",
     "supplierName": "COMERCIAL PEDRO",
-    "stock": 4,
+    "supplierRef": "150400",
+    "stock": 1,
     "minStock": 2,
     "price": "66,79 €"
   },
@@ -662,7 +741,8 @@ export const mockArticles = [
     "name": "BRILLIANCE LISTERIA AGAR (ISO) - PLACA",
     "category": "Medios de Cultivo",
     "supplierName": "THERMO FISHER",
-    "stock": 8,
+    "supplierRef": "PO5332A",
+    "stock": 5,
     "minStock": 3,
     "price": "10,41 €"
   },
@@ -671,7 +751,8 @@ export const mockArticles = [
     "name": "BRILLIANCE SALMONELLA AGAR - PLACA (10 ud)",
     "category": "Medios de Cultivo",
     "supplierName": "THERMO FISHER",
-    "stock": 2,
+    "supplierRef": "PO5098A",
+    "stock": 8,
     "minStock": 3,
     "price": "10,41 €"
   },
@@ -680,7 +761,8 @@ export const mockArticles = [
     "name": "LEGIONELLA BCYEa MEDIUM WITHOUT CYSTEIN - PLACA",
     "category": "Consumibles",
     "supplierName": "THERMO FISHER",
-    "stock": 6,
+    "supplierRef": "PO5028A",
+    "stock": 5,
     "minStock": 3,
     "price": "5,64 €"
   },
@@ -689,7 +771,8 @@ export const mockArticles = [
     "name": "LEGIONELLA GVPC - PLACA",
     "category": "Medios de Cultivo",
     "supplierName": "THERMO FISHER",
-    "stock": 6,
+    "supplierRef": "PO5074A",
+    "stock": 3,
     "minStock": 3,
     "price": "5,28 €"
   },
@@ -698,7 +781,8 @@ export const mockArticles = [
     "name": "LEGIONELLA BCYEa WITH L-CYST. - PLACA",
     "category": "Consumibles",
     "supplierName": "THERMO FISHER",
-    "stock": 2,
+    "supplierRef": "PO5072A",
+    "stock": 5,
     "minStock": 3,
     "price": "5,98 €"
   },
@@ -707,6 +791,7 @@ export const mockArticles = [
     "name": "OXOID SALMONELLA 100 TEST KIT",
     "category": "Kits Rápidos",
     "supplierName": "THERMO FISHER",
+    "supplierRef": "DR1108A",
     "stock": 1,
     "minStock": 1,
     "price": "211,75 €"
@@ -716,6 +801,7 @@ export const mockArticles = [
     "name": "LEGIONELLA LATEX TEST KIT 3",
     "category": "Kits Rápidos",
     "supplierName": "THERMO FISHER",
+    "supplierRef": "DR0800M",
     "stock": 3,
     "minStock": 1,
     "price": "238,37 €"
@@ -725,6 +811,7 @@ export const mockArticles = [
     "name": "LEGIONELLA TEST SPECIES KIT 2",
     "category": "Kits Rápidos",
     "supplierName": "THERMO FISHER",
+    "supplierRef": "DR0803M",
     "stock": 3,
     "minStock": 1,
     "price": "105,27 €"
@@ -734,7 +821,8 @@ export const mockArticles = [
     "name": "LEGIONELLA ACID BUFFER SOLUTION BOTELLA",
     "category": "Kits Rápidos",
     "supplierName": "THERMO FISHER",
-    "stock": 2,
+    "supplierRef": "EB1375W",
+    "stock": 3,
     "minStock": 1,
     "price": "67,76 €"
   },
@@ -743,7 +831,8 @@ export const mockArticles = [
     "name": "INTERCOMPARACIÓN BIPEA - CUOTA ANUAL (Jul-Jun)",
     "category": "Control de Calidad",
     "supplierName": "BIPEA",
-    "stock": 2,
+    "supplierRef": "COTN",
+    "stock": 1,
     "minStock": 1,
     "price": "235,95 €"
   },
@@ -752,6 +841,7 @@ export const mockArticles = [
     "name": "INTERCOMPARACIÓN BIPEA - CUOTA ADHESIÓN",
     "category": "Control de Calidad",
     "supplierName": "BIPEA",
+    "supplierRef": "DROIT",
     "stock": 2,
     "minStock": 1,
     "price": "15,73 €"
@@ -761,6 +851,7 @@ export const mockArticles = [
     "name": "NEVERA TRANSPORTE MUESTRAS BIOLÓGICAS GRAN CAPACIDAD",
     "category": "Equipos",
     "supplierName": "IBEROMED",
+    "supplierRef": "ESISOMUES002",
     "stock": 3,
     "minStock": 1,
     "price": "188,11 €"
@@ -770,6 +861,7 @@ export const mockArticles = [
     "name": "CAJA ISOTÉRMICA FXPS 300x200x200mm XPS5mm 12L F204",
     "category": "Material de Transporte",
     "supplierName": "TEMPACK",
+    "supplierRef": "413F000023A",
     "stock": 1,
     "minStock": 2,
     "price": "4,46 €"
@@ -782,160 +874,160 @@ export const mockSuppliers = [
     "name": "Cultimed",
     "contact": "Contacto Gral.",
     "email": "contacto@cultimed.com",
-    "phone": "+34 600 642825"
+    "phone": "+34 600 462024"
   },
   {
     "id": "PROV-002",
     "name": "BioMérieux",
     "contact": "Contacto Gral.",
     "email": "contacto@biomérieux.com",
-    "phone": "+34 600 155455"
+    "phone": "+34 600 330802"
   },
   {
     "id": "PROV-003",
     "name": "Bio-Rad",
     "contact": "Contacto Gral.",
     "email": "contacto@bio-rad.com",
-    "phone": "+34 600 252272"
+    "phone": "+34 600 552361"
   },
   {
     "id": "PROV-004",
     "name": "VWR",
     "contact": "Contacto Gral.",
     "email": "contacto@vwr.com",
-    "phone": "+34 600 226305"
+    "phone": "+34 600 283091"
   },
   {
     "id": "PROV-005",
     "name": "Thermo",
     "contact": "Contacto Gral.",
     "email": "contacto@thermo.com",
-    "phone": "+34 600 360811"
+    "phone": "+34 600 105270"
   },
   {
     "id": "PROV-006",
     "name": "Mercaplast",
     "contact": "Contacto Gral.",
     "email": "contacto@mercaplast.com",
-    "phone": "+34 600 484334"
+    "phone": "+34 600 647926"
   },
   {
     "id": "PROV-007",
     "name": "Protekta",
     "contact": "Contacto Gral.",
     "email": "contacto@protekta.com",
-    "phone": "+34 600 390227"
+    "phone": "+34 600 742493"
   },
   {
     "id": "PROV-008",
     "name": "Hanna Inst.",
     "contact": "Contacto Gral.",
     "email": "contacto@hannainst..com",
-    "phone": "+34 600 135527"
+    "phone": "+34 600 925988"
   },
   {
     "id": "PROV-009",
     "name": "Crison",
     "contact": "Contacto Gral.",
     "email": "contacto@crison.com",
-    "phone": "+34 600 828894"
+    "phone": "+34 600 126537"
   },
   {
     "id": "PROV-010",
     "name": "Quimidrops",
     "contact": "Contacto Gral.",
     "email": "contacto@quimidrops.com",
-    "phone": "+34 600 753177"
+    "phone": "+34 600 395033"
   },
   {
     "id": "PROV-011",
     "name": "Millipore",
     "contact": "Contacto Gral.",
     "email": "contacto@millipore.com",
-    "phone": "+34 600 933324"
+    "phone": "+34 600 576836"
   },
   {
     "id": "PROV-012",
     "name": "Baxter",
     "contact": "Contacto Gral.",
     "email": "contacto@baxter.com",
-    "phone": "+34 600 512400"
+    "phone": "+34 600 908477"
   },
   {
     "id": "PROV-013",
     "name": "Sigma-Aldrich",
     "contact": "Contacto Gral.",
     "email": "contacto@sigma-aldrich.com",
-    "phone": "+34 600 850608"
+    "phone": "+34 600 570780"
   },
   {
     "id": "PROV-014",
     "name": "Merck",
     "contact": "Contacto Gral.",
     "email": "contacto@merck.com",
-    "phone": "+34 600 554304"
+    "phone": "+34 600 875166"
   },
   {
     "id": "PROV-015",
     "name": "Panreac",
     "contact": "Contacto Gral.",
     "email": "contacto@panreac.com",
-    "phone": "+34 600 827566"
+    "phone": "+34 600 552413"
   },
   {
     "id": "PROV-016",
     "name": "EQUILABO",
     "contact": "Contacto Gral.",
     "email": "contacto@equilabo.com",
-    "phone": "+34 600 586562"
+    "phone": "+34 600 397792"
   },
   {
     "id": "PROV-017",
     "name": "BIOLINEA",
     "contact": "Contacto Gral.",
     "email": "contacto@biolinea.com",
-    "phone": "+34 600 703901"
+    "phone": "+34 600 617924"
   },
   {
     "id": "PROV-018",
     "name": "MERCK",
     "contact": "Contacto Gral.",
     "email": "contacto@merck.com",
-    "phone": "+34 600 674553"
+    "phone": "+34 600 574332"
   },
   {
     "id": "PROV-019",
     "name": "COMERCIAL PEDRO",
     "contact": "Contacto Gral.",
     "email": "contacto@comercialpedro.com",
-    "phone": "+34 600 350761"
+    "phone": "+34 600 870459"
   },
   {
     "id": "PROV-020",
     "name": "THERMO FISHER",
     "contact": "Contacto Gral.",
     "email": "contacto@thermofisher.com",
-    "phone": "+34 600 876894"
+    "phone": "+34 600 615494"
   },
   {
     "id": "PROV-021",
     "name": "BIPEA",
     "contact": "Contacto Gral.",
     "email": "contacto@bipea.com",
-    "phone": "+34 600 418073"
+    "phone": "+34 600 593857"
   },
   {
     "id": "PROV-022",
     "name": "IBEROMED",
     "contact": "Contacto Gral.",
     "email": "contacto@iberomed.com",
-    "phone": "+34 600 925715"
+    "phone": "+34 600 663861"
   },
   {
     "id": "PROV-023",
     "name": "TEMPACK",
     "contact": "Contacto Gral.",
     "email": "contacto@tempack.com",
-    "phone": "+34 600 891230"
+    "phone": "+34 600 604004"
   }
 ];

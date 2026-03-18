@@ -1,0 +1,403 @@
+import React, { useState, useMemo, useEffect } from 'react';
+import { X, ShoppingCart, Send, FileText, Trash2, Plus } from 'lucide-react';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
+
+export default function NewOrderModal({ isOpen, onClose, articles, suppliers, defaultSupplier, onSaveOrder, editingOrder }) {
+  const [selectedSupplierName, setSelectedSupplierName] = useState('');
+  const [cart, setCart] = useState([]);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [articleSearch, setArticleSearch] = useState('');
+  const [articleCategory, setArticleCategory] = useState('');
+
+  React.useEffect(() => {
+    if (isOpen) {
+      if (editingOrder) {
+        setSelectedSupplierName(editingOrder.supplier);
+        setCart(editingOrder.cart || []);
+      } else {
+        setSelectedSupplierName(defaultSupplier || '');
+        setCart([]);
+      }
+      setArticleSearch('');
+      setArticleCategory('');
+    }
+  }, [isOpen, defaultSupplier, editingOrder]);
+
+  // Get selected supplier object
+  const supplier = useMemo(() => 
+    suppliers.find(s => s.name === selectedSupplierName), 
+  [selectedSupplierName, suppliers]);
+
+  // Derive unique suppliers from articles to ensure they are always in sync
+  const allSupplierNamesFromArticles = useMemo(() => {
+    const names = [...new Set(articles.map(a => a.supplierName).filter(Boolean))];
+    return names.sort((a, b) => a.localeCompare(b));
+  }, [articles]);
+
+  const uniqueCategories = useMemo(() => {
+    const suppArticles = selectedSupplierName ? articles.filter(a => a.supplierName === selectedSupplierName) : articles;
+    return [...new Set(suppArticles.map(a => a.category))];
+  }, [selectedSupplierName, articles]);
+
+  // Filter articles by supplier, search, and category
+  const availableArticles = useMemo(() => {
+    return articles.filter(a => {
+      const matchSupplier = selectedSupplierName === '' || a.supplierName === selectedSupplierName;
+      const matchSearch = a.name.toLowerCase().includes(articleSearch.toLowerCase()) || 
+                          a.id.toLowerCase().includes(articleSearch.toLowerCase());
+      const matchCategory = articleCategory === '' || a.category === articleCategory;
+      return matchSupplier && matchSearch && matchCategory;
+    });
+  }, [selectedSupplierName, articleSearch, articleCategory, articles]);
+
+  const addToCart = (articleId, qtyStr) => {
+    const qty = parseInt(qtyStr, 10);
+    if (!qty || qty <= 0) return;
+
+    setCart(prev => {
+      const existing = prev.find(item => item.article.id === articleId);
+      if (existing) {
+        return prev.map(item => item.article.id === articleId ? { ...item, quantity: item.quantity + qty } : item);
+      } else {
+        const article = availableArticles.find(a => a.id === articleId);
+        return [...prev, { article, quantity: qty }];
+      }
+    });
+  };
+
+  const removeFromCart = (articleId) => {
+    setCart(prev => prev.filter(item => item.article.id !== articleId));
+  };
+
+  const calculateTotal = () => {
+    return cart.reduce((total, item) => {
+      const priceStr = item.article.price ? String(item.article.price) : '0';
+      const priceVal = parseFloat(priceStr.replace('€', '').replace(',', '.').trim()) || 0;
+      return total + (priceVal * item.quantity);
+    }, 0);
+  };
+
+  const getOrderData = () => {
+    const orderSupplierName = selectedSupplierName || (cart.length > 0 ? cart[0].article.supplierName : 'Proveedor Desconocido');
+    const orderRef = editingOrder ? editingOrder.id : `ORD-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${Math.floor(Math.random() * 10000)}`;
+    
+    return {
+      id: orderRef,
+      date: new Date().toLocaleDateString(),
+      supplier: orderSupplierName,
+      items: cart.length,
+      cart: cart,
+      total: calculateTotal(),
+      status: 'Pendiente'
+    };
+  };
+
+  const createPDF = (orderRef, orderSupplierName) => {
+    const doc = new jsPDF();
+    const orderSupplier = suppliers.find(s => s.name === orderSupplierName) || supplier;
+    
+    // Header
+    doc.setFontSize(22);
+    doc.setTextColor(0, 118, 206); // --primary color
+    doc.text('PEDIDO DE LABORATORIO', 14, 25);
+    
+    doc.setFontSize(12);
+    doc.setTextColor(100, 100, 100);
+    doc.text(`Referencia: ${orderRef}`, 14, 35);
+    doc.text(`Fecha: ${new Date().toLocaleDateString()}`, 14, 42);
+    doc.text(`Proveedor: ${orderSupplier?.name || orderSupplierName}`, 14, 49);
+    doc.text(`Atención: ${orderSupplier?.contact || 'Dpto. Comercial'}`, 14, 56);
+    doc.text(`Email de destino: ${orderSupplier?.email || 'desconocido@proveedor.com'}`, 14, 63);
+    doc.text(`Contacto consultas: lab@hsconsulting.es`, 14, 70);
+
+    const tableData = cart.map((item, index) => {
+      const priceStr = item.article.price ? String(item.article.price) : '0';
+      const priceVal = parseFloat(priceStr.replace('€','').replace(',','.').trim()) || 0;
+      const nameWithDesc = item.article.description 
+        ? `${item.article.name} (${item.article.description})`
+        : item.article.name;
+      return [
+        index + 1,
+        item.article.supplierRef || item.article.id,
+        nameWithDesc,
+        item.quantity,
+        item.article.price || '0 €',
+        (priceVal * item.quantity).toFixed(2) + ' €'
+      ];
+    });
+
+    autoTable(doc, {
+      startY: 78,
+      head: [['#', 'Ref. Prov.', 'Descripción del Artículo', 'Cantidad', 'Precio Unit.', 'Subtotal']],
+      body: tableData,
+      theme: 'grid',
+      headStyles: { fillColor: [0, 118, 206] }
+    });
+
+    doc.setFontSize(14);
+    doc.setTextColor(0, 0, 0);
+    const totalStr = calculateTotal().toFixed(2) + ' €';
+    doc.text(`Total del Pedido: ${totalStr}`, 14, doc.lastAutoTable ? doc.lastAutoTable.finalY + 15 : 100);
+
+    return doc;
+  };
+
+  const handleSaveOnly = () => {
+    if (cart.length === 0) return;
+    const orderData = getOrderData();
+    onSaveOrder(orderData);
+    setCart([]);
+    onClose();
+  };
+
+  const handleGeneratePDFOnly = () => {
+    if (cart.length === 0) return;
+    const orderData = getOrderData();
+    const doc = createPDF(orderData.id, orderData.supplier);
+    const filename = `Pedido_${orderData.id}_${orderData.supplier.replace(/\s+/g, '_')}.pdf`;
+    doc.save(filename);
+    
+    // Auto-save order too as it's common sense when generating PDF
+    onSaveOrder(orderData);
+  };
+
+  const handleGenerateAndSend = () => {
+    if (cart.length === 0) return;
+    const orderData = getOrderData();
+    const orderSupplier = suppliers.find(s => s.name === orderData.supplier);
+    
+    setIsProcessing(true);
+
+    setTimeout(() => {
+      try {
+        const doc = createPDF(orderData.id, orderData.supplier);
+        const filename = `Pedido_${orderData.id}_${orderData.supplier.replace(/\s+/g, '_')}.pdf`;
+
+        const pdfBlob = doc.output('blob');
+        const file = new File([pdfBlob], filename, { type: 'application/pdf' });
+        
+        const subject = encodeURIComponent(`Nuevo Pedido - ${orderData.supplier} [Ref: ${orderData.id}]`);
+        const body = encodeURIComponent(`Buenos días,\n\nAdjuntamos en este correo nuestro último pedido de material para el laboratorio (Ref: ${orderData.id}).\n\nPor favor, confirmen recepción y envíen acuse de recibo.\n\nPara cualquier consulta, pueden contactar con lab@hsconsulting.es\n\nUn saludo.`);
+        const supplierEmail = orderSupplier?.email || '';
+
+        const downloadAndMailto = () => {
+          doc.save(filename);
+          alert(`¡Hecho! El PDF se ha descargado.\nSe va a abrir ahora un borrador de email.\nPor favor, no olvides adjuntar manualmente el PDF.`);
+          window.location.href = `mailto:${supplierEmail}?subject=${subject}&body=${body}`;
+          
+          onSaveOrder(orderData);
+          setIsProcessing(false);
+          setCart([]);
+          onClose();
+        };
+
+        if (navigator.canShare && navigator.canShare({ files: [file] })) {
+          navigator.share({
+            title: 'Pedido Laboratorio',
+            text: 'Adjuntamos el nuevo pedido para el proveedor.',
+            files: [file]
+          }).then(() => {
+            onSaveOrder(orderData);
+            setIsProcessing(false);
+            setCart([]);
+            onClose();
+          }).catch((err) => {
+            downloadAndMailto();
+          });
+        } else {
+          downloadAndMailto();
+        }
+
+      } catch (err) {
+        alert("Error al procesar el envío: " + err.message);
+        setIsProcessing(false);
+      }
+    }, 1000);
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <div style={{
+      position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+      backgroundColor: 'rgba(0,0,0,0.6)', display: 'flex',
+      alignItems: 'center', justifyContent: 'center', zIndex: 1000, backdropFilter: 'blur(4px)'
+    }}>
+      <div className="card" style={{ width: '1000px', margin: 0, height: '85vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+        
+        {/* Modal Header */}
+        <div className="flex-between" style={{ marginBottom: '24px', borderBottom: '1px solid var(--border)', paddingBottom: '16px' }}>
+          <div>
+            <h3 style={{ margin: '0 0 4px 0', display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--secondary)' }}>
+              <ShoppingCart size={22} color="var(--primary)"/> Generar Nuevo Pedido
+            </h3>
+            <p style={{ margin: 0, color: 'var(--text-muted)', fontSize: '0.85rem' }}>Gestione el pedido, descargue el documento o envíelo por email.</p>
+          </div>
+          <button className="btn btn-secondary" style={{ padding: '6px', border: 'none' }} onClick={onClose}>
+            <X size={24} />
+          </button>
+        </div>
+
+        {/* Modal Body */}
+        <div style={{ flex: 1, overflowY: 'auto', display: 'flex', gap: '24px' }}>
+          
+          {/* Left Column: Selection */}
+          <div style={{ flex: 1, borderRight: '1px solid var(--border)', paddingRight: '24px' }}>
+            <div className="input-group">
+              <label className="input-label">1. Selecciona un Proveedor</label>
+              <select 
+                className="input-field" 
+                value={selectedSupplierName}
+                onChange={(e) => {
+                  setSelectedSupplierName(e.target.value);
+                  setArticleCategory('');
+                  setArticleSearch('');
+                  setCart([]);
+                }}
+                style={{ fontSize: '1rem', padding: '12px' }}
+              >
+                <option value="">-- Elige proveedor --</option>
+                {allSupplierNamesFromArticles.map((name, idx) => (
+                  <option key={idx} value={name}>{name}</option>
+                ))}
+              </select>
+            </div>
+
+            <div style={{ marginTop: '24px' }}>
+              <div className="flex-between" style={{ marginBottom: '12px' }}>
+                <label className="input-label" style={{ margin: 0 }}>2. Añadir Artículos <span style={{ fontWeight: 400, color: 'var(--text-muted)', marginLeft: '4px' }}>({availableArticles.length} resultados)</span></label>
+              </div>
+                
+                <div style={{ display: 'flex', gap: '8px', marginBottom: '12px' }}>
+                  <input 
+                    type="text" 
+                    className="input-field" 
+                    placeholder="Buscar por nombre o Ref..." 
+                    value={articleSearch}
+                    onChange={(e) => setArticleSearch(e.target.value)}
+                    style={{ flex: 1, padding: '10px 14px' }}
+                  />
+                  <select 
+                    className="input-field"
+                    value={articleCategory}
+                    onChange={(e) => setArticleCategory(e.target.value)}
+                    style={{ width: '180px' }}
+                  >
+                    <option value="">Todas las categorías</option>
+                    {uniqueCategories.map(cat => <option key={cat} value={cat}>{cat}</option>)}
+                  </select>
+                </div>
+
+                <div style={{ maxHeight: '350px', overflowY: 'auto', border: '1px solid var(--border)', borderRadius: '8px' }}>
+                  <table style={{ margin: 0, fontSize: '0.9rem' }}>
+                    <thead style={{ position: 'sticky', top: 0, backgroundColor: 'var(--surface)', zIndex: 1 }}>
+                      <tr>
+                        <th>Artículo (Ref)</th>
+                        <th>Stock / Mín</th>
+                        <th style={{ width: '100px' }}>Acción</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {availableArticles.map(art => {
+                        const statusColor = art.stock <= art.minStock ? 'var(--danger)' : 'var(--text-muted)';
+                        return (
+                          <tr key={art.id}>
+                            <td>
+                              <div style={{ fontWeight: 600 }}>{art.name}</div>
+                              {art.description && <div style={{ fontSize: '0.8rem', color: 'var(--primary)', fontWeight: 500 }}>{art.description}</div>}
+                              <div style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>{art.supplierRef || art.id} - {art.price}</div>
+                            </td>
+                            <td>
+                              <span style={{ color: statusColor, fontWeight: art.stock <= art.minStock ? 700 : 400 }}>
+                                {art.stock}
+                              </span> / {art.minStock}
+                            </td>
+                            <td>
+                              <form onSubmit={(e) => { e.preventDefault(); addToCart(art.id, e.target.elements.qty.value); }}>
+                                <div style={{ display: 'flex', gap: '4px' }}>
+                                  <input name="qty" type="number" min="1" defaultValue="1" style={{ width: '60px', padding: '6px', borderRadius: '6px', border: '1px solid var(--border)', backgroundColor: 'var(--background)' }} />
+                                  <button type="submit" className="btn btn-primary" style={{ padding: '6px 10px' }}><Plus size={16}/></button>
+                                </div>
+                              </form>
+                            </td>
+                          </tr>
+                      )})}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+          </div>
+
+          {/* Right Column: Cart & Actions */}
+          <div style={{ width: '350px', display: 'flex', flexDirection: 'column' }}>
+            <label className="input-label" style={{ marginBottom: '16px' }}>3. Resumen y Acciones</label>
+            
+            <div style={{ flex: 1, backgroundColor: 'var(--background)', borderRadius: '8px', padding: '20px', overflowY: 'auto', border: '1px solid var(--border)' }}>
+              {cart.length === 0 ? (
+                <div style={{ textAlign: 'center', color: 'var(--text-muted)', marginTop: '40px' }}>
+                  <ShoppingCart size={48} style={{ marginBottom: '16px', opacity: 0.3 }} />
+                  <p>Añada artículos para continuar</p>
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                  {cart.map(item => (
+                    <div key={item.article.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: 'var(--surface)', padding: '12px', borderRadius: '8px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontSize: '0.85rem', fontWeight: 600, lineHeight: 1.3 }}>{item.article.name}</div>
+                        {item.article.description && <div style={{ fontSize: '0.75rem', color: 'var(--primary)' }}>{item.article.description}</div>}
+                        <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '4px' }}>{item.quantity} x {item.article.price}</div>
+                      </div>
+                      <button onClick={() => removeFromCart(item.article.id)} className="btn btn-secondary" style={{ padding: '6px', border: 'none', color: 'var(--danger)' }}>
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
+                  ))}
+                  <div style={{ borderTop: '2px solid var(--border)', paddingTop: '16px', marginTop: '12px', textAlign: 'right' }}>
+                    <div style={{ fontSize: '0.9rem', color: 'var(--text-muted)' }}>Total Estimado</div>
+                    <div style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--primary)' }}>{calculateTotal().toFixed(2)} €</div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Action Buttons */}
+            <div style={{ marginTop: '20px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              <button 
+                className={`btn btn-primary ${cart.length === 0 ? 'disabled' : ''}`} 
+                style={{ width: '100%', padding: '12px', fontSize: '1rem' }}
+                onClick={handleSaveOnly}
+                disabled={cart.length === 0 || isProcessing}
+              >
+                Guardar Pedido
+              </button>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                <button 
+                  className="btn btn-secondary" 
+                  style={{ gap: '6px', fontSize: '0.85rem' }}
+                  onClick={handleGeneratePDFOnly}
+                  disabled={cart.length === 0 || isProcessing}
+                >
+                  <FileText size={16} /> Generar PDF
+                </button>
+                <button 
+                  className="btn btn-secondary" 
+                  style={{ gap: '6px', fontSize: '0.85rem' }}
+                  onClick={handleGenerateAndSend}
+                  disabled={cart.length === 0 || isProcessing}
+                >
+                  <Send size={16} /> PDF y Enviar
+                </button>
+              </div>
+            </div>
+            
+            <p style={{ margin: '12px 0 0 0', fontSize: '0.75rem', color: 'var(--text-muted)', textAlign: 'center' }}>
+              * Guardar pedido lo registrará en la lista sin descargar documentos.
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}

@@ -18,6 +18,7 @@ dataLines.forEach(line => {
     const name = parts[1].replace(/"/g, '').trim();
     const category = parts[2].replace(/"/g, '').trim();
     const supplierName = parts[3].replace(/"/g, '').trim();
+    const supplierRef = parts[5].replace(/"/g, '').trim();
     const priceStr = parts[9].replace(/"/g, '').trim(); // Precio CON IVA
     const minStock = parseInt(parts[10].replace(/"/g, '').trim(), 10);
     
@@ -29,6 +30,7 @@ dataLines.forEach(line => {
       name,
       category,
       supplierName,
+      supplierRef,
       stock,
       minStock,
       price: priceStr
