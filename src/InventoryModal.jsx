@@ -136,7 +136,8 @@ export default function InventoryModal({ isOpen, onClose, articles, onSaveInvent
                 <th>Referencia (Proveedor)</th>
                 <th>Nombre del Artículo</th>
                 <th style={{ textAlign: 'center' }}>Stock BBDD</th>
-                <th style={{ width: '150px', textAlign: 'center' }}>Stock Físico Real</th>
+                <th style={{ width: '120px', textAlign: 'center' }}>Stock Real</th>
+                <th style={{ width: '100px', textAlign: 'center' }}>Diferencia</th>
               </tr>
             </thead>
             <tbody>
@@ -168,6 +169,15 @@ export default function InventoryModal({ isOpen, onClose, articles, onSaveInvent
                         onChange={(e) => handleStockChange(art.id, e.target.value)}
                         disabled={isProcessing}
                       />
+                    </td>
+                    <td style={{ textAlign: 'center', fontWeight: 700 }}>
+                      {isChanged ? (
+                        <span style={{ color: (manualStock - currentStock) > 0 ? 'var(--success)' : 'var(--danger)' }}>
+                          {(manualStock - currentStock) > 0 ? '+' : ''}{manualStock - currentStock}
+                        </span>
+                      ) : (
+                        <span style={{ color: 'var(--text-muted)', fontWeight: 'normal' }}>0</span>
+                      )}
                     </td>
                   </tr>
                 );

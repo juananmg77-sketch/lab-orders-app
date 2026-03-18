@@ -20,7 +20,9 @@ import {
   TrendingUp,
   FileSpreadsheet,
   CheckSquare,
-  Check
+  Check,
+  ArrowUpDown,
+  Minus
 } from 'lucide-react';
 import { supabase } from './supabaseClient';
 import Auth from './Auth';
@@ -33,33 +35,7 @@ import InvoiceImporter from './InvoiceImporter';
 import ExcelImporter from './ExcelImporter';
 import Dashboard from './Dashboard';
 import logo from './assets/logo.png';
-import { mockArticles, mockSuppliers as initialSuppliers } from './data';
 
-const mockOrdersInit = [
-  { 
-    id: 'ORD-001', 
-    date: '2026-03-15', 
-    status: 'Pendiente', 
-    items: 2, 
-    supplier: 'LabSupply Co.', 
-    total: 118.70, 
-    cart: [
-      { article: { id: 'LAB-001', name: 'Agar R2A para recuento heterótrofo en agua', price: '55,42 €', supplierRef: '212264.1210' }, quantity: 1 },
-      { article: { id: 'LAB-002', name: 'Agar Slanetz-Bartley (Enterococcus)', price: '63,28 €', supplierRef: '43011' }, quantity: 1 }
-    ] 
-  },
-  { 
-    id: 'ORD-002', 
-    date: '2026-03-16', 
-    status: 'Completado', 
-    items: 1, 
-    supplier: 'MedEquip Inc.', 
-    total: 46.59, 
-    cart: [
-      { article: { id: 'LAB-003', name: 'Caldo Tripticasa Soya (TSB)', price: '46,59 €', supplierRef: '214046.1210' }, quantity: 1 }
-    ] 
-  },
-];
 
 
 
@@ -68,7 +44,7 @@ function App() {
   const [session, setSession] = useState(null);
   
   // Orders State
-  const [orders, setOrders] = useState(mockOrdersInit);
+  const [orders, setOrders] = useState([]);
   const [isNewOrderModalOpen, setIsNewOrderModalOpen] = useState(false);
   const [editingOrder, setEditingOrder] = useState(null);
   const [defaultSupplierForOrder, setDefaultSupplierForOrder] = useState('');
@@ -96,23 +72,29 @@ function App() {
   const [editingArticle, setEditingArticle] = useState(null);
 
   // Suppliers state
-  const [suppliers, setSuppliers] = useState(initialSuppliers);
+  const [suppliers, setSuppliers] = useState([]);
   const [isSupplierModalOpen, setIsSupplierModalOpen] = useState(false);
   const [editingSupplier, setEditingSupplier] = useState(null);
 
   // Bulk Selection State
   const [selectedArticles, setSelectedArticles] = useState([]);
   const [isBulkEditOpen, setIsBulkEditOpen] = useState(false);
-  const [bulkEditFields, setBulkEditFields] = useState({ category: '', supplierName: '' });
+  const [bulkEditFields, setBulkEditFields] = useState({ category: '', supplierName: '', description: '' });
 
   const [isInvoiceImporterOpen, setIsInvoiceImporterOpen] = useState(false);
+  const [showLowStockOnly, setShowLowStockOnly] = useState(false);
+  const [stockSupplierFilter, setStockSupplierFilter] = useState('');
+  const [selectedStockArticles, setSelectedStockArticles] = useState([]);
+  const [initialCartForOrder, setInitialCartForOrder] = useState([]);
+  const [generatedArticleId, setGeneratedArticleId] = useState('');
+  const [articleModalSupplier, setArticleModalSupplier] = useState('');
+  const [articleModalSupplierRef, setArticleModalSupplierRef] = useState('');
 
   const fetchArticles = async () => {
     const { data, error } = await supabase.from('articles').select('*').order('name');
     if (error) {
       console.error("Error fetching articles:", error.message);
-      // Solo en caso de error total de conexión, mostrar mocks como guía
-      if (!articles || articles.length === 0) setArticles(mockArticles);
+      setArticles([]);
     } else {
       setArticles(data || []);
     }
@@ -122,7 +104,7 @@ function App() {
     const { data, error } = await supabase.from('suppliers').select('*').order('name');
     if (error) {
       console.error("Error fetching suppliers:", error.message);
-      if (!suppliers || suppliers.length === 0) setSuppliers(initialSuppliers);
+      setSuppliers([]);
     } else {
       setSuppliers(data || []);
     }
@@ -132,12 +114,9 @@ function App() {
     const { data, error } = await supabase.from('orders').select('*').order('date', { ascending: false });
     if (error) {
       console.error("Error fetching orders:", error.message);
-      setOrders(mockOrdersInit);
+      setOrders([]);
     } else {
-      // Merge: DB orders + Mock orders not in DB
-      const dbIds = new Set((data || []).map(o => o.id));
-      const missingMocks = mockOrdersInit.filter(o => !dbIds.has(o.id));
-      setOrders([...(data || []), ...missingMocks].sort((a, b) => b.date.localeCompare(a.date)));
+      setOrders(data || []);
     }
   };
 
@@ -199,14 +178,39 @@ function App() {
     return new Date(Math.max(...dates));
   }, [articles]);
 
+  const formatInEuros = (value) => {
+    if (value === undefined || value === null || value === '') return '-';
+    // Clean string and convert to number
+    const cleanStr = String(value).replace('€', '').replace(',', '.').trim();
+    const num = parseFloat(cleanStr);
+    if (isNaN(num)) return value;
+    return num.toLocaleString('es-ES', { 
+      minimumFractionDigits: 2, 
+      maximumFractionDigits: 2 
+    }) + ' €';
+  };
+
   const openArticleModal = (article = null) => {
     setEditingArticle(article);
+    if (!article) {
+      const newId = 'REF-' + Math.floor(Math.random() * 90000 + 10000);
+      setGeneratedArticleId(newId);
+      setArticleModalSupplier('');
+      setArticleModalSupplierRef(''); // Empty until supplier is confirmed/selected
+    } else {
+      setGeneratedArticleId(article.id);
+      setArticleModalSupplier(article.supplierName || '');
+      setArticleModalSupplierRef(article.supplierRef || '');
+    }
     setIsArticleModalOpen(true);
   };
 
   const closeArticleModal = () => {
     setEditingArticle(null);
     setIsArticleModalOpen(false);
+    setGeneratedArticleId('');
+    setArticleModalSupplier('');
+    setArticleModalSupplierRef('');
   };
 
   useEffect(() => {
@@ -289,28 +293,41 @@ function App() {
     }
   };
 
+  const handleQuickStockChange = async (articleId, delta) => {
+    const article = articles.find(a => a.id === articleId);
+    if (!article) return;
+    
+    const newStock = Math.max(0, (article.stock || 0) + delta);
+    // Optimistic UI
+    setArticles(prev => prev.map(a => a.id === articleId ? { ...a, stock: newStock } : a));
+    
+    const { error } = await supabase.from('articles').update({ 
+      stock: newStock,
+      last_inventory: new Date().toISOString() 
+    }).eq('id', articleId);
+    
+    if (error) {
+       console.error("Error al actualizar stock rápido:", articleId, error);
+       fetchArticles(); // Rollback
+    }
+  };
+
   const handleDeleteSupplier = async (name) => {
     const associatedArticles = articles.filter(a => (a.supplierName || '').toLowerCase() === name.toLowerCase());
     const articleCount = associatedArticles.length;
 
-    let message = `¿Estás seguro de que deseas eliminar al proveedor "${name}"? El registro se borrará permanentemente de la base de datos.`;
-    
     if (articleCount > 0) {
-      const articleNames = associatedArticles.map(a => `- ${a.name}`).slice(0, 10).join('\n');
-      const moreText = articleCount > 10 ? `\n...y ${articleCount - 10} artículos más.` : '';
-      message = `¡ATENCIÓN! El proveedor "${name}" tiene ${articleCount} artículos asociados:\n\n${articleNames}${moreText}\n\nSi continúas, el proveedor se borrará del directorio y los artículos quedarán SIN PROVEEDOR asignado.\n\n¿Deseas proceder con la eliminación?`;
+      const articleNames = associatedArticles.map(a => `- ${a.name}`).slice(0, 5).join('\n');
+      const moreText = articleCount > 5 ? `\n...y ${articleCount - 5} artículos más.` : '';
+      alert(`No se puede eliminar al proveedor "${name}" porque tiene ${articleCount} artículos asociados:\n\n${articleNames}${moreText}\n\nPor favor, reasigne estos artículos a otro proveedor o elimínelos antes de borrar este proveedor.`);
+      return;
     }
 
-    if (window.confirm(message)) {
+    if (window.confirm(`¿Estás seguro de que deseas eliminar al proveedor "${name}"? El registro se borrará permanentemente de la base de datos.`)) {
       const { error } = await supabase.from('suppliers').delete().eq('name', name);
       if (error) {
         alert("Error al eliminar el proveedor: " + error.message);
       } else {
-        // Clear supplier name from articles so they don't hold a reference to a deleted entity
-        if (articleCount > 0) {
-          await supabase.from('articles').update({ supplierName: '' }).eq('supplierName', name);
-          await fetchArticles();
-        }
         await fetchSuppliers();
       }
     }
@@ -504,6 +521,10 @@ function App() {
       });
     } else {
       await fetchSuppliers();
+      // If we are in the middle of creating an article, populate the ref once the supplier is saved
+      if (isArticleModalOpen && generatedArticleId && !articleModalSupplierRef) {
+        setArticleModalSupplierRef(generatedArticleId);
+      }
     }
   };
 
@@ -548,17 +569,36 @@ function App() {
   }, [filteredOrders]);
 
   const [stockSearchQuery, setStockSearchQuery] = useState('');
+  const [stockSort, setStockSort] = useState({ column: 'valuation', direction: 'desc' });
 
   const renderContent = () => {
     switch (activeTab) {
-      case 'pedidos':
+      case 'dashboard':
+      case 'analisis': {
+        return (
+          <Dashboard 
+            orders={orders} 
+            articles={articles} 
+            suppliers={suppliers} 
+            onTabChange={setActiveTab}
+            onNewOrder={() => {
+              setEditingOrder(null);
+              setDefaultSupplierForOrder('');
+              setInitialCartForOrder([]);
+              setIsNewOrderModalOpen(true);
+            }}
+          />
+        );
+      }
+      case 'pedidos': {
+        const totalFilteredAmount = filteredOrders.reduce((sum, order) => sum + (order.total || 0), 0);
         return (
           <div className="page-content">
             <div className="flex-between" style={{ marginBottom: '24px', alignItems: 'flex-start' }}>
               <div>
                 <h2 className="page-title" style={{ marginBottom: '4px' }}>Gestión de Pedidos</h2>
                 <div style={{ backgroundColor: 'var(--primary-light)', padding: '4px 12px', borderRadius: '4px', borderLeft: '4px solid var(--primary)', display: 'inline-block' }}>
-                  <span style={{ fontSize: '0.9rem', fontWeight: 600, color: 'var(--primary)' }}>
+                  <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--primary)' }}>
                     Total {orderStatusFilter || 'Pedidos'}: {totalFilteredAmount.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
                   </span>
                 </div>
@@ -575,7 +615,7 @@ function App() {
                   <option value="Completado">Completado</option>
                   <option value="Incompleto">Incompleto</option>
                 </select>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-muted)', fontSize: '0.9rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
                   <span>Desde:</span>
                   <input 
                     type="date" 
@@ -596,6 +636,7 @@ function App() {
                 <button className="btn btn-primary" onClick={() => {
                   setEditingOrder(null);
                   setDefaultSupplierForOrder('');
+                  setInitialCartForOrder([]);
                   setIsNewOrderModalOpen(true);
                 }}>
                   <Plus size={18} style={{ marginRight: '8px' }} /> Nuevo Pedido
@@ -621,7 +662,9 @@ function App() {
                     <tr key={order.id}>
                       <td>{order.id}</td>
                       <td>{order.date}</td>
-                      <td>{order.supplier}</td>
+                      <td style={order.supplier === 'Proveedor Desconocido' ? { color: 'var(--danger)', fontWeight: 'bold' } : {}}>
+                        {order.supplier}
+                      </td>
                       <td>{order.items}</td>
                       <td style={{ fontWeight: 600 }}>{order.total ? order.total.toFixed(2) + ' €' : '-'}</td>
                       <td>
@@ -650,7 +693,7 @@ function App() {
                             disabled={order.status === 'Completado'}
                             style={{ 
                               padding: '6px', 
-                              fontSize: '0.8rem', 
+                              fontSize: '0.75rem', 
                               color: order.status === 'Incompleto' ? 'var(--warning)' : 'var(--primary)',
                               display: order.status === 'Completado' ? 'none' : 'flex' 
                             }}
@@ -661,7 +704,7 @@ function App() {
                           {(order.status === 'Completado' || order.status === 'Incompleto') && (
                             <button 
                               className="btn btn-secondary" 
-                              style={{ padding: '6px', fontSize: '0.8rem', color: 'var(--warning)' }}
+                              style={{ padding: '6px', fontSize: '0.75rem', color: 'var(--warning)' }}
                               title="Reabrir Pedido (Anular recepción)"
                               onClick={() => handleReopenOrder(order)}
                             >
@@ -672,7 +715,7 @@ function App() {
                           {order.status === 'Pendiente' && (
                             <button 
                               className="btn btn-primary" 
-                              style={{ padding: '6px', fontSize: '0.8rem' }}
+                              style={{ padding: '6px', fontSize: '0.75rem' }}
                               title="Recepcionar"
                               onClick={() => {
                                 setReceivingOrder(order);
@@ -684,7 +727,7 @@ function App() {
                           )}
                           <button 
                             className="btn btn-secondary" 
-                            style={{ padding: '6px', fontSize: '0.8rem', color: 'var(--danger)', border: 'none' }}
+                            style={{ padding: '6px', fontSize: '0.75rem', color: 'var(--danger)', border: 'none' }}
                             title="Eliminar Pedido"
                             onClick={() => handleDeleteOrder(order.id)}
                           >
@@ -706,11 +749,48 @@ function App() {
             </div>
           </div>
         );
-      case 'stocks':
-        const filteredStocks = articles.filter(art => 
-          art.name.toLowerCase().includes(stockSearchQuery.toLowerCase()) || 
-          (art.supplierRef && art.supplierRef.toLowerCase().includes(stockSearchQuery.toLowerCase()))
-        );
+      }
+      case 'stocks': {
+        const filteredStocks = articles.filter(art => {
+          const name = (art.name || '').toLowerCase();
+          const ref = (art.supplierRef || '').toLowerCase();
+          const supplierName = (art.supplierName || '').toLowerCase();
+          const q = stockSearchQuery.toLowerCase();
+          
+          const matchesSearch = name.includes(q) || ref.includes(q) || supplierName.includes(q);
+          const matchesSupplier = stockSupplierFilter === '' || art.supplierName === stockSupplierFilter;
+          const isLowStock = art.stock <= art.minStock;
+          
+          let matches = matchesSearch && matchesSupplier;
+          if (showLowStockOnly) matches = matches && isLowStock;
+          
+          return matches;
+        });
+
+        // Sorting
+        if (stockSort.column) {
+          filteredStocks.sort((a, b) => {
+            let valA, valB;
+            if (stockSort.column === 'valuation') {
+              const priceA = parseFloat(String(a.price || '0').replace('€', '').replace(',', '.').trim()) || 0;
+              const priceB = parseFloat(String(b.price || '0').replace('€', '').replace(',', '.').trim()) || 0;
+              valA = priceA * (a.stock || 0);
+              valB = priceB * (b.stock || 0);
+            } else if (stockSort.column === 'stock') {
+              valA = a.stock || 0;
+              valB = b.stock || 0;
+            } else if (stockSort.column === 'name') {
+              valA = (a.name || '').toLowerCase();
+              valB = (b.name || '').toLowerCase();
+            }
+
+            if (valA < valB) return stockSort.direction === 'asc' ? -1 : 1;
+            if (valA > valB) return stockSort.direction === 'asc' ? 1 : -1;
+            return 0;
+          });
+        }
+
+        const lowStockCount = articles.filter(a => a.stock <= a.minStock).length;
 
         return (
           <div className="page-content">
@@ -724,19 +804,76 @@ function App() {
                 )}
               </div>
               <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
-                <div className="input-group" style={{ margin: 0, width: '300px' }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', backgroundColor: showLowStockOnly ? 'var(--danger-light)' : 'rgba(0,0,0,0.03)', padding: '6px 12px', borderRadius: '8px', border: '1px solid', borderColor: showLowStockOnly ? 'var(--danger)' : 'var(--border)', transition: 'all 0.2s' }}>
+                  <input 
+                    type="checkbox" 
+                    checked={showLowStockOnly} 
+                    onChange={e => setShowLowStockOnly(e.target.checked)}
+                    style={{ cursor: 'pointer' }}
+                  />
+                  <span style={{ fontSize: '0.85rem', fontWeight: 600, color: showLowStockOnly ? 'var(--danger)' : 'var(--text)' }}>
+                    {showLowStockOnly ? `Bajo Stock (${lowStockCount})` : 'Bajo Stock'}
+                  </span>
+                </label>
+                
+                <div className="input-group" style={{ margin: 0, width: '220px' }}>
+                  <select 
+                    className="input-field"
+                    value={stockSupplierFilter}
+                    onChange={(e) => setStockSupplierFilter(e.target.value)}
+                  >
+                    <option value="">Todos los proveedores</option>
+                    {uniqueSuppliers.map(sup => (
+                      <option key={sup} value={sup}>{sup}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="input-group" style={{ margin: 0, width: '250px' }}>
                   <div style={{ position: 'relative' }}>
                     <Search size={18} style={{ position: 'absolute', left: '12px', top: '12px', color: 'var(--text-muted)' }} />
                     <input 
                       type="text" 
                       className="input-field" 
-                      placeholder="Buscar por artículo o referencia..." 
+                      placeholder="Buscar por nombre o ref..." 
                       style={{ paddingLeft: '40px' }} 
                       value={stockSearchQuery}
                       onChange={e => setStockSearchQuery(e.target.value)}
                     />
                   </div>
                 </div>
+                
+                {selectedStockArticles.length > 0 && (
+                  <button 
+                    className="btn btn-primary" 
+                    style={{ position: 'relative' }}
+                    onClick={() => {
+                      const selectedData = articles.filter(a => selectedStockArticles.includes(a.id));
+                      const suppliers = [...new Set(selectedData.map(a => a.supplierName))];
+                      
+                      if (suppliers.length > 1) {
+                        alert("Error: Debe realizar el pedido con un único proveedor. Por favor, seleccione artículos del mismo proveedor.");
+                        return;
+                      }
+                      
+                      const initialCart = selectedData.map(a => ({
+                        article: a,
+                        quantity: Math.max(1, (a.minStock || 0) - (a.stock || 0) + 5) // Sugerencia inteligente de reposición
+                      }));
+                      
+                      setInitialCartForOrder(initialCart);
+                      setDefaultSupplierForOrder(suppliers[0] || '');
+                      setEditingOrder(null); // Asegurar que no estamos editando otro
+                      setIsNewOrderModalOpen(true);
+                      setSelectedStockArticles([]);
+                      setActiveTab('pedidos'); // Ir a pedidos al abrir el modal
+                    }}
+                  >
+                    <ShoppingCart size={18} style={{ marginRight: '8px' }} /> 
+                    Crear Pedido ({selectedStockArticles.length})
+                  </button>
+                )}
+
                 <button className="btn btn-primary" onClick={() => setIsInventoryModalOpen(true)}>
                   <ClipboardList size={18} style={{ marginRight: '8px' }} /> Hacer Inventario
                 </button>
@@ -747,9 +884,39 @@ function App() {
               <table>
                 <thead>
                   <tr>
-                    <th>Artículo</th>
-                    <th>Categoría</th>
-                    <th>Stock Actual</th>
+                    <th style={{ width: '40px' }}>
+                      <input 
+                        type="checkbox" 
+                        checked={filteredStocks.length > 0 && selectedStockArticles.length === filteredStocks.length}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setSelectedStockArticles(filteredStocks.map(a => a.id));
+                          } else {
+                            setSelectedStockArticles([]);
+                          }
+                        }}
+                      />
+                    </th>
+                    <th 
+                      onClick={() => setStockSort(prev => ({ column: 'name', direction: prev.column === 'name' && prev.direction === 'desc' ? 'asc' : 'desc' }))}
+                      style={{ cursor: 'pointer' }}
+                    >
+                      Artículo <ArrowUpDown size={12} style={{ marginLeft: '4px', opacity: stockSort.column === 'name' ? 1 : 0.3 }} />
+                    </th>
+                    <th>Proveedor</th>
+                    <th>Ref. Prov.</th>
+                    <th 
+                      onClick={() => setStockSort(prev => ({ column: 'stock', direction: prev.column === 'stock' && prev.direction === 'desc' ? 'asc' : 'desc' }))}
+                      style={{ cursor: 'pointer' }}
+                    >
+                      Stock Actual <ArrowUpDown size={12} style={{ marginLeft: '4px', opacity: stockSort.column === 'stock' ? 1 : 0.3 }} />
+                    </th>
+                    <th 
+                      onClick={() => setStockSort(prev => ({ column: 'valuation', direction: prev.column === 'valuation' && prev.direction === 'desc' ? 'asc' : 'desc' }))}
+                      style={{ cursor: 'pointer', color: 'var(--primary)' }}
+                    >
+                      Valoración <ArrowUpDown size={12} style={{ marginLeft: '4px', opacity: stockSort.column === 'valuation' ? 1 : 0.3 }} />
+                    </th>
                     <th>Stock Mínimo</th>
                     <th>Estado</th>
                   </tr>
@@ -757,21 +924,72 @@ function App() {
                 <tbody>
                   {filteredStocks.map(art => {
                     const status = art.stock > art.minStock ? 'Óptimo' : 'Bajo Stock';
+                    const isSelected = selectedStockArticles.includes(art.id);
                     return (
-                      <tr key={art.id}>
+                      <tr key={art.id} style={{ backgroundColor: isSelected ? 'rgba(0,118,206,0.05)' : 'transparent' }}>
+                        <td>
+                          <input 
+                            type="checkbox" 
+                            checked={isSelected}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setSelectedStockArticles([...selectedStockArticles, art.id]);
+                              } else {
+                                setSelectedStockArticles(selectedStockArticles.filter(id => id !== art.id));
+                              }
+                            }}
+                          />
+                        </td>
                         <td>
                           <div 
                             style={{ fontWeight: 600, cursor: 'pointer', color: 'var(--secondary)' }} 
                             onClick={() => openArticleModal(art)}
-                            onMouseOver={(e) => e.currentTarget.style.textDecoration = 'underline'}
-                            onMouseOut={(e) => e.currentTarget.style.textDecoration = 'none'}
                           >
                             {art.name}
                           </div>
-                          {art.description && <div style={{ fontSize: '0.8rem', color: 'var(--primary)', fontWeight: 500 }}>{art.description}</div>}
+                          {art.description && <div style={{ fontSize: '0.75rem', color: 'var(--primary)', fontWeight: 500 }}>{art.description}</div>}
                         </td>
-                        <td>{art.category}</td>
-                        <td style={{ fontWeight: 'bold' }}>{art.stock || 0}</td>
+                        <td>{art.supplierName}</td>
+                        <td><span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>{art.supplierRef}</span></td>
+                        <td style={{ textAlign: 'center' }}>
+                          <input 
+                            type="number"
+                            min="0"
+                            className="input-field"
+                            style={{ 
+                              width: '65px', 
+                              textAlign: 'center', 
+                              padding: '4px', 
+                              margin: '0 auto',
+                              fontWeight: '700',
+                              color: 'var(--primary)',
+                              fontSize: '1rem',
+                              border: '1px solid var(--border)',
+                              borderRadius: '4px',
+                              backgroundColor: 'transparent'
+                            }}
+                            defaultValue={art.stock || 0}
+                            key={`${art.id}-${art.stock}`}
+                            onBlur={(e) => {
+                              const newVal = parseInt(e.target.value, 10);
+                              if (!isNaN(newVal) && newVal !== (art.stock || 0)) {
+                                handleQuickStockChange(art.id, newVal - (art.stock || 0));
+                              }
+                            }}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') {
+                                e.target.blur();
+                              }
+                            }}
+                          />
+                        </td>
+                        <td style={{ fontWeight: 600, color: 'var(--primary)' }}>
+                          {(() => {
+                            const priceStr = art.price ? String(art.price) : '0';
+                            const priceVal = parseFloat(priceStr.replace('€', '').replace(',', '.').trim()) || 0;
+                            return (priceVal * (art.stock || 0)).toLocaleString('es-ES', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + ' €';
+                          })()}
+                        </td>
                         <td>{art.minStock}</td>
                         <td>
                           <span className={`badge ${status === 'Óptimo' ? 'badge-success' : 'badge-danger'}`}>
@@ -783,7 +1001,7 @@ function App() {
                   })}
                   {filteredStocks.length === 0 && (
                     <tr>
-                      <td colSpan="5" style={{ textAlign: 'center', padding: '32px', color: 'var(--text-muted)' }}>
+                      <td colSpan="8" style={{ textAlign: 'center', padding: '32px', color: 'var(--text-muted)' }}>
                         No se han encontrado artículos con el filtro actual.
                       </td>
                     </tr>
@@ -793,7 +1011,8 @@ function App() {
             </div>
           </div>
         );
-      case 'articulos':
+      }
+      case 'articulos': {
         return (
           <div className="page-content">
             <div className="flex-between" style={{ marginBottom: '24px' }}>
@@ -903,17 +1122,17 @@ function App() {
                       <td>{art.id}</td>
                       <td>
                         <div style={{ fontWeight: 600 }}>{art.name}</div>
-                        {art.description && <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{art.description}</div>}
+                        {art.description && <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{art.description}</div>}
                       </td>
                       <td>{art.category}</td>
                       <td>{art.supplierName}</td>
                       <td><span style={{color: 'var(--text-muted)', fontSize: '0.9em'}}>{art.supplierRef}</span></td>
-                      <td>{art.price}</td>
+                      <td style={{ fontWeight: 600 }}>{formatInEuros(art.price)}</td>
                       <td style={{ textAlign: 'right' }}>
                         <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
                           <button 
                             className="btn btn-secondary" 
-                            style={{ padding: '6px', fontSize: '0.8rem', color: 'var(--primary)' }}
+                            style={{ padding: '6px', fontSize: '0.75rem', color: 'var(--primary)' }}
                             title="Editar"
                             onClick={() => openArticleModal(art)}
                           >
@@ -921,7 +1140,7 @@ function App() {
                           </button>
                           <button 
                             className="btn btn-secondary" 
-                            style={{ padding: '6px', fontSize: '0.8rem', color: 'var(--danger)', border: 'none' }}
+                            style={{ padding: '6px', fontSize: '0.75rem', color: 'var(--danger)', border: 'none' }}
                             title="Eliminar"
                             onClick={() => handleDeleteArticle(art.id)}
                           >
@@ -942,7 +1161,8 @@ function App() {
             </div>
           </div>
         );
-      case 'proveedores':
+      }
+      case 'proveedores': {
         return (
           <div className="page-content">
             <div className="flex-between" style={{ marginBottom: '24px' }}>
@@ -976,9 +1196,25 @@ function App() {
                     return (
                       <tr key={prov.id}>
                         <td>{prov.id}</td>
-                        <td style={{ fontWeight: '600' }}>{prov.name}</td>
-                        <td style={{ textAlign: 'center' }}>
-                          <span className={`badge ${articleCount > 0 ? 'badge-info' : 'badge-secondary'}`} style={{ fontSize: '0.9rem', padding: '4px 12px' }}>
+                        <td 
+                          style={{ fontWeight: '600', cursor: 'pointer', color: 'var(--primary)', textDecoration: 'underline' }}
+                          onClick={() => {
+                            setArticleSupplier(prov.name);
+                            setActiveTab('articulos');
+                          }}
+                          title={`Ver catálogo de ${prov.name}`}
+                        >
+                          {prov.name}
+                        </td>
+                        <td 
+                          style={{ textAlign: 'center', cursor: 'pointer' }}
+                          onClick={() => {
+                            setArticleSupplier(prov.name);
+                            setActiveTab('articulos');
+                          }}
+                          title={`Ver artículos de ${prov.name}`}
+                        >
+                          <span className={`badge ${articleCount > 0 ? 'badge-info' : 'badge-secondary'}`} style={{ fontSize: '0.85rem', padding: '4px 12px' }}>
                             {articleCount}
                           </span>
                         </td>
@@ -989,7 +1225,7 @@ function App() {
                           <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
                             <button 
                               className="btn btn-primary" 
-                              style={{ padding: '6px 10px', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '4px' }}
+                              style={{ padding: '6px 10px', fontSize: '0.75rem', display: 'flex', alignItems: 'center', gap: '4px' }}
                               onClick={() => {
                                 setDefaultSupplierForOrder(prov.name);
                                 setIsNewOrderModalOpen(true);
@@ -999,7 +1235,7 @@ function App() {
                             </button>
                             <button 
                               className="btn btn-secondary" 
-                              style={{ padding: '6px', fontSize: '0.8rem', color: 'var(--primary)' }}
+                              style={{ padding: '6px', fontSize: '0.75rem', color: 'var(--primary)' }}
                               title="Editar Proveedor"
                               onClick={() => openSupplierModal(prov)}
                             >
@@ -1009,7 +1245,7 @@ function App() {
                               className="btn btn-secondary" 
                               style={{ 
                                 padding: '6px', 
-                                fontSize: '0.8rem', 
+                                fontSize: '0.75rem', 
                                 color: 'var(--danger)',
                                 border: 'none'
                               }}
@@ -1028,10 +1264,7 @@ function App() {
             </div>
           </div>
         );
-      case 'analisis':
-        return (
-          <Dashboard orders={orders} articles={articles} />
-        );
+      }
       default:
         return null;
     }
@@ -1087,7 +1320,7 @@ function App() {
       <main className="main-content">
         <header className="header">
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <span style={{ color: 'var(--text-muted)', fontSize: '0.9rem', fontWeight: 500 }}>
+            <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem', fontWeight: 500 }}>
               HSLAB / {
                 activeTab === 'pedidos' ? 'Gestión de Pedidos' : 
                 activeTab === 'stocks' ? 'Control de Stocks' :
@@ -1179,7 +1412,23 @@ function App() {
                 </div>
                 <div className="input-group">
                   <label className="input-label">Identificador (Ref ID)</label>
-                  <input type="text" name="id" className="input-field" defaultValue={editingArticle?.id || ''} readOnly={!!editingArticle} required style={editingArticle ? { backgroundColor: '#F8FAFC', cursor: 'not-allowed' } : {}} />
+                  <input 
+                    type="text" 
+                    name="id" 
+                    className="input-field" 
+                    defaultValue={editingArticle?.id || generatedArticleId} 
+                    readOnly 
+                    required 
+                    style={{ backgroundColor: '#F8FAFC', cursor: 'pointer' }} 
+                    onClick={() => {
+                        if (!editingArticle) {
+                            const newId = 'REF-' + Math.floor(Math.random() * 90000 + 10000);
+                            setGeneratedArticleId(newId);
+                            // We don't auto-set supplierRef here yet, wait for supplier confirmation if it's new
+                        }
+                    }}
+                    title={!editingArticle ? "Haga clic para regenerar" : ""}
+                  />
                 </div>
               </div>
 
@@ -1190,26 +1439,66 @@ function App() {
                     type="text" 
                     name="supplierName" 
                     className="input-field" 
-                    defaultValue={editingArticle?.supplierName || ''} 
+                    value={articleModalSupplier} 
+                    onChange={e => setArticleModalSupplier(e.target.value)}
                     required 
                     list="suppliers-list"
                     placeholder="Escriba o elija..."
+                    style={!uniqueSuppliers.some(s => s.toLowerCase() === articleModalSupplier.toLowerCase()) && articleModalSupplier.length > 2 ? { borderColor: '#EAB308', backgroundColor: 'rgba(234, 179, 8, 0.05)' } : {}}
                   />
                   <datalist id="suppliers-list">
                     {uniqueSuppliers.map(sup => <option key={sup} value={sup} />)}
                   </datalist>
+                  {!uniqueSuppliers.some(s => s.toLowerCase() === articleModalSupplier.toLowerCase()) && articleModalSupplier.length > 2 && (
+                    <div style={{ marginTop: '8px', padding: '10px', backgroundColor: 'rgba(234, 179, 8, 0.1)', border: '1px solid #EAB308', borderRadius: '6px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <span style={{ fontSize: '0.8rem', color: '#854d0e', fontWeight: 600 }}>
+                        ¿Proveedor no dado de alta?
+                      </span>
+                      <button 
+                        type="button" 
+                        className="btn" 
+                        style={{ padding: '6px 12px', fontSize: '0.75rem', backgroundColor: '#EAB308', color: 'white', border: 'none', borderRadius: '4px', fontWeight: 'bold', cursor: 'pointer' }}
+                        onClick={() => openSupplierModal({ name: articleModalSupplier, id: `PROV-${Math.floor(Math.random()*10000)}` })}
+                      >
+                        Sí, dar de alta nuevo
+                      </button>
+                    </div>
+                  )}
                 </div>
                 <div className="input-group">
                   <label className="input-label">Ref. Proveedor</label>
-                  <input type="text" name="supplierRef" className="input-field" defaultValue={editingArticle?.supplierRef || ''} required />
+                  <input 
+                    type="text" 
+                    name="supplierRef" 
+                    className="input-field" 
+                    value={articleModalSupplierRef} 
+                    onChange={e => setArticleModalSupplierRef(e.target.value)}
+                    required 
+                    placeholder="Auto-completado con ID si es nuevo..."
+                  />
                 </div>
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '20px' }}>
                 <div className="input-group">
                   <label className="input-label">Precio Est.</label>
-                  <div style={{ position: 'relative' }}>
-                    <input type="text" name="price" className="input-field" defaultValue={editingArticle?.price || ''} required style={{ paddingRight: '30px' }} />
+                   <div style={{ position: 'relative' }}>
+                    <input 
+                      type="text" 
+                      name="price" 
+                      className="input-field" 
+                      defaultValue={editingArticle?.price || ''} 
+                      required 
+                      style={{ paddingRight: '30px' }} 
+                      placeholder="0,00"
+                      onBlur={(e) => {
+                        const val = e.target.value.replace('€', '').replace(',', '.').trim();
+                        const num = parseFloat(val);
+                        if (!isNaN(num)) {
+                          e.target.value = num.toLocaleString('es-ES', { minimumFractionDigits: 2 });
+                        }
+                      }}
+                    />
                   </div>
                 </div>
                 <div className="input-group">
@@ -1239,11 +1528,13 @@ function App() {
         onClose={() => {
           setIsNewOrderModalOpen(false);
           setDefaultSupplierForOrder('');
+          setInitialCartForOrder([]);
           setEditingOrder(null);
         }}
         articles={articles}
         suppliers={suppliers}
-        defaultSupplier={defaultSupplierForOrder}
+        defaultSupplierForOrder={defaultSupplierForOrder}
+        initialCart={initialCartForOrder}
         onSaveOrder={handleSaveOrder}
         editingOrder={editingOrder}
       />
@@ -1316,7 +1607,7 @@ function App() {
               </button>
             </div>
             
-            <p style={{ fontSize: '0.9rem', color: 'var(--text-muted)', marginBottom: '20px' }}>
+            <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '20px' }}>
               Modificando <strong>{selectedArticles.length}</strong> artículos seleccionados.
             </p>
 
@@ -1335,6 +1626,16 @@ function App() {
             </div>
 
             <div className="input-group">
+              <label className="input-label">Cambiar Descripción a:</label>
+              <input 
+                placeholder="Dejar vacío para no cambiar"
+                className="input-field"
+                value={bulkEditFields.description}
+                onChange={e => setBulkEditFields({ ...bulkEditFields, description: e.target.value })}
+              />
+            </div>
+
+            <div className="input-group">
               <label className="input-label">Cambiar Proveedor a:</label>
               <input 
                 placeholder="Dejar vacío para no cambiar"
@@ -1348,38 +1649,67 @@ function App() {
               </datalist>
             </div>
 
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '24px' }}>
-              <button className="btn btn-secondary" onClick={() => setIsBulkEditOpen(false)}>Cancelar</button>
+            <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontStyle: 'italic', marginBottom: '20px' }}>
+              * Tip: Usa un asterisco <strong>(*)</strong> en cualquier campo para borrar su contenido actual en todos los artículos.
+            </p>
+
+            <div style={{ display: 'flex', justifyContent: 'space-between', gap: '12px', marginTop: '24px' }}>
               <button 
-                className="btn btn-primary" 
+                className="btn btn-secondary" 
+                style={{ color: 'var(--danger)', borderColor: 'var(--danger)' }}
                 onClick={async () => {
-                  const updates = {};
-                  if (bulkEditFields.category) updates.category = bulkEditFields.category;
-                  if (bulkEditFields.supplierName) updates.supplierName = bulkEditFields.supplierName;
-                  
-                  if (Object.keys(updates).length > 0) {
-                    const { error } = await supabase.from('articles').update(updates).in('id', selectedArticles);
+                  if (window.confirm(`¿Estás seguro de que deseas eliminar los ${selectedArticles.length} artículos seleccionados de forma permanente?`)) {
+                    const { error } = await supabase.from('articles').delete().in('id', selectedArticles);
                     if (!error) {
-                      // If supplier was changed, ensure it exists in the suppliers table
-                      if (updates.supplierName) {
-                        const exists = suppliers.some(s => s.name.toLowerCase() === updates.supplierName.toLowerCase());
-                        if (!exists) {
-                          const newId = `PROV-${Math.floor(Math.random() * 10000).toString().padStart(4, '0')}`;
-                          await supabase.from('suppliers').insert({ id: newId, name: updates.supplierName });
-                          await fetchSuppliers();
-                        }
-                      }
-                      
                       await fetchArticles();
                       setIsBulkEditOpen(false);
                       setSelectedArticles([]);
-                      setBulkEditFields({ category: '', supplierName: '' });
+                    } else {
+                      alert("Error al eliminar artículos: " + error.message);
                     }
                   }
                 }}
               >
-                Aplicar Cambios
+                Eliminar Selección
               </button>
+              <div style={{ display: 'flex', gap: '12px' }}>
+                <button className="btn btn-secondary" onClick={() => {
+                   setIsBulkEditOpen(false);
+                   setBulkEditFields({ category: '', supplierName: '', description: '' });
+                }}>Cancelar</button>
+                <button
+                  className="btn btn-primary"
+                  onClick={async () => {
+                    const resolveValue = (val) => val === '*' ? '' : val;
+                    const updates = {};
+                    if (bulkEditFields.category) updates.category = resolveValue(bulkEditFields.category);
+                    if (bulkEditFields.supplierName) updates.supplierName = resolveValue(bulkEditFields.supplierName);
+                    if (bulkEditFields.description) updates.description = resolveValue(bulkEditFields.description);
+
+                    if (Object.keys(updates).length > 0) {
+                      const { error } = await supabase.from('articles').update(updates).in('id', selectedArticles);
+                      if (!error) {
+                        // If supplier was changed and not cleared, ensure it exists in the suppliers table
+                        if (updates.supplierName) {
+                          const exists = suppliers.some(s => s.name.toLowerCase() === updates.supplierName.toLowerCase());
+                          if (!exists) {
+                            const newId = `PROV-${Math.floor(Math.random() * 10000).toString().padStart(4, '0')}`;
+                            await supabase.from('suppliers').insert({ id: newId, name: updates.supplierName });
+                            await fetchSuppliers();
+                          }
+                        }
+
+                        await fetchArticles();
+                        setIsBulkEditOpen(false);
+                        setSelectedArticles([]);
+                        setBulkEditFields({ category: '', supplierName: '', description: '' });
+                      }
+                    }
+                  }}
+                >
+                  Aplicar Cambios
+                </button>
+              </div>
             </div>
           </div>
         </div>

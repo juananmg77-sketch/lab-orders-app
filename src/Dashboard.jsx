@@ -23,21 +23,26 @@ import {
   Download,
   Search,
   ArrowUpRight,
-  ArrowDownRight
+  ArrowDownRight,
+  Check
 } from 'lucide-react';
 
 const COLORS = ['#0076CE', '#34D399', '#FBBF24', '#F87171', '#818CF8', '#A78BFA'];
 
-export default function Dashboard({ orders, articles }) {
+export default function Dashboard({ orders, articles, onTabChange }) {
   const [dateRange, setDateRange] = useState({ start: '', end: '' });
-  const [selectedSupplier, setSelectedSupplier] = useState('Todos');
+  const [spendingSupplier, setSpendingSupplier] = useState('Todos');
+  const [stockSupplier, setStockSupplier] = useState('Todos');
   const [searchRef, setSearchRef] = useState('');
+  const [statusFilter, setStatusFilter] = useState('Todos');
 
   // 1. Process and Filter Data
   const filteredData = useMemo(() => {
     return orders.filter(order => {
-      // Only completed or incomplete orders (those with actual purchases)
-      if (order.status === 'Pendiente') return false;
+      // Manage status filter
+      if (statusFilter !== 'Todos' && order.status !== statusFilter) {
+        return false;
+      }
 
       const orderDate = order.date.includes('-') 
         ? new Date(order.date) 
@@ -46,11 +51,11 @@ export default function Dashboard({ orders, articles }) {
       const matchesDate = (!dateRange.start || orderDate >= new Date(dateRange.start)) &&
                          (!dateRange.end || orderDate <= new Date(dateRange.end));
       
-      const matchesSupplier = selectedSupplier === 'Todos' || order.supplier === selectedSupplier;
+      const matchesSupplier = spendingSupplier === 'Todos' || order.supplier === spendingSupplier;
 
       return matchesDate && matchesSupplier;
     });
-  }, [orders, dateRange, selectedSupplier]);
+  }, [orders, dateRange, spendingSupplier, statusFilter]);
 
   // 2. Aggregate Stats
   const stats = useMemo(() => {
@@ -76,9 +81,11 @@ export default function Dashboard({ orders, articles }) {
       // Reference aggregate
       if (order.cart) {
         order.cart.forEach(item => {
+          if (!item.article) return;
+          
           const ref = item.article.id;
           const qty = item.quantity || 0;
-          const priceStr = String(item.article.price).replace('€', '').replace(',', '.').trim();
+          const priceStr = String(item.article.price || '0').replace('€', '').replace(',', '.').trim();
           const price = parseFloat(priceStr) || 0;
           const subtotal = price * qty;
 
@@ -118,6 +125,18 @@ export default function Dashboard({ orders, articles }) {
       .map(([month, value]) => ({ month, value }))
       .sort((a, b) => a.month.localeCompare(b.month));
 
+    // Calculo de valoración de stock actual (según el proveedor seleccionado para STOCK)
+    const currentStockValuation = articles
+      .filter(art => stockSupplier === 'Todos' || art.supplierName === stockSupplier)
+      .reduce((sum, art) => {
+        const priceStr = String(art.price || '0').replace('€', '').replace(',', '.').trim();
+        const priceVal = parseFloat(priceStr) || 0;
+        return sum + (priceVal * (art.stock || 0));
+      }, 0);
+
+    const pendingOrdersCount = orders.filter(o => o.status === 'Pendiente').length;
+    const finishedOrdersCount = orders.filter(o => o.status !== 'Pendiente').length;
+
     return {
       totalSpent,
       totalOrders: filteredData.length,
@@ -125,13 +144,19 @@ export default function Dashboard({ orders, articles }) {
       uniqueRefs: refMap.size,
       refStats,
       supplierChartData,
-      monthlyChartData
+      monthlyChartData,
+      currentStockValuation,
+      pendingOrdersCount,
+      finishedOrdersCount
     };
-  }, [filteredData, searchRef]);
+  }, [filteredData, searchRef, articles, stockSupplier, orders]);
 
   const uniqueSuppliers = useMemo(() => {
-    return ['Todos', ...new Set(orders.map(o => o.supplier))];
-  }, [orders]);
+    const fromOrders = orders.map(o => o.supplier);
+    const fromArticles = articles.filter(a => a && a.supplierName).map(a => a.supplierName);
+    const combined = [...new Set([...fromOrders, ...fromArticles].filter(Boolean))];
+    return ['Todos', ...combined.sort((a, b) => a.localeCompare(b))];
+  }, [orders, articles]);
 
   return (
     <div className="page-content" style={{ paddingBottom: '40px' }}>
@@ -149,9 +174,18 @@ export default function Dashboard({ orders, articles }) {
 
       {/* Filters Bar */}
       <div className="card" style={{ marginBottom: '24px', padding: '16px', display: 'flex', gap: '20px', alignItems: 'flex-end', flexWrap: 'wrap' }}>
-        <div className="input-group" style={{ margin: 0, minWidth: '200px' }}>
+        <div className="input-group" style={{ margin: 0, minWidth: '160px' }}>
+          <label className="input-label" style={{ fontSize: '0.8rem' }}>Estado Pedidos</label>
+          <select className="input-field" value={statusFilter} onChange={e => setStatusFilter(e.target.value)}>
+            <option value="Todos">Todos</option>
+            <option value="Completado">Completados</option>
+            <option value="Incompleto">Incompletos</option>
+            <option value="Pendiente">Pendientes</option>
+          </select>
+        </div>
+        <div className="input-group" style={{ margin: 0, minWidth: '180px' }}>
           <label className="input-label" style={{ fontSize: '0.8rem' }}>Proveedor</label>
-          <select className="input-field" value={selectedSupplier} onChange={e => setSelectedSupplier(e.target.value)}>
+          <select className="input-field" value={spendingSupplier} onChange={e => setSpendingSupplier(e.target.value)}>
             {uniqueSuppliers.map(s => <option key={s} value={s}>{s}</option>)}
           </select>
         </div>
@@ -164,7 +198,7 @@ export default function Dashboard({ orders, articles }) {
           <input type="date" className="input-field" value={dateRange.end} onChange={e => setDateRange({ ...dateRange, end: e.target.value })} />
         </div>
         <div className="input-group" style={{ margin: 0, flex: 1, minWidth: '250px' }}>
-          <label className="input-label" style={{ fontSize: '0.8rem' }}>Buscar Referencia</label>
+          <label className="input-label" style={{ fontSize: '0.8rem' }}>Buscar Referencia (En histórico)</label>
           <div style={{ position: 'relative' }}>
             <Search size={16} style={{ position: 'absolute', left: '12px', top: '12px', color: 'var(--text-muted)' }} />
             <input 
@@ -186,38 +220,66 @@ export default function Dashboard({ orders, articles }) {
             <DollarSign size={24} />
           </div>
           <div>
-            <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', fontWeight: 500 }}>Inversión Total</div>
-            <div style={{ fontSize: '1.5rem', fontWeight: 700 }}>{stats.totalSpent.toLocaleString('es-ES', { minimumFractionDigits: 2 })} €</div>
+            <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', fontWeight: 500 }}>Gasto total</div>
+            <div style={{ fontSize: '1.5rem', fontWeight: 700 }}>{stats.totalSpent.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €</div>
           </div>
         </div>
 
-        <div className="card" style={{ padding: '20px', display: 'flex', alignItems: 'center', gap: '16px' }}>
-          <div style={{ width: '48px', height: '48px', borderRadius: '12px', backgroundColor: 'rgba(52, 211, 153, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#10B981' }}>
-            <Package size={24} />
-          </div>
-          <div>
-            <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', fontWeight: 500 }}>Items Comprados</div>
-            <div style={{ fontSize: '1.5rem', fontWeight: 700 }}>{stats.totalItemsPurchased}</div>
-          </div>
-        </div>
-
-        <div className="card" style={{ padding: '20px', display: 'flex', alignItems: 'center', gap: '16px' }}>
+        <div 
+          className="card" 
+          style={{ padding: '20px', display: 'flex', alignItems: 'center', gap: '16px', cursor: 'pointer', transition: 'all 0.2s', border: '1px solid transparent' }}
+          onClick={() => onTabChange && onTabChange('pedidos')}
+          onMouseEnter={(e) => e.currentTarget.style.borderColor = 'var(--primary)'}
+          onMouseLeave={(e) => e.currentTarget.style.borderColor = 'transparent'}
+        >
           <div style={{ width: '48px', height: '48px', borderRadius: '12px', backgroundColor: 'rgba(251, 191, 36, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#F59E0B' }}>
-            <TrendingUp size={24} />
-          </div>
-          <div>
-            <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', fontWeight: 500 }}>Pedidos Finalizados</div>
-            <div style={{ fontSize: '1.5rem', fontWeight: 700 }}>{stats.totalOrders}</div>
-          </div>
-        </div>
-
-        <div className="card" style={{ padding: '20px', display: 'flex', alignItems: 'center', gap: '16px' }}>
-          <div style={{ width: '48px', height: '48px', borderRadius: '12px', backgroundColor: 'rgba(129, 140, 248, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#6366F1' }}>
             <Calendar size={24} />
           </div>
-          <div>
-            <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', fontWeight: 500 }}>Ref. Únicas</div>
-            <div style={{ fontSize: '1.5rem', fontWeight: 700 }}>{stats.uniqueRefs}</div>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', fontWeight: 500 }}>Pedidos Pendientes</div>
+            <div style={{ fontSize: '1.5rem', fontWeight: 700 }}>{stats.pendingOrdersCount}</div>
+          </div>
+          <ArrowUpRight size={16} color="var(--text-muted)" />
+        </div>
+
+        <div 
+          className="card" 
+          style={{ padding: '20px', display: 'flex', alignItems: 'center', gap: '16px', cursor: 'pointer', transition: 'all 0.2s', border: '1px solid transparent' }}
+          onClick={() => onTabChange && onTabChange('pedidos')}
+          onMouseEnter={(e) => e.currentTarget.style.borderColor = 'var(--primary)'}
+          onMouseLeave={(e) => e.currentTarget.style.borderColor = 'transparent'}
+        >
+          <div style={{ width: '48px', height: '48px', borderRadius: '12px', backgroundColor: 'rgba(52, 211, 153, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#10B981' }}>
+            <Check size={24} />
+          </div>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', fontWeight: 500 }}>Pedidos Finalizados</div>
+            <div style={{ fontSize: '1.5rem', fontWeight: 700 }}>{stats.finishedOrdersCount}</div>
+          </div>
+          <ArrowUpRight size={16} color="var(--text-muted)" />
+        </div>
+
+        <div>
+          <div className="input-group" style={{ marginBottom: '8px' }}>
+            <select 
+              className="input-field" 
+              value={stockSupplier} 
+              onChange={e => setStockSupplier(e.target.value)}
+              style={{ padding: '8px 12px', fontSize: '0.85rem', height: 'auto', backgroundColor: 'var(--surface)' }}
+            >
+              <option value="Todos">Ver Valoración Global...</option>
+              {uniqueSuppliers.filter(s => s !== 'Todos').map(s => <option key={s} value={s}>{s}</option>)}
+            </select>
+          </div>
+          <div className="card" style={{ padding: '20px', display: 'flex', alignItems: 'center', gap: '16px', border: '1px solid var(--primary)', backgroundColor: 'var(--primary-light)', margin: 0 }}>
+            <div style={{ width: '36px', height: '36px', borderRadius: '10px', backgroundColor: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white' }}>
+              <Package size={18} />
+            </div>
+            <div>
+              <div style={{ fontSize: '0.75rem', color: 'var(--primary)', fontWeight: 600 }}>Valor Stock en Almacén</div>
+              <div style={{ fontSize: '1.35rem', fontWeight: 800, color: 'var(--primary)' }}>{stats.currentStockValuation.toLocaleString('es-ES', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} €</div>
+              <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>{stockSupplier === 'Todos' ? 'Total Catálogo' : `Filtrado por "${stockSupplier}"`}</div>
+            </div>
           </div>
         </div>
       </div>
@@ -283,7 +345,7 @@ export default function Dashboard({ orders, articles }) {
                 <th>Proveedor</th>
                 <th style={{ textAlign: 'center' }}>Cant. Total</th>
                 <th style={{ textAlign: 'right' }}>Precio Medio</th>
-                <th style={{ textAlign: 'right' }}>Inversión Total</th>
+                <th style={{ textAlign: 'right' }}>Gasto total</th>
               </tr>
             </thead>
             <tbody>
@@ -295,9 +357,9 @@ export default function Dashboard({ orders, articles }) {
                   <td style={{ textAlign: 'center' }}>
                     <span className="badge badge-info" style={{ minWidth: '40px' }}>{ref.totalQty}</span>
                   </td>
-                  <td style={{ textAlign: 'right' }}>{ref.avgPrice.toFixed(2)} €</td>
+                  <td style={{ textAlign: 'right' }}>{ref.avgPrice.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €</td>
                   <td style={{ textAlign: 'right', fontWeight: 600, color: 'var(--primary)' }}>
-                    {ref.totalCost.toLocaleString('es-ES', { minimumFractionDigits: 2 })} €
+                    {ref.totalCost.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
                   </td>
                 </tr>
               ))}

@@ -3,37 +3,60 @@ import { X, ShoppingCart, Send, FileText, Trash2, Plus } from 'lucide-react';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
-export default function NewOrderModal({ isOpen, onClose, articles, suppliers, defaultSupplier, onSaveOrder, editingOrder }) {
+export default function NewOrderModal({ isOpen, onClose, onSaveOrder, suppliers, articles, editingOrder, defaultSupplierForOrder, initialCart = [] }) {
   const [selectedSupplierName, setSelectedSupplierName] = useState('');
   const [cart, setCart] = useState([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [articleSearch, setArticleSearch] = useState('');
   const [articleCategory, setArticleCategory] = useState('');
+  const [suggestedCart, setSuggestedCart] = useState([]);
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (isOpen) {
       if (editingOrder) {
         setSelectedSupplierName(editingOrder.supplier);
         setCart(editingOrder.cart || []);
+        setSuggestedCart([]);
       } else {
-        setSelectedSupplierName(defaultSupplier || '');
-        setCart([]);
+        setSelectedSupplierName(defaultSupplierForOrder || '');
+        // Cuando entramos con una selección (de stocks), la dejamos como sugerencia
+        // Pero no la añadimos al carrito directamente hasta que el usuario confirme
+        if (initialCart.length > 0) {
+          setSuggestedCart(initialCart);
+          setCart([]);
+        } else {
+          setSuggestedCart([]);
+          setCart([]);
+        }
       }
       setArticleSearch('');
       setArticleCategory('');
     }
-  }, [isOpen, defaultSupplier, editingOrder]);
+  }, [isOpen, editingOrder, defaultSupplierForOrder, initialCart]);
 
   // Get selected supplier object
   const supplier = useMemo(() => 
     suppliers.find(s => s.name === selectedSupplierName), 
   [selectedSupplierName, suppliers]);
 
-  // Derive unique suppliers from articles to ensure they are always in sync
-  const allSupplierNamesFromArticles = useMemo(() => {
-    const names = [...new Set(articles.map(a => a.supplierName).filter(Boolean))];
-    return names.sort((a, b) => a.localeCompare(b));
-  }, [articles]);
+  // Derive unique suppliers from both the suppliers table and articles
+  const allSupplierNames = useMemo(() => {
+    const fromArticles = articles.filter(a => a && a.supplierName).map(a => a.supplierName);
+    const fromSuppliers = suppliers.filter(s => s && s.name).map(s => s.name);
+    const combined = [...new Set([...fromArticles, ...fromSuppliers])];
+    
+    // Case-insensitive uniqueness
+    const seen = new Set();
+    const unique = [];
+    combined.forEach(name => {
+      const lower = name.toLowerCase();
+      if (!seen.has(lower)) {
+        seen.add(lower);
+        unique.push(name);
+      }
+    });
+    return unique.sort((a, b) => a.localeCompare(b));
+  }, [articles, suppliers]);
 
   const uniqueCategories = useMemo(() => {
     const suppArticles = selectedSupplierName ? articles.filter(a => a.supplierName === selectedSupplierName) : articles;
@@ -44,8 +67,8 @@ export default function NewOrderModal({ isOpen, onClose, articles, suppliers, de
   const availableArticles = useMemo(() => {
     return articles.filter(a => {
       const matchSupplier = selectedSupplierName === '' || a.supplierName === selectedSupplierName;
-      const matchSearch = a.name.toLowerCase().includes(articleSearch.toLowerCase()) || 
-                          a.id.toLowerCase().includes(articleSearch.toLowerCase());
+      const matchSearch = (a.name || '').toLowerCase().includes(articleSearch.toLowerCase()) || 
+                          ((a.supplierRef || a.id || '').toLowerCase().includes(articleSearch.toLowerCase()));
       const matchCategory = articleCategory === '' || a.category === articleCategory;
       return matchSupplier && matchSearch && matchCategory;
     });
@@ -55,12 +78,19 @@ export default function NewOrderModal({ isOpen, onClose, articles, suppliers, de
     const qty = parseInt(qtyStr, 10);
     if (!qty || qty <= 0) return;
 
+    const article = articles.find(a => a.id === articleId);
+    if (!article) return;
+
+    // Use article's supplierName if none is selected yet
+    if (!selectedSupplierName && article.supplierName) {
+      setSelectedSupplierName(article.supplierName);
+    }
+
     setCart(prev => {
       const existing = prev.find(item => item.article.id === articleId);
       if (existing) {
         return prev.map(item => item.article.id === articleId ? { ...item, quantity: item.quantity + qty } : item);
       } else {
-        const article = availableArticles.find(a => a.id === articleId);
         return [...prev, { article, quantity: qty }];
       }
     });
@@ -79,13 +109,13 @@ export default function NewOrderModal({ isOpen, onClose, articles, suppliers, de
   };
 
   const getOrderData = () => {
-    const orderSupplierName = selectedSupplierName || (cart.length > 0 ? cart[0].article.supplierName : 'Proveedor Desconocido');
+    const orderSupplierName = selectedSupplierName || (cart.length > 0 ? cart[0].article.supplierName : '');
     const orderRef = editingOrder ? editingOrder.id : `ORD-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${Math.floor(Math.random() * 10000)}`;
     
     return {
       id: orderRef,
       date: new Date().toLocaleDateString(),
-      supplier: orderSupplierName,
+      supplier: orderSupplierName || 'Proveedor Desconocido',
       items: cart.length,
       cart: cart,
       total: calculateTotal(),
@@ -146,6 +176,12 @@ export default function NewOrderModal({ isOpen, onClose, articles, suppliers, de
   const handleSaveOnly = () => {
     if (cart.length === 0) return;
     const orderData = getOrderData();
+
+    if (orderData.supplier === 'Proveedor Desconocido') {
+      alert("Error: No se ha podido determinar el proveedor del pedido. Seleccione uno de la lista superior.");
+      return;
+    }
+
     onSaveOrder(orderData);
     setCart([]);
     onClose();
@@ -154,6 +190,12 @@ export default function NewOrderModal({ isOpen, onClose, articles, suppliers, de
   const handleGeneratePDFOnly = () => {
     if (cart.length === 0) return;
     const orderData = getOrderData();
+
+    if (orderData.supplier === 'Proveedor Desconocido') {
+      alert("Error: No se ha podido determinar el proveedor del pedido.");
+      return;
+    }
+
     const doc = createPDF(orderData.id, orderData.supplier);
     const filename = `Pedido_${orderData.id}_${orderData.supplier.replace(/\s+/g, '_')}.pdf`;
     doc.save(filename);
@@ -165,6 +207,12 @@ export default function NewOrderModal({ isOpen, onClose, articles, suppliers, de
   const handleGenerateAndSend = () => {
     if (cart.length === 0) return;
     const orderData = getOrderData();
+
+    if (orderData.supplier === 'Proveedor Desconocido') {
+      alert("Error: No se ha podido determinar el proveedor del pedido.");
+      return;
+    }
+
     const orderSupplier = suppliers.find(s => s.name === orderData.supplier);
     
     setIsProcessing(true);
@@ -258,7 +306,7 @@ export default function NewOrderModal({ isOpen, onClose, articles, suppliers, de
                 style={{ fontSize: '1rem', padding: '12px' }}
               >
                 <option value="">-- Elige proveedor --</option>
-                {allSupplierNamesFromArticles.map((name, idx) => (
+                {allSupplierNames.map((name, idx) => (
                   <option key={idx} value={name}>{name}</option>
                 ))}
               </select>
@@ -266,9 +314,76 @@ export default function NewOrderModal({ isOpen, onClose, articles, suppliers, de
 
             <div style={{ marginTop: '24px' }}>
               <div className="flex-between" style={{ marginBottom: '12px' }}>
-                <label className="input-label" style={{ margin: 0 }}>2. Añadir Artículos <span style={{ fontWeight: 400, color: 'var(--text-muted)', marginLeft: '4px' }}>({availableArticles.length} resultados)</span></label>
+                <label className="input-label" style={{ margin: 0 }}>2. Artículos a Pedir</label>
               </div>
+              
+              {suggestedCart.length > 0 && (
+                <div style={{ backgroundColor: 'var(--primary-light)', padding: '16px', borderRadius: '8px', marginBottom: '24px', border: '1px solid var(--primary)' }}>
+                  <h4 style={{ margin: '0 0 12px 0', fontSize: '0.85rem', color: 'var(--primary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <ShoppingCart size={16} /> Sugerencias de Control de Stocks
+                  </h4>
+                  <table style={{ margin: 0, fontSize: '0.8rem', backgroundColor: 'transparent' }}>
+                    <thead>
+                      <tr style={{ borderBottom: '1px solid var(--primary)' }}>
+                        <th style={{ backgroundColor: 'transparent', color: 'var(--primary)' }}>Articulo</th>
+                        <th style={{ backgroundColor: 'transparent', color: 'var(--primary)', width: '80px' }}>Ud. Pedir</th>
+                        <th style={{ backgroundColor: 'transparent', color: 'var(--primary)', width: '40px' }}></th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {suggestedCart.map((item, idx) => (
+                        <tr key={item.article.id} style={{ borderBottom: '1px solid rgba(0, 118, 206, 0.1)' }}>
+                          <td style={{ backgroundColor: 'transparent' }}>
+                            <div style={{ fontWeight: 600 }}>{item.article.name}</div>
+                            <div style={{ fontSize: '0.75rem' }}>Ref: {item.article.supplierRef || item.article.id}</div>
+                          </td>
+                          <td style={{ backgroundColor: 'transparent' }}>
+                            <input 
+                              type="number" 
+                              min="1" 
+                              value={item.quantity} 
+                              onChange={(e) => {
+                                const newQty = parseInt(e.target.value) || 1;
+                                setSuggestedCart(prev => prev.map((s, i) => i === idx ? { ...s, quantity: newQty } : s));
+                              }}
+                              style={{ width: '60px', padding: '4px', borderRadius: '4px', border: '1px solid var(--primary)' }}
+                            />
+                          </td>
+                          <td style={{ backgroundColor: 'transparent' }}>
+                            <button 
+                              className="btn btn-secondary" 
+                              onClick={() => setSuggestedCart(prev => prev.filter((_, i) => i !== idx))}
+                              style={{ padding: '4px', border: 'none', color: 'var(--danger)' }}
+                            >
+                              <X size={14} />
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                  <button 
+                    className="btn btn-primary" 
+                    onClick={() => {
+                       setCart(prev => {
+                         const currentIds = prev.map(p => p.article.id);
+                         const newItems = suggestedCart.filter(s => !currentIds.includes(s.article.id));
+                         // Actualizamos las cantidades de los que YA estaban por las sugeridas si el usuario lo desea?
+                         // Por ahora solo añadimos los nuevos.
+                         return [...prev, ...newItems];
+                       });
+                       setSuggestedCart([]);
+                    }}
+                    style={{ marginTop: '12px', width: '100%', padding: '8px', fontSize: '0.85rem' }}
+                  >
+                    Mover {suggestedCart.length} artículos al Carrito
+                  </button>
+                </div>
+              )}
                 
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+                  <label className="input-label" style={{ margin: 0, fontSize: '0.85rem' }}>3. Catálogo General / Otros Artículos</label>
+                </div>
                 <div style={{ display: 'flex', gap: '8px', marginBottom: '12px' }}>
                   <input 
                     type="text" 
@@ -290,7 +405,7 @@ export default function NewOrderModal({ isOpen, onClose, articles, suppliers, de
                 </div>
 
                 <div style={{ maxHeight: '350px', overflowY: 'auto', border: '1px solid var(--border)', borderRadius: '8px' }}>
-                  <table style={{ margin: 0, fontSize: '0.9rem' }}>
+                  <table style={{ margin: 0, fontSize: '0.85rem' }}>
                     <thead style={{ position: 'sticky', top: 0, backgroundColor: 'var(--surface)', zIndex: 1 }}>
                       <tr>
                         <th>Artículo (Ref)</th>
@@ -301,11 +416,13 @@ export default function NewOrderModal({ isOpen, onClose, articles, suppliers, de
                     <tbody>
                       {availableArticles.map(art => {
                         const statusColor = art.stock <= art.minStock ? 'var(--danger)' : 'var(--text-muted)';
+                        const suggestion = suggestedCart.find(s => s.article.id === art.id);
+                        
                         return (
-                          <tr key={art.id}>
+                          <tr key={art.id} style={suggestion ? { backgroundColor: 'var(--primary-light)' } : {}}>
                             <td>
                               <div style={{ fontWeight: 600 }}>{art.name}</div>
-                              {art.description && <div style={{ fontSize: '0.8rem', color: 'var(--primary)', fontWeight: 500 }}>{art.description}</div>}
+                              {art.description && <div style={{ fontSize: '0.75rem', color: 'var(--primary)', fontWeight: 500 }}>{art.description}</div>}
                               <div style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>{art.supplierRef || art.id} - {art.price}</div>
                             </td>
                             <td>
@@ -322,7 +439,7 @@ export default function NewOrderModal({ isOpen, onClose, articles, suppliers, de
                               </form>
                             </td>
                           </tr>
-                      )})}
+                        )})}
                     </tbody>
                   </table>
                 </div>
@@ -331,7 +448,12 @@ export default function NewOrderModal({ isOpen, onClose, articles, suppliers, de
 
           {/* Right Column: Cart & Actions */}
           <div style={{ width: '350px', display: 'flex', flexDirection: 'column' }}>
-            <label className="input-label" style={{ marginBottom: '16px' }}>3. Resumen y Acciones</label>
+            <label className="input-label" style={{ marginBottom: '8px' }}>3. Resumen y Acciones</label>
+            {selectedSupplierName && (
+              <div style={{ marginBottom: '16px', padding: '8px 12px', backgroundColor: 'var(--primary-light)', color: 'var(--primary)', borderRadius: '6px', fontSize: '0.85rem', fontWeight: 600, borderLeft: '4px solid var(--primary)' }}>
+                Proveedor: {selectedSupplierName}
+              </div>
+            )}
             
             <div style={{ flex: 1, backgroundColor: 'var(--background)', borderRadius: '8px', padding: '20px', overflowY: 'auto', border: '1px solid var(--border)' }}>
               {cart.length === 0 ? (
@@ -354,7 +476,7 @@ export default function NewOrderModal({ isOpen, onClose, articles, suppliers, de
                     </div>
                   ))}
                   <div style={{ borderTop: '2px solid var(--border)', paddingTop: '16px', marginTop: '12px', textAlign: 'right' }}>
-                    <div style={{ fontSize: '0.9rem', color: 'var(--text-muted)' }}>Total Estimado</div>
+                    <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Total Estimado</div>
                     <div style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--primary)' }}>{calculateTotal().toFixed(2)} €</div>
                   </div>
                 </div>
