@@ -1074,13 +1074,32 @@ function App() {
               </div>
 
               {selectedArticles.length > 0 && (
-                <button 
-                  className="btn btn-primary" 
-                  onClick={() => setIsBulkEditOpen(true)}
-                  style={{ display: 'flex', alignItems: 'center', gap: '8px', backgroundColor: 'var(--success)' }}
-                >
-                  <CheckSquare size={18} /> Edición Masiva ({selectedArticles.length})
-                </button>
+                <div style={{ display: 'flex', gap: '12px' }}>
+                  <button 
+                    className="btn btn-primary" 
+                    onClick={() => setIsBulkEditOpen(true)}
+                    style={{ display: 'flex', alignItems: 'center', gap: '8px', backgroundColor: 'var(--success)' }}
+                  >
+                    <CheckSquare size={18} /> Edición Masiva ({selectedArticles.length})
+                  </button>
+                  <button 
+                    className="btn btn-secondary" 
+                    onClick={async () => {
+                      if (window.confirm(`¿Seguro que deseas ELIMINAR PERMANENTEMENTE los ${selectedArticles.length} artículos seleccionados?`)) {
+                        const { error } = await supabase.from('articles').delete().in('id', selectedArticles);
+                        if (!error) {
+                          await fetchArticles();
+                          setSelectedArticles([]);
+                        } else {
+                          alert("Error al eliminar: " + error.message);
+                        }
+                      }
+                    }}
+                    style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--danger)', borderColor: 'var(--danger)' }}
+                  >
+                    <Trash2 size={18} /> Eliminar ({selectedArticles.length})
+                  </button>
+                </div>
               )}
             </div>
 
@@ -1658,10 +1677,12 @@ function App() {
             <div style={{ display: 'flex', justifyContent: 'space-between', gap: '12px', marginTop: '24px' }}>
               <button 
                 className="btn btn-secondary" 
-                style={{ color: 'var(--danger)', borderColor: 'var(--danger)' }}
+                style={{ color: 'var(--danger)', borderColor: 'var(--danger)', display: 'flex', alignItems: 'center', gap: '8px' }}
                 onClick={async () => {
                   if (window.confirm(`¿Estás seguro de que deseas eliminar los ${selectedArticles.length} artículos seleccionados de forma permanente?`)) {
+                    setIsProcessing(true);
                     const { error } = await supabase.from('articles').delete().in('id', selectedArticles);
+                    setIsProcessing(false);
                     if (!error) {
                       await fetchArticles();
                       setIsBulkEditOpen(false);
@@ -1672,7 +1693,7 @@ function App() {
                   }
                 }}
               >
-                Eliminar Selección
+                <Trash2 size={18} /> Eliminar Selección
               </button>
               <div style={{ display: 'flex', gap: '12px' }}>
                 <button className="btn btn-secondary" onClick={() => {
