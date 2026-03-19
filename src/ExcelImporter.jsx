@@ -56,12 +56,12 @@ export default function ExcelImporter({ isOpen, onClose, existingArticles, onImp
         // Auto-mapping logic
         const newMappings = { ...mappings };
         const headerMap = {
+          minStock: ['stock mínimo', 'mínimo', 'minimo', 'alerta', 'min stock', 'umbral'], // Check this first
           name: ['nombre', 'articulo', 'artículo', 'producto', 'item', 'name', 'designación'],
           supplierRef: ['supplierref', 'referencia', 'ref', 'código', 'codigo', 'ref proveedor', 'referencia proveedor', 'supplier ref', 'catalogo'],
           supplierName: ['proveedor', 'laboratorio', 'casa comercial', 'supplier', 'fabricante'],
           price: ['precio unitario', 'precio (€)', 'precio', 'coste', 'pve', 'tarifa', 'price', 'unitario'],
           stock: ['stock marzo', 'stock febrero', 'stock enero', 'stock actual', 'stock', 'cantidad', 'existencias', 'en mano', 'inventario'],
-          minStock: ['stock mínimo', 'mínimo', 'minimo', 'alerta', 'min stock', 'umbral'],
           description: ['descripción', 'observaciones', 'notas', 'description'],
           format: ['formato', 'presentación', 'presentacion', 'envase', 'format', 'unidad'],
           category: ['categoría', 'familia', 'grupo', 'category', 'sección']
@@ -71,6 +71,8 @@ export default function ExcelImporter({ isOpen, onClose, existingArticles, onImp
           const h = String(header).toLowerCase().trim();
           Object.keys(headerMap).forEach(key => {
             if (headerMap[key].includes(h) || headerMap[key].some(alias => h.includes(alias))) {
+              // Guard: Don't map 'stock' (actual) if the header mentions 'mínimo'
+              if (key === 'stock' && (h.includes('mínimo') || h.includes('minimo'))) return;
               if (newMappings[key] === '') newMappings[key] = index;
             }
           });
