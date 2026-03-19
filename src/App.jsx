@@ -229,9 +229,7 @@ function App() {
     });
   }, []);
 
-  if (!session && !window.location.hostname.includes('localhost')) {
-    return <Auth />;
-  }
+
 
   const handleSaveArticle = async (e) => {
     e.preventDefault();
@@ -570,6 +568,10 @@ function App() {
 
   const [stockSearchQuery, setStockSearchQuery] = useState('');
   const [stockSort, setStockSort] = useState({ column: 'valuation', direction: 'desc' });
+
+  if (!session && !window.location.hostname.includes('localhost')) {
+    return <Auth />;
+  }
 
   const renderContent = () => {
     switch (activeTab) {
