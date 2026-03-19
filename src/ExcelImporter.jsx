@@ -303,7 +303,7 @@ export default function ExcelImporter({ isOpen, onClose, existingArticles, onImp
                   className="btn btn-primary" 
                   style={{ marginTop: '24px', height: '54px', fontSize: '1.1rem', fontWeight: 600 }}
                   onClick={() => setStep(3)}
-                  disabled={mappings.name === '' || mappings.supplierName === ''}
+                  disabled={mappings.name === ''}
                 >
                   Ver Vista Previa <ChevronRight size={20} />
                 </button>
