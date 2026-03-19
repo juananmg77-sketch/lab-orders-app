@@ -90,14 +90,19 @@ export default function ExcelImporter({ isOpen, onClose, existingArticles, onImp
     let supCount = 0;
 
     try {
-      // Filter out invalid rows (like the blue category headers or empty rows)
       const validRows = fileData.filter(row => {
         const name = String(row[mappings.name] || '').trim();
         // Skip rows that start with the triangle or are empty
-        if (!name || name.startsWith('▶') || name.startsWith('MEDIOS DE CULTIVO') || name.startsWith('REACTIVOS')) return false;
-        // Make sure it has a name and at least a reference or supplier
-        return name.length > 0 && (row[mappings.supplierRef] || row[mappings.supplierName]);
+        if (!name || name === 'PRODUCTO' || name.startsWith('▶') || name.startsWith('MEDIOS DE CULTIVO') || name.startsWith('REACTIVOS')) return false;
+        // Make sure it has a name
+        return name.length > 0;
       });
+
+      if (validRows.length === 0) {
+        alert("No se han encontrado filas válidas después de aplicar los filtros. Asegúrese de haber mapeado correctamente la columna del nombre/producto.");
+        setIsProcessing(false);
+        return;
+      }
 
       // 1. Collect all unique suppliers from the file
       const fileSuppliers = [...new Set(validRows.map(row => String(row[mappings.supplierName] || '').trim()).filter(Boolean))];
@@ -124,19 +129,19 @@ export default function ExcelImporter({ isOpen, onClose, existingArticles, onImp
         );
 
         // Price cleaning: "495,00 €" -> "495.00"
-        let rawPrice = String(row[mappings.price] || '0').replace('€', '').replace(',', '.').trim();
-        const priceFormatted = (parseFloat(rawPrice) || 0).toLocaleString('es-ES', { minimumFractionDigits: 2 }) + ' €';
+        let rawPrice = mappings.price !== '' ? String(row[mappings.price] || '0').replace('€', '').replace(',', '.').trim() : null;
+        const priceFormatted = rawPrice !== null ? (parseFloat(rawPrice) || 0).toLocaleString('es-ES', { minimumFractionDigits: 2 }) + ' €' : (existing?.price || '0,00 €');
 
         const articleData = {
           name: name,
-          supplierName: sup || 'Genérico',
-          supplierRef: ref || null,
-          category: row[mappings.category] || 'General',
+          supplierName: (mappings.supplierName !== '' ? sup : null) || existing?.supplierName || 'Genérico',
+          supplierRef: (mappings.supplierRef !== '' ? ref : null) || existing?.supplierRef || null,
+          category: (mappings.category !== '' ? row[mappings.category] : null) || existing?.category || 'General',
           price: priceFormatted,
-          stock: parseInt(row[mappings.stock] || 0),
-          minStock: parseInt(row[mappings.minStock] || 5),
-          description: row[mappings.description] || '',
-          format: row[mappings.format] || ''
+          stock: mappings.stock !== '' ? parseInt(row[mappings.stock] || 0) : (existing?.stock || 0),
+          minStock: mappings.minStock !== '' ? parseInt(row[mappings.minStock] || 0) : (existing?.minStock || 5),
+          description: (mappings.description !== '' ? row[mappings.description] : null) || existing?.description || '',
+          format: (mappings.format !== '' ? row[mappings.format] : null) || existing?.format || ''
         };
 
         if (existing) {
