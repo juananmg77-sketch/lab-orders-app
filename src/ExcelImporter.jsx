@@ -59,7 +59,7 @@ export default function ExcelImporter({ isOpen, onClose, existingArticles, onImp
           name: ['nombre', 'articulo', 'artículo', 'producto', 'item', 'name', 'designación'],
           supplierRef: ['supplierref', 'referencia', 'ref', 'código', 'codigo', 'ref proveedor', 'referencia proveedor', 'supplier ref', 'catalogo'],
           supplierName: ['proveedor', 'laboratorio', 'casa comercial', 'supplier', 'fabricante'],
-          price: ['precio (€)', 'precio', 'coste', 'pve', 'tarifa', 'price', 'unitario'],
+          price: ['precio unitario', 'precio (€)', 'precio', 'coste', 'pve', 'tarifa', 'price', 'unitario'],
           stock: ['stock actual', 'stock', 'cantidad', 'existencias', 'en mano', 'inventario'],
           minStock: ['stock mínimo', 'mínimo', 'minimo', 'alerta', 'min stock', 'umbral'],
           description: ['descripción', 'observaciones', 'notas', 'description'],
