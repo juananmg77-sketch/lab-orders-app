@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { supabase } from './supabaseClient';
 import { Mail, Key, User } from 'lucide-react';
+import logo from './assets/logo.png';
 
 export default function Auth() {
   const [loading, setLoading] = useState(false);
@@ -41,22 +42,23 @@ export default function Auth() {
       }}>
         <div style={{ marginBottom: '40px' }}>
           <div style={{ 
-            width: '120px', height: '120px', 
-            backgroundColor: 'rgba(255,255,255,0.2)', 
-            borderRadius: '50% 50% 50% 10%', 
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            margin: '0 auto 24px',
-            transform: 'rotate(-45deg)',
-            border: '4px solid white'
+            backgroundColor: 'white', 
+            padding: '24px', 
+            borderRadius: '16px', 
+            display: 'inline-block',
+            marginBottom: '32px',
+            boxShadow: '0 10px 25px rgba(0,0,0,0.1)'
           }}>
-            <span style={{ transform: 'rotate(45deg)', fontSize: '3rem', fontWeight: 900 }}>HS</span>
+            <img src={logo} alt="HSLAB logo" style={{ width: '280px', height: 'auto' }} />
           </div>
-          <h1 style={{ fontSize: '3.5rem', margin: 0, fontWeight: 800, letterSpacing: '-2px' }}>CONSULTING</h1>
-          <h2 style={{ fontSize: '1.5rem', margin: '10px 0', fontWeight: 400, opacity: 0.9 }}>Health & Safety</h2>
+          <h2 style={{ fontSize: '1.8rem', margin: '0 0 10px 0', fontWeight: 700, letterSpacing: '-0.5px' }}>
+            Módulo Gestión de Compras
+          </h2>
+          <div style={{ width: '40px', height: '4px', backgroundColor: 'rgba(255,255,255,0.3)', margin: '20px auto', borderRadius: '2px' }}></div>
         </div>
         
-        <p style={{ maxWidth: '500px', fontSize: '1.4rem', lineHeight: 1.4, fontWeight: 300 }}>
-          Asesoramiento Integral en Higiene y Seguridad para Hoteles
+        <p style={{ maxWidth: '500px', fontSize: '1.1rem', lineHeight: 1.5, fontWeight: 300, opacity: 0.9 }}>
+          Sistema centralizado para el control de inventario, pedidos a proveedores y análisis de consumos de laboratorio.
         </p>
       </div>
 
