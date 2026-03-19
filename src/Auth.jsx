@@ -42,14 +42,19 @@ export default function Auth() {
       }}>
         <div style={{ marginBottom: '40px' }}>
           <div style={{ 
-            backgroundColor: 'white', 
-            padding: '24px', 
-            borderRadius: '16px', 
             display: 'inline-block',
-            marginBottom: '32px',
-            boxShadow: '0 10px 25px rgba(0,0,0,0.1)'
+            marginBottom: '32px'
           }}>
-            <img src={logo} alt="HSLAB logo" style={{ width: '280px', height: 'auto' }} />
+            <img 
+              src={logo} 
+              alt="HSLAB logo" 
+              style={{ 
+                width: '320px', 
+                height: 'auto',
+                mixBlendMode: 'multiply',
+                filter: 'brightness(1.1) contrast(1.1)' 
+              }} 
+            />
           </div>
           <h2 style={{ fontSize: '1.8rem', margin: '0 0 10px 0', fontWeight: 700, letterSpacing: '-0.5px' }}>
             Módulo Gestión de Compras
