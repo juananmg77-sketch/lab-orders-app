@@ -394,7 +394,7 @@ export default function ExcelImporter({ isOpen, onClose, existingArticles, onImp
                   <p style={{ margin: 0, fontSize: '0.8rem' }}>Proveedores Creados</p>
                 </div>
               </div>
-              <button className="btn btn-primary" style={{ marginTop: '40px', padding: '0 48px' }} onClick={onClose}>Listo, Cerrar</button>
+              <button className="btn btn-primary" style={{ marginTop: '40px', padding: '12px 60px', height: 'auto' }} onClick={onClose}>Listo, Cerrar</button>
             </div>
           )}
 
