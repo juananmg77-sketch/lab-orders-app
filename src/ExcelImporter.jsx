@@ -60,7 +60,7 @@ export default function ExcelImporter({ isOpen, onClose, existingArticles, onImp
           supplierRef: ['supplierref', 'referencia', 'ref', 'código', 'codigo', 'ref proveedor', 'referencia proveedor', 'supplier ref', 'catalogo'],
           supplierName: ['proveedor', 'laboratorio', 'casa comercial', 'supplier', 'fabricante'],
           price: ['precio unitario', 'precio (€)', 'precio', 'coste', 'pve', 'tarifa', 'price', 'unitario'],
-          stock: ['stock actual', 'stock', 'cantidad', 'existencias', 'en mano', 'inventario'],
+          stock: ['stock marzo', 'stock febrero', 'stock enero', 'stock actual', 'stock', 'cantidad', 'existencias', 'en mano', 'inventario'],
           minStock: ['stock mínimo', 'mínimo', 'minimo', 'alerta', 'min stock', 'umbral'],
           description: ['descripción', 'observaciones', 'notas', 'description'],
           format: ['formato', 'presentación', 'presentacion', 'envase', 'format', 'unidad'],
