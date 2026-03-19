@@ -42,17 +42,20 @@ export default function Auth() {
       }}>
         <div style={{ marginBottom: '40px' }}>
           <div style={{ 
+            backgroundColor: 'white', 
+            padding: '12px 20px', 
+            borderRadius: '12px', 
             display: 'inline-block',
-            marginBottom: '32px'
+            marginBottom: '32px',
+            boxShadow: '0 4px 15px rgba(0,0,0,0.08)'
           }}>
             <img 
               src={logo} 
               alt="HSLAB logo" 
               style={{ 
-                width: '320px', 
+                width: '260px', 
                 height: 'auto',
-                mixBlendMode: 'multiply',
-                filter: 'brightness(1.1) contrast(1.1)' 
+                display: 'block'
               }} 
             />
           </div>
