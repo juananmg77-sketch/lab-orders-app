@@ -159,7 +159,11 @@ export default function NewOrderModal({ isOpen, onClose, onSaveOrder, suppliers,
     // Logo on right
     if (logoBase64) {
       try {
-        doc.addImage(logoBase64, 'PNG', 150, 15, 45, 12);
+        const imgProps = doc.getImageProperties(logoBase64);
+        const logoWidth = 45;
+        const logoHeight = (imgProps.height * logoWidth) / imgProps.width;
+        // Position logo at the right, aligned with the header text
+        doc.addImage(logoBase64, 'PNG', 196 - logoWidth, 12, logoWidth, logoHeight);
       } catch (e) {
         console.warn("No se pudo añadir el logo al PDF:", e);
       }
