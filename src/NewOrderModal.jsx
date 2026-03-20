@@ -127,19 +127,61 @@ export default function NewOrderModal({ isOpen, onClose, onSaveOrder, suppliers,
     const doc = new jsPDF();
     const orderSupplier = suppliers.find(s => s.name === orderSupplierName) || supplier;
     
-    // Header
-    doc.setFontSize(22);
-    doc.setTextColor(0, 118, 206); // --primary color
-    doc.text('PEDIDO DE LABORATORIO', 14, 25);
+    // Header & Logo (SAP Style)
+    // Logo on right
+    try {
+      doc.addImage(logo, 'PNG', 150, 15, 45, 12);
+    } catch (e) {
+      console.warn("No se pudo cargar el logo en el PDF:", e);
+    }
+
+    // Header left
+    doc.setFontSize(20);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(50, 50, 50);
+    doc.text('ORDEN DE PEDIDO', 14, 25);
     
-    doc.setFontSize(12);
+    // Horizontal line
+    doc.setDrawColor(200, 200, 200);
+    doc.setLineWidth(0.5);
+    doc.line(14, 30, 196, 30);
+
+    // Business info (left) vs Order info (right)
+    doc.setFontSize(9);
+    doc.setFont("helvetica", "normal");
     doc.setTextColor(100, 100, 100);
-    doc.text(`Referencia: ${orderRef}`, 14, 35);
-    doc.text(`Fecha: ${new Date().toLocaleDateString()}`, 14, 42);
-    doc.text(`Proveedor: ${orderSupplier?.name || orderSupplierName}`, 14, 49);
-    doc.text(`Atención: ${orderSupplier?.contact || 'Dpto. Comercial'}`, 14, 56);
-    doc.text(`Email de destino: ${orderSupplier?.email || 'desconocido@proveedor.com'}`, 14, 63);
-    doc.text(`Contacto consultas: lab@hsconsulting.es`, 14, 70);
+    
+    // Provider and Address Info
+    doc.text('HSCONSULTING LAB SERVICES', 14, 38);
+    doc.text('C/ Ejemplo 123, 07001 Palma de Mallorca', 14, 43);
+    doc.text('lab@hsconsulting.es | NIF: B12345678', 14, 48);
+
+    // Order Info Box
+    doc.setDrawColor(230, 230, 230);
+    doc.setFillColor(248, 248, 248);
+    doc.rect(130, 35, 66, 25, 'FD');
+    
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(0, 0, 0);
+    doc.text(`Referencia:`, 134, 42);
+    doc.text(`Fecha:`, 134, 48);
+    doc.text(`Nº Proveedor:`, 134, 54);
+    
+    doc.setFont("helvetica", "normal");
+    doc.text(`${orderRef}`, 160, 42);
+    doc.text(`${new Date().toLocaleDateString()}`, 160, 48);
+    doc.text(`${orderSupplier?.id || 'Nuevo'}`, 160, 54);
+
+    // Attention & Email Labels
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "bold");
+    doc.text('DATOS DEL PROVEEDOR:', 14, 65);
+    
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(50, 50, 50);
+    doc.text(`Proveedor: ${orderSupplier?.name || orderSupplierName}`, 14, 72);
+    doc.text(`Atención: ${orderSupplier?.contact || 'Dpto. Comercial'}`, 14, 78);
+    doc.text(`Email: ${orderSupplier?.email || 'desconocido@proveedor.com'}`, 14, 84);
 
     const tableData = cart.map((item, index) => {
       const nameWithDesc = item.article.description 
@@ -148,18 +190,41 @@ export default function NewOrderModal({ isOpen, onClose, onSaveOrder, suppliers,
       return [
         index + 1,
         item.article.supplierRef || item.article.id,
+        item.article.format || '-',
         nameWithDesc,
         item.quantity
       ];
     });
 
     autoTable(doc, {
-      startY: 78,
-      head: [['#', 'Ref. Prov.', 'Descripción del Artículo', 'Cantidad']],
+      startY: 92,
+      head: [['Pos', 'Ref. Material', 'Formato', 'Descripción Detallada', 'Cantidad']],
       body: tableData,
-      theme: 'grid',
-      headStyles: { fillColor: [0, 118, 206] }
+      theme: 'striped',
+      headStyles: { 
+        fillColor: [60, 60, 60], 
+        textColor: [255, 255, 255],
+        fontSize: 10,
+        fontStyle: 'bold'
+      },
+      styles: {
+        fontSize: 9,
+        cellPadding: 3
+      },
+      columnStyles: {
+        0: { cellWidth: 15 },
+        1: { cellWidth: 35 },
+        2: { cellWidth: 30 },
+        4: { halign: 'center', cellWidth: 20 }
+      }
     });
+
+    // Footer info
+    const finalY = (doc).lastAutoTable.finalY || 150;
+    doc.setFontSize(8);
+    doc.setTextColor(150, 150, 150);
+    doc.text('Nota: Por favor, confirmen recepción de este pedido indicando fecha estimada de entrega.', 14, finalY + 15);
+    doc.text('Contacto: lab@hsconsulting.es', 14, finalY + 20);
 
     return doc;
   };
