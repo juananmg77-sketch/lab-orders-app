@@ -142,8 +142,6 @@ export default function NewOrderModal({ isOpen, onClose, onSaveOrder, suppliers,
     doc.text(`Contacto consultas: lab@hsconsulting.es`, 14, 70);
 
     const tableData = cart.map((item, index) => {
-      const priceStr = item.article.price ? String(item.article.price) : '0';
-      const priceVal = parseFloat(priceStr.replace('€','').replace(',','.').trim()) || 0;
       const nameWithDesc = item.article.description 
         ? `${item.article.name} (${item.article.description})`
         : item.article.name;
@@ -151,24 +149,17 @@ export default function NewOrderModal({ isOpen, onClose, onSaveOrder, suppliers,
         index + 1,
         item.article.supplierRef || item.article.id,
         nameWithDesc,
-        item.quantity,
-        item.article.price || '0 €',
-        (priceVal * item.quantity).toFixed(2) + ' €'
+        item.quantity
       ];
     });
 
     autoTable(doc, {
       startY: 78,
-      head: [['#', 'Ref. Prov.', 'Descripción del Artículo', 'Cantidad', 'Precio Unit.', 'Subtotal']],
+      head: [['#', 'Ref. Prov.', 'Descripción del Artículo', 'Cantidad']],
       body: tableData,
       theme: 'grid',
       headStyles: { fillColor: [0, 118, 206] }
     });
-
-    doc.setFontSize(14);
-    doc.setTextColor(0, 0, 0);
-    const totalStr = calculateTotal().toFixed(2) + ' €';
-    doc.text(`Total del Pedido: ${totalStr}`, 14, doc.lastAutoTable ? doc.lastAutoTable.finalY + 15 : 100);
 
     return doc;
   };

@@ -22,7 +22,8 @@ import {
   CheckSquare,
   Check,
   ArrowUpDown,
-  Minus
+  Minus,
+  AlertTriangle
 } from 'lucide-react';
 import { supabase } from './supabaseClient';
 import Auth from './Auth';
@@ -401,7 +402,7 @@ function App() {
     }
   };
 
-  const handleOrderReceived = async (id, receivedItems, deliveryNote) => {
+  const handleOrderReceived = async (id, receivedItems, deliveryNote, incidents = '') => {
     const currentOrder = orders.find(o => o.id === id);
     if (!currentOrder) return;
 
@@ -424,7 +425,8 @@ function App() {
     const updatePayload = {
       status: newStatus,
       receivedMapping: receivedItems,
-      deliveryNote: deliveryNote
+      deliveryNote: deliveryNote,
+      incidents: incidents
     };
 
     const { error } = await supabase.from('orders').update(updatePayload).eq('id', id);
@@ -432,16 +434,20 @@ function App() {
     if (error) {
       console.error("Error persistiendo estado del pedido:", error.message);
       
-      // Manejo específico si falta la columna deliveryNote (error común tras actualización)
-      if (error.message.includes('deliveryNote')) {
-        console.warn("Reintentando actualización sin el campo 'deliveryNote'...");
-        const { error: retryError } = await supabase.from('orders').update({
+      // Manejo específico si faltan columnas (error común tras actualización de la lógica sin migración de DB)
+      if (error.message.includes('deliveryNote') || error.message.includes('incidents')) {
+        console.warn("Reintentando actualización sin campos posiblemente faltantes...");
+        
+        // Intentar un guardado "seguro" con solo campos básicos si fallan los extendidos
+        const safePayload = {
           status: newStatus,
           receivedMapping: receivedItems
-        }).eq('id', id);
+        };
+        
+        const { error: retryError } = await supabase.from('orders').update(safePayload).eq('id', id);
         
         if (!retryError) {
-          alert("El pedido se ha guardado, pero el 'Número de Albarán' no se ha podido registrar. Por favor, solicite añadir la columna 'deliveryNote' a la tabla 'orders' en la base de datos.");
+          alert(`El pedido se ha guardado, pero algunos campos (Albarán: ${deliveryNote ? 'SI' : 'NO'}, Incidencias: ${incidents ? 'SI' : 'NO'}) no se han podido registrar en la base de datos por falta de columnas.`);
         } else {
           alert("Error crítico al actualizar el pedido: " + retryError.message);
         }
@@ -656,6 +662,7 @@ function App() {
                     <th>Artículos</th>
                     <th>Importe Total</th>
                     <th>Estado</th>
+                    <th>Incidencias</th>
                     <th>Acciones</th>
                   </tr>
                 </thead>
@@ -677,6 +684,13 @@ function App() {
                         }`}>
                           {order.status}
                         </span>
+                      </td>
+                      <td style={{ textAlign: 'center' }}>
+                        {order.incidents ? (
+                          <div title={order.incidents} style={{ color: 'var(--danger)', cursor: 'help', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            <AlertTriangle size={18} />
+                          </div>
+                        ) : '-'}
                       </td>
                       <td>
                         <div style={{ display: 'flex', gap: '8px' }}>

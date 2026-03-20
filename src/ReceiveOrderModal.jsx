@@ -5,6 +5,7 @@ import { supabase } from './supabaseClient';
 export default function ReceiveOrderModal({ isOpen, onClose, order, onOrderReceived }) {
   const [receivedItems, setReceivedItems] = useState({});
   const [deliveryNote, setDeliveryNote] = useState('');
+  const [incidents, setIncidents] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
 
   useEffect(() => {
@@ -16,6 +17,7 @@ export default function ReceiveOrderModal({ isOpen, onClose, order, onOrderRecei
         initialReceived[item.article.id] = pending; // Default to pending quantity
       });
       setReceivedItems(initialReceived);
+      setIncidents(order.incidents || ''); // Cargar incidencias previas si existen
     }
   }, [isOpen, order]);
 
@@ -62,9 +64,10 @@ export default function ReceiveOrderModal({ isOpen, onClose, order, onOrderRecei
         newMapping[id] = (newMapping[id] || 0) + receivedItems[id];
       });
 
-      onOrderReceived(order.id, newMapping, deliveryNote);
+      onOrderReceived(order.id, newMapping, deliveryNote, incidents);
       onClose();
       setDeliveryNote(''); // Reset for next time
+      setIncidents('');
     } catch (err) {
       console.error("Error al recepcionar pedido:", err);
       alert("Hubo un error al actualizar los stocks.");
@@ -98,20 +101,34 @@ export default function ReceiveOrderModal({ isOpen, onClose, order, onOrderRecei
           </button>
         </div>
 
-        {/* Delivery Note Input */}
-        <div style={{ padding: '0 24px 20px 24px', display: 'flex', alignItems: 'center', gap: '16px' }}>
-          <div style={{ flex: 1 }}>
-            <label style={{ display: 'block', marginBottom: '8px', fontWeight: 600, fontSize: '0.9rem', color: 'var(--secondary)' }}>
-              Número de Albarán / Referencia de Entrada:
-            </label>
-            <input 
-              type="text" 
-              className="input-field" 
-              placeholder="Ej: ALB-2026-0045"
-              style={{ margin: 0 }}
-              value={deliveryNote}
-              onChange={(e) => setDeliveryNote(e.target.value)}
-            />
+        {/* Delivery Note & Incidents */}
+        <div style={{ padding: '0 24px 20px 24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+          <div style={{ display: 'flex', gap: '16px' }}>
+            <div style={{ flex: 1 }}>
+              <label style={{ display: 'block', marginBottom: '8px', fontWeight: 600, fontSize: '0.9rem', color: 'var(--secondary)' }}>
+                Número de Albarán / Referencia de Entrada:
+              </label>
+              <input 
+                type="text" 
+                className="input-field" 
+                placeholder="Ej: ALB-2026-0045"
+                style={{ margin: 0 }}
+                value={deliveryNote}
+                onChange={(e) => setDeliveryNote(e.target.value)}
+              />
+            </div>
+            <div style={{ flex: 1 }}>
+               <label style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px', fontWeight: 600, fontSize: '0.9rem', color: 'var(--secondary)' }}>
+                <AlertTriangle size={16} color="var(--danger)" /> Incidencias / No Conformidades:
+              </label>
+              <textarea 
+                className="input-field" 
+                placeholder="Indique si hay material dañado, falta algo, entrega incorrecta..."
+                style={{ margin: 0, height: '42px', minHeight: '42px', resize: 'vertical' }}
+                value={incidents}
+                onChange={(e) => setIncidents(e.target.value)}
+              />
+            </div>
           </div>
         </div>
 
