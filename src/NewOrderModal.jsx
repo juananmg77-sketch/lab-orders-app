@@ -181,9 +181,9 @@ export default function NewOrderModal({ isOpen, onClose, onSaveOrder, suppliers,
     doc.setTextColor(100, 100, 100);
     
     // Provider and Address Info
-    doc.text('HSCONSULTING LAB SERVICES', 14, 38);
-    doc.text('C/ Ejemplo 123, 07001 Palma de Mallorca', 14, 43);
-    doc.text('lab@hsconsulting.es | NIF: B12345678', 14, 48);
+    doc.text('HSCONSULTING LAB', 14, 38);
+    doc.text('Dirección de Entrega: Plaza San Cosme 8. 07011 Palma de Mallorca', 14, 43);
+    doc.text('lab@hsconsulting.es | Tel: 871 23 16 58', 14, 48);
 
     // Order Info Box
     doc.setDrawColor(230, 230, 230);
