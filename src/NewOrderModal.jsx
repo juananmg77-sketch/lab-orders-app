@@ -10,6 +10,33 @@ export default function NewOrderModal({ isOpen, onClose, onSaveOrder, suppliers,
   const [articleSearch, setArticleSearch] = useState('');
   const [articleCategory, setArticleCategory] = useState('');
   const [suggestedCart, setSuggestedCart] = useState([]);
+  const [logoBase64, setLogoBase64] = useState('');
+
+  // Pre-load and convert logo to B&W Base64
+  useEffect(() => {
+    const img = new Image();
+    img.crossOrigin = 'Anonymous';
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      canvas.width = img.width;
+      canvas.height = img.height;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0);
+      
+      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      const data = imageData.data;
+      for (let i = 0; i < data.length; i += 4) {
+        // Luminance formula for grayscale
+        const gray = 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
+        data[i] = gray;
+        data[i + 1] = gray;
+        data[i + 2] = gray;
+      }
+      ctx.putImageData(imageData, 0, 0);
+      setLogoBase64(canvas.toDataURL('image/png'));
+    };
+    img.src = logo;
+  }, []);
 
   useEffect(() => {
     if (isOpen) {
@@ -129,10 +156,12 @@ export default function NewOrderModal({ isOpen, onClose, onSaveOrder, suppliers,
     
     // Header & Logo (SAP Style)
     // Logo on right
-    try {
-      doc.addImage(logo, 'PNG', 150, 15, 45, 12);
-    } catch (e) {
-      console.warn("No se pudo cargar el logo en el PDF:", e);
+    if (logoBase64) {
+      try {
+        doc.addImage(logoBase64, 'PNG', 150, 15, 45, 12);
+      } catch (e) {
+        console.warn("No se pudo añadir el logo al PDF:", e);
+      }
     }
 
     // Header left
@@ -215,7 +244,7 @@ export default function NewOrderModal({ isOpen, onClose, onSaveOrder, suppliers,
         0: { cellWidth: 15 },
         1: { cellWidth: 35 },
         2: { cellWidth: 30 },
-        4: { halign: 'center', cellWidth: 20 }
+        4: { halign: 'center', cellWidth: 25 } // Increased width to prevent wrapping
       }
     });
 
