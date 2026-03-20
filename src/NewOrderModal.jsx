@@ -2,6 +2,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { X, ShoppingCart, Send, FileText, Trash2, Plus } from 'lucide-react';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import logo from './assets/logo.png';
 
 export default function NewOrderModal({ isOpen, onClose, onSaveOrder, suppliers, articles, editingOrder, defaultSupplierForOrder, initialCart = [] }) {
   const [selectedSupplierName, setSelectedSupplierName] = useState('');
