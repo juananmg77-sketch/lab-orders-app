@@ -159,32 +159,26 @@ export default function NewOrderModal({ isOpen, onClose, onSaveOrder, suppliers,
     if (logoBase64) {
       try {
         const imgProps = doc.getImageProperties(logoBase64);
-        let logoWidth = 45;
-        let logoHeight = (imgProps.height * logoWidth) / imgProps.width;
+        const logoWidth = 40; // Increased width
+        const logoHeight = (imgProps.height * logoWidth) / imgProps.width;
         
-        // Cap logo height to 15mm for professionalism and to save space
-        if (logoHeight > 15) {
-          logoHeight = 15;
-          logoWidth = (imgProps.width * logoHeight) / imgProps.height;
-        }
-        
-        // Logo at very top right
+        // Logo at top right, now with natural height
         doc.addImage(logoBase64, 'PNG', 196 - logoWidth, 10, logoWidth, logoHeight);
       } catch (e) {
         console.warn("No se pudo añadir el logo al PDF:", e);
       }
     }
 
-    // Title shifted down
+    // Title shifted even more down to avoid logo collision
     doc.setFontSize(22);
     doc.setFont("helvetica", "bold");
     doc.setTextColor(50, 50, 50);
-    doc.text('ORDEN DE PEDIDO', 14, 32); 
+    doc.text('ORDEN DE PEDIDO', 14, 45); 
     
     // Horizontal line shifted down
     doc.setDrawColor(200, 200, 200);
     doc.setLineWidth(0.5);
-    doc.line(14, 38, 196, 38);
+    doc.line(14, 52, 196, 52);
 
     // Business info (left) vs Order info (right) shifted down
     doc.setFontSize(10);
@@ -192,36 +186,36 @@ export default function NewOrderModal({ isOpen, onClose, onSaveOrder, suppliers,
     doc.setTextColor(80, 80, 80);
     
     // Provider and Address Info
-    doc.text('HSCONSULTING LAB', 14, 48);
-    doc.text('Dirección de Entrega: Plaza San Cosme 8. 07011 Palma de Mallorca', 14, 54);
-    doc.text('lab@hsconsulting.es | Tel: 871 23 16 58', 14, 60);
+    doc.text('HSCONSULTING LAB', 14, 62);
+    doc.text('Dirección de Entrega: Plaza San Cosme 8. 07011 Palma de Mallorca', 14, 68);
+    doc.text('lab@hsconsulting.es | Tel: 871 23 16 58', 14, 74);
 
     // Order Info Box shifted down
     doc.setDrawColor(230, 230, 230);
     doc.setFillColor(248, 248, 248);
-    doc.rect(130, 45, 66, 25, 'FD');
+    doc.rect(130, 56, 66, 25, 'FD');
     
     doc.setFont("helvetica", "bold");
     doc.setTextColor(0, 0, 0);
-    doc.text(`Referencia:`, 134, 52);
-    doc.text(`Fecha:`, 134, 58);
-    doc.text(`Nº Proveedor:`, 134, 64);
+    doc.text(`Referencia:`, 134, 63);
+    doc.text(`Fecha:`, 134, 69);
+    doc.text(`Nº Proveedor:`, 134, 75);
     
     doc.setFont("helvetica", "normal");
-    doc.text(`${orderRef}`, 160, 52);
-    doc.text(`${new Date().toLocaleDateString()}`, 160, 58);
-    doc.text(`${orderSupplier?.id || 'Nuevo'}`, 160, 64);
+    doc.text(`${orderRef}`, 160, 63);
+    doc.text(`${new Date().toLocaleDateString()}`, 160, 69);
+    doc.text(`${orderSupplier?.id || 'Nuevo'}`, 160, 75);
 
     // Supplier headers shifted down
     doc.setFontSize(11);
     doc.setFont("helvetica", "bold");
-    doc.text('DATOS DEL PROVEEDOR:', 14, 78);
+    doc.text('DATOS DEL PROVEEDOR:', 14, 91);
     
     doc.setFont("helvetica", "normal");
     doc.setTextColor(50, 50, 50);
-    doc.text(`Proveedor: ${orderSupplier?.name || orderSupplierName}`, 14, 85);
-    doc.text(`Atención: ${orderSupplier?.contact || 'Dpto. Comercial'}`, 14, 91);
-    doc.text(`Email: ${orderSupplier?.email || 'desconocido@proveedor.com'}`, 14, 97);
+    doc.text(`Proveedor: ${orderSupplier?.name || orderSupplierName}`, 14, 98);
+    doc.text(`Atención: ${orderSupplier?.contact || 'Dpto. Comercial'}`, 14, 104);
+    doc.text(`Email: ${orderSupplier?.email || 'desconocido@proveedor.com'}`, 14, 110);
 
     const tableData = cart.map((item, index) => {
       const nameWithDesc = item.article.description 
@@ -237,7 +231,7 @@ export default function NewOrderModal({ isOpen, onClose, onSaveOrder, suppliers,
     });
 
     autoTable(doc, {
-      startY: 105, // Shifted table down to accommodate larger header
+      startY: 125, // More space for the larger header
       head: [['Pos', 'Ref. Material', 'Formato', 'Descripción Detallada', 'Cantidad']],
       body: tableData,
       theme: 'striped',
