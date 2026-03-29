@@ -321,7 +321,7 @@ export default function EquipmentExcelImporter({ isOpen, onClose, globalLab, onI
         }}>
           <div>
             <h3 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '12px' }}>
-              <FileSpreadsheet size={28} /> Importador de Parque Tecnológico
+              <FileSpreadsheet size={28} /> Importador de Inventario de Equipos
             </h3>
             <p style={{ margin: '4px 0 0 0', opacity: 0.8, fontSize: '0.85rem' }}>
               Carga tu Excel de Metrología e inventario en <b>{globalLab}</b>

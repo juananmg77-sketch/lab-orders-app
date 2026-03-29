@@ -312,7 +312,7 @@ export default function EquipmentModule({ session, onLogout, globalLab, onBackTo
                     </button>
                   )}
                   <h2 className="page-title" style={{ margin: 0 }}>
-                    {selectedCategory ? selectedCategory : 'Parque Tecnológico / Equipos'}
+                    {selectedCategory ? selectedCategory : 'Inventario Equipos / Listado'}
                   </h2>
                 </div>
                 {!selectedCategory && (

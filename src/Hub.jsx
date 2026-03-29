@@ -130,7 +130,7 @@ export default function Hub({ globalLab, setGlobalLab, onSelectModule, onLogout 
             </div>
             <h2 style={{ fontSize: '1.5rem', color: 'var(--secondary)', margin: '0 0 12px 0' }}>Gestión de Equipos</h2>
             <p style={{ color: '#94a3b8', margin: 0, lineHeight: 1.5 }}>
-              Control de mantenimientos, calibraciones y averías del parque tecnológico.
+              Control de mantenimientos, calibraciones y averías del Inventario Equipos.
             </p>
           </div>
 
