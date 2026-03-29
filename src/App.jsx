@@ -53,6 +53,7 @@ export default function App() {
   if (!activeModule) {
     return (
       <Hub 
+        session={session}
         globalLab={globalLab}
         setGlobalLab={setGlobalLab}
         role={role}

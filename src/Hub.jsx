@@ -2,11 +2,25 @@ import React from 'react';
 import { ShoppingCart, LogOut, Settings, Bell, Microscope, Users } from 'lucide-react';
 import logo from './assets/logo.png';
 
-export default function Hub({ globalLab, setGlobalLab, onSelectModule, onLogout, role = 'operations' }) {
+export default function Hub({ session, globalLab, setGlobalLab, onSelectModule, onLogout, role = 'operations' }) {
+  const userEmail = session?.user?.email;
+  
+  // Regla específica: lab@hsconsulting.es solo accede a Baleares
+  const allowedLabs = (userEmail === 'lab@hsconsulting.es') 
+    ? ['HSLAB Baleares'] 
+    : ['HSLAB Baleares', 'HSLAB Canarias'];
+
   const showPurchasing = ['admin', 'lab'].includes(role);
   const showEquipment = ['admin', 'lab', 'operations'].includes(role);
   const showUsers = role === 'admin';
   const showRRHH = role === 'admin';
+
+  // Si el lab actual no está permitido para este usuario, forzar a Baleares
+  React.useEffect(() => {
+    if (!allowedLabs.includes(globalLab)) {
+      setGlobalLab('HSLAB Baleares');
+    }
+  }, [globalLab, allowedLabs, setGlobalLab]);
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', backgroundColor: 'var(--background)' }}>
@@ -47,8 +61,9 @@ export default function Hub({ globalLab, setGlobalLab, onSelectModule, onLogout,
                 WebkitAppearance: 'none'
               }}
             >
-              <option value="HSLAB Baleares">HSLAB Baleares</option>
-              <option value="HSLAB Canarias">HSLAB Canarias</option>
+              {allowedLabs.map(lab => (
+                <option key={lab} value={lab}>{lab}</option>
+              ))}
             </select>
             <div style={{ position: 'absolute', right: '12px', top: '10px', pointerEvents: 'none', color: 'var(--primary)' }}>▼</div>
           </div>
