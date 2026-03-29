@@ -15,7 +15,7 @@ import {
 import * as XLSX from 'xlsx';
 import { supabase } from './supabaseClient';
 
-export default function ExcelImporter({ isOpen, onClose, existingArticles, onImportDone }) {
+export default function ExcelImporter({ isOpen, onClose, existingArticles, onImportDone, selectedLab = 'HSLAB Baleares' }) {
   const [fileData, setFileData] = useState([]);
   const [step, setStep] = useState(1); // 1: Upload, 2: Map Columns, 3: Preview, 4: Done
   const [mappings, setMappings] = useState({
@@ -143,7 +143,8 @@ export default function ExcelImporter({ isOpen, onClose, existingArticles, onImp
           stock: mappings.stock !== '' ? parseInt(row[mappings.stock] || 0) : (existing?.stock || 0),
           minStock: mappings.minStock !== '' ? parseInt(row[mappings.minStock] || 0) : (existing?.minStock || 5),
           description: (mappings.description !== '' ? row[mappings.description] : null) || existing?.description || '',
-          format: (mappings.format !== '' ? row[mappings.format] : null) || existing?.format || ''
+          format: (mappings.format !== '' ? row[mappings.format] : null) || existing?.format || '',
+          lab: existing?.lab || selectedLab
         };
 
         if (existing) {

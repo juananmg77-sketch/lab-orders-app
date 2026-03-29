@@ -4,7 +4,7 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import logo from './assets/logo.png';
 
-export default function NewOrderModal({ isOpen, onClose, onSaveOrder, suppliers, articles, editingOrder, defaultSupplierForOrder, initialCart = [] }) {
+export default function NewOrderModal({ isOpen, onClose, onSaveOrder, suppliers, articles, editingOrder, defaultSupplierForOrder, initialCart = [], selectedLab = 'HSLAB Baleares' }) {
   const [selectedSupplierName, setSelectedSupplierName] = useState('');
   const [cart, setCart] = useState([]);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -186,8 +186,13 @@ export default function NewOrderModal({ isOpen, onClose, onSaveOrder, suppliers,
     doc.setTextColor(80, 80, 80);
     
     // Provider and Address Info
-    doc.text('HSCONSULTING LAB', 14, 62);
-    doc.text('Dirección de Entrega: Plaza San Cosme 8. 07011 Palma de Mallorca', 14, 68);
+    const labName = selectedLab === 'HSLAB Canarias' ? 'HSCONSULTING LAB CANARIAS' : 'HSCONSULTING LAB';
+    const labAddress = selectedLab === 'HSLAB Canarias' 
+      ? 'Dirección de Entrega: C/ Triana 45. 35002 Las Palmas de Gran Canaria' 
+      : 'Dirección de Entrega: Plaza San Cosme 8. 07011 Palma de Mallorca';
+    
+    doc.text(labName, 14, 62);
+    doc.text(labAddress, 14, 68);
     doc.text('lab@hsconsulting.es | Tel: 871 23 16 58', 14, 74);
 
     // Order Info Box shifted down
