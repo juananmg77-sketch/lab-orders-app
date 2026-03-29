@@ -5,6 +5,8 @@ import Hub from './Hub';
 import PurchasingModule from './PurchasingModule';
 
 import EquipmentModule from './EquipmentModule';
+import UserManagementModule from './UserManagementModule';
+
 
 export default function App() {
   const [session, setSession] = useState(null);
@@ -12,14 +14,32 @@ export default function App() {
   const [globalLab, setGlobalLab] = useState('HSLAB Baleares');
   const [activeModule, setActiveModule] = useState(null);
 
+  const [role, setRole] = useState('operations');
+
+  const fetchUserRole = async (user) => {
+    if (!user) return;
+    // 1. Try profiles table first
+    const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single();
+    if (profile?.role) {
+      setRole(profile.role);
+    } else {
+      // 2. Fallback to metadata
+      setRole(user.user_metadata?.role || 'operations');
+    }
+  };
+
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
+      fetchUserRole(session?.user);
     });
 
-    supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
+      fetchUserRole(session?.user);
     });
+
+    return () => subscription.unsubscribe();
   }, []);
 
   if (!session && !window.location.hostname.includes('localhost')) {
@@ -35,6 +55,7 @@ export default function App() {
       <Hub 
         globalLab={globalLab}
         setGlobalLab={setGlobalLab}
+        role={role}
         onSelectModule={setActiveModule}
         onLogout={handleLogout}
       />
@@ -57,7 +78,16 @@ export default function App() {
       <EquipmentModule 
         session={session}
         globalLab={globalLab}
+        role={role}
         onLogout={handleLogout}
+        onBackToHub={() => setActiveModule(null)}
+      />
+    );
+  }
+
+  if (activeModule === 'usuarios' && role === 'admin') {
+    return (
+      <UserManagementModule 
         onBackToHub={() => setActiveModule(null)}
       />
     );

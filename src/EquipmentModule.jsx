@@ -92,7 +92,7 @@ const getSubtypeIcon = (sub) => {
   return <Settings size={18} />;
 };
 
-export default function EquipmentModule({ session, onLogout, globalLab, onBackToHub }) {
+export default function EquipmentModule({ session, onLogout, globalLab, onBackToHub, role = 'operations' }) {
   const [activeTab, setActiveTab] = useState('inventario');
   const [equipments, setEquipments] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
@@ -149,6 +149,12 @@ export default function EquipmentModule({ session, onLogout, globalLab, onBackTo
     fetchEquipments();
   }, [globalLab]);
 
+  useEffect(() => {
+    if (role === 'operations') {
+      setSelectedCategory('Equipos Consultores Externos');
+    }
+  }, [role]);
+
   const filteredEquipments = equipments.filter(eq => {
     // Solo permitimos equipos del laboratorio base o de sus consultores
     const isBase = eq.lab === globalLab;
@@ -165,13 +171,15 @@ export default function EquipmentModule({ session, onLogout, globalLab, onBackTo
   // Calculate stats by macro-category based on current filters
   const categoryStats = useMemo(() => {
     const stats = {};
-    // Ensure all 5 categories always exist so the dashboard looks complete
     Object.keys(CATEGORY_DETAILS).forEach(cat => {
+      if (role === 'operations' && cat !== 'Equipos Consultores Externos') return;
       stats[cat] = { total: 0, altas: 0, bajas: 0 };
     });
 
     filteredEquipments.forEach(eq => {
       const macroCategory = categorizeEquipment(eq);
+      if (role === 'operations' && macroCategory !== 'Equipos Consultores Externos') return;
+      
       if (!stats[macroCategory]) stats[macroCategory] = { total: 0, altas: 0, bajas: 0 };
       stats[macroCategory].total += 1;
       if (eq.status === 'BAJA') stats[macroCategory].bajas += 1;
@@ -251,48 +259,50 @@ export default function EquipmentModule({ session, onLogout, globalLab, onBackTo
         </nav>
 
         {/* Sidebar Actions */}
-        <div style={{ padding: '24px 16px', borderTop: '1px solid rgba(0,0,0,0.1)', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-          <div style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '4px' }}>
-            Acciones de Base de Datos
+        {role === 'admin' && (
+          <div style={{ padding: '24px 16px', borderTop: '1px solid rgba(0,0,0,0.1)', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            <div style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '4px' }}>
+              Acciones de Base de Datos
+            </div>
+            <button 
+              className="btn btn-secondary" 
+              onClick={() => setIsImporterOpen(true)} 
+              style={{ 
+                display: 'flex', 
+                alignItems: 'center', 
+                gap: '12px', 
+                width: '100%', 
+                justifyContent: 'flex-start',
+                padding: '12px',
+                fontSize: '0.9rem',
+                backgroundColor: 'white'
+              }}
+            >
+              <Upload size={18} color="var(--primary)" /> 
+              <span>Carga Masiva (XLS)</span>
+            </button>
+            
+            <button 
+              className="btn btn-secondary" 
+              onClick={exportToExcel} 
+              style={{ 
+                display: 'flex', 
+                alignItems: 'center', 
+                gap: '12px', 
+                width: '100%', 
+                justifyContent: 'flex-start',
+                padding: '12px',
+                fontSize: '0.9rem',
+                backgroundColor: '#f0fdf4',
+                borderColor: '#86efac',
+                color: '#166534'
+              }}
+            >
+              <Download size={18} /> 
+              <span>Exportar Equipos</span>
+            </button>
           </div>
-          <button 
-            className="btn btn-secondary" 
-            onClick={() => setIsImporterOpen(true)} 
-            style={{ 
-              display: 'flex', 
-              alignItems: 'center', 
-              gap: '12px', 
-              width: '100%', 
-              justifyContent: 'flex-start',
-              padding: '12px',
-              fontSize: '0.9rem',
-              backgroundColor: 'white'
-            }}
-          >
-            <Upload size={18} color="var(--primary)" /> 
-            <span>Carga Masiva (XLS)</span>
-          </button>
-          
-          <button 
-            className="btn btn-secondary" 
-            onClick={exportToExcel} 
-            style={{ 
-              display: 'flex', 
-              alignItems: 'center', 
-              gap: '12px', 
-              width: '100%', 
-              justifyContent: 'flex-start',
-              padding: '12px',
-              fontSize: '0.9rem',
-              backgroundColor: '#f0fdf4',
-              borderColor: '#86efac',
-              color: '#166534'
-            }}
-          >
-            <Download size={18} /> 
-            <span>Exportar Equipos</span>
-          </button>
-        </div>
+        )}
       </aside>
 
       {/* Main Content */}
@@ -594,7 +604,7 @@ export default function EquipmentModule({ session, onLogout, globalLab, onBackTo
         />
 
         {/* Floating Bulk Action Bar */}
-        {selectedEquipments.length > 0 && (
+        {role === 'admin' && selectedEquipments.length > 0 && (
           <div style={{ 
             position: 'fixed', bottom: 30, left: '50%', transform: 'translateX(-50%)', 
             backgroundColor: 'var(--surface)', padding: '16px 32px', borderRadius: '40px', 

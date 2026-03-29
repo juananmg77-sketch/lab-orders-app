@@ -42,7 +42,7 @@ import logo from './assets/logo.png';
 
 
 
-function PurchasingModule({ session, onLogout, globalLab, onBackToHub }) {
+function PurchasingModule({ session, onLogout, globalLab, onBackToHub, role = 'operations' }) {
   const [activeTab, setActiveTab] = useState('pedidos');
   const selectedLab = globalLab;
   
