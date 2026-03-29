@@ -70,6 +70,8 @@ export default function App() {
         globalLab={globalLab}
         onLogout={handleLogout}
         onBackToHub={() => setActiveModule(null)}
+        role={role}
+        onSelectModule={setActiveModule}
       />
     );
   }
@@ -82,6 +84,7 @@ export default function App() {
         role={role}
         onLogout={handleLogout}
         onBackToHub={() => setActiveModule(null)}
+        onSelectModule={setActiveModule}
       />
     );
   }

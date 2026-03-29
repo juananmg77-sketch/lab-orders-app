@@ -1372,6 +1372,17 @@ function PurchasingModule({ session, onLogout, globalLab, onBackToHub, role = 'o
             <TrendingUp size={20} style={{ marginRight: '12px' }} />
             Análisis
           </div>
+
+          {role === 'admin' && (
+            <div 
+              className="nav-item"
+              onClick={() => onSelectModule('usuarios')}
+              style={{ color: 'rgba(255,255,255,0.6)', marginTop: 'auto', borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: '12px' }}
+            >
+              <Settings size={20} style={{ marginRight: '12px' }} />
+              Accesos y Roles
+            </div>
+          )}
         </nav>
       </aside>
 

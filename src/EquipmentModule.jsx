@@ -92,7 +92,7 @@ const getSubtypeIcon = (sub) => {
   return <Settings size={18} />;
 };
 
-export default function EquipmentModule({ session, onLogout, globalLab, onBackToHub, role = 'operations' }) {
+export default function EquipmentModule({ session, onLogout, globalLab, onBackToHub, onSelectModule, role = 'operations' }) {
   const [activeTab, setActiveTab] = useState('inventario');
   const [equipments, setEquipments] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
@@ -256,6 +256,17 @@ export default function EquipmentModule({ session, onLogout, globalLab, onBackTo
             <ShieldCheck size={20} />
             <span>Plan Mantenimiento</span>
           </div>
+
+          {role === 'admin' && (
+            <div 
+              className="nav-item"
+              onClick={() => onSelectModule('usuarios')}
+              style={{ color: 'var(--text-muted)', marginTop: 'auto', borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: '12px' }}
+            >
+              <Settings size={20} />
+              <span>Accesos y Roles</span>
+            </div>
+          )}
         </nav>
 
         {/* Sidebar Actions */}

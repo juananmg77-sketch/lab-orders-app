@@ -9,6 +9,8 @@ export default function UserManagementModule({ onBackToHub }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [newUser, setNewUser] = useState({ email: '', password: '', role: 'operations' });
+  const [lastCreatedUser, setLastCreatedUser] = useState(null);
+
 
   const fetchUsers = async () => {
     setLoading(true);
@@ -64,6 +66,7 @@ export default function UserManagementModule({ onBackToHub }) {
       if (profileError) {
         setError("Usuario creado en Auth, pero fallo la creación del perfil: " + profileError.message);
       } else {
+        setLastCreatedUser({...newUser}); // Store to show success message
         setIsAdding(false);
         setNewUser({ email: '', password: '', role: 'operations' });
         fetchUsers();
@@ -121,6 +124,54 @@ export default function UserManagementModule({ onBackToHub }) {
       </header>
 
       <main style={{ flex: 1, padding: '40px', overflowY: 'auto' }}>
+        {lastCreatedUser && (
+          <div style={{ backgroundColor: '#f0fdf4', border: '1px solid #bbf7d0', padding: '24px', borderRadius: '12px', marginBottom: '30px', color: '#166534' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+              <div>
+                <h3 style={{ margin: '0 0 8px 0', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <Save size={20} /> ¡Usuario Invitado con Éxito!
+                </h3>
+                <p style={{ fontSize: '0.95rem', margin: 0 }}>
+                  Se ha registrado a <b>{lastCreatedUser.email}</b>. Copia la invitación debajo para enviársela.
+                </p>
+              </div>
+              <button 
+                className="btn btn-secondary" 
+                onClick={() => setLastCreatedUser(null)}
+                style={{ padding: '4px 8px', fontSize: '0.75rem' }}
+              >
+                Cerrar Aviso
+              </button>
+            </div>
+            
+            <div style={{ 
+              marginTop: '16px', backgroundColor: 'white', padding: '16px', 
+              borderRadius: '8px', border: '1px dotted #166534', fontSize: '0.9rem',
+              whiteSpace: 'pre-wrap', lineHeight: 1.6
+            }}>
+              {`Hola! Te invito a unirte al Portal de Gestión de HSLAB.
+Tus credenciales de acceso son:
+- Web: ${window.location.origin}
+- Usuario: ${lastCreatedUser.email}
+- Password: ${lastCreatedUser.password}
+
+Por seguridad, te recomendamos cambiar tu contraseña tras el primer acceso.`}
+            </div>
+            
+            <button 
+              className="btn btn-primary" 
+              style={{ marginTop: '12px' }}
+              onClick={() => {
+                const text = `Hola! Te invito a unirte al Portal de Gestión de HSLAB.\n\nTus credenciales de acceso son:\n- Web: ${window.location.origin}\n- Usuario: ${lastCreatedUser.email}\n- Password: ${lastCreatedUser.password}\n\nPor seguridad, te recomendamos cambiar tu contraseña tras el primer acceso.`;
+                navigator.clipboard.writeText(text);
+                alert("Invitación copiada al portapapeles");
+              }}
+            >
+              Copiar Invitación para Enviar
+            </button>
+          </div>
+        )}
+
         {error && (
           <div style={{ backgroundColor: '#fff1f2', border: '1px solid #fda4af', padding: '20px', borderRadius: '12px', marginBottom: '30px', color: '#991b1b' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px', fontWeight: 'bold', marginBottom: '8px' }}>
