@@ -29,12 +29,16 @@ import {
 
 const COLORS = ['#0076CE', '#34D399', '#FBBF24', '#F87171', '#818CF8', '#A78BFA'];
 
-export default function Dashboard({ orders, articles, onTabChange }) {
+export default function Dashboard({ orders, articles, onTabChange, role = 'operations' }) {
   const [dateRange, setDateRange] = useState({ start: '', end: '' });
   const [spendingSupplier, setSpendingSupplier] = useState('Todos');
   const [stockSupplier, setStockSupplier] = useState('Todos');
   const [searchRef, setSearchRef] = useState('');
   const [statusFilter, setStatusFilter] = useState('Todos');
+
+  // Hardcoded for now, but editable via UI for admins
+  const [monthlyBudget, setMonthlyBudget] = useState(2500); 
+  const [isEditingBudget, setIsEditingBudget] = useState(false);
 
   // 1. Process and Filter Data
   const filteredData = useMemo(() => {
@@ -153,9 +157,11 @@ export default function Dashboard({ orders, articles, onTabChange }) {
       monthlyChartData,
       currentStockValuation,
       pendingOrdersCount,
-      finishedOrdersCount
+      finishedOrdersCount,
+      monthlySpendingMap: monthlySpending
     };
   }, [filteredData, searchRef, articles, stockSupplier, orders]);
+
 
   const uniqueSuppliers = useMemo(() => {
     const fromOrders = orders.map(o => o.supplier);
@@ -248,22 +254,61 @@ export default function Dashboard({ orders, articles, onTabChange }) {
           <ArrowUpRight size={16} color="var(--text-muted)" />
         </div>
 
-        <div 
-          className="card" 
-          style={{ padding: '20px', display: 'flex', alignItems: 'center', gap: '16px', cursor: 'pointer', transition: 'all 0.2s', border: '1px solid transparent' }}
-          onClick={() => onTabChange && onTabChange('pedidos')}
-          onMouseEnter={(e) => e.currentTarget.style.borderColor = 'var(--primary)'}
-          onMouseLeave={(e) => e.currentTarget.style.borderColor = 'transparent'}
-        >
-          <div style={{ width: '48px', height: '48px', borderRadius: '12px', backgroundColor: 'rgba(52, 211, 153, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#10B981' }}>
-            <Check size={24} />
+        {/* Admin Budget KPI */}
+        {role === 'admin' ? (
+          <div className="card" style={{ padding: '20px', position: 'relative', overflow: 'hidden' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', alignItems: 'center' }}>
+               <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)', fontWeight: 600 }}>Presupuesto Mensual</span>
+               {isEditingBudget ? (
+                 <input 
+                    autoFocus 
+                    type="number" 
+                    className="input-field" 
+                    style={{ width: '80px', margin: 0, padding: '4px 8px', fontSize: '0.8rem' }}
+                    value={monthlyBudget}
+                    onBlur={() => setIsEditingBudget(false)}
+                    onChange={(e) => setMonthlyBudget(Number(e.target.value))}
+                 />
+               ) : (
+                 <button onClick={() => setIsEditingBudget(true)} style={{ background: 'none', border: 'none', color: 'var(--primary)', fontSize: '0.75rem', fontWeight: 700, cursor: 'pointer' }}>EDITAR</button>
+               )}
+            </div>
+            <div style={{ fontSize: '1.5rem', fontWeight: 700, marginBottom: '8px' }}>
+              {monthlyBudget.toLocaleString('es-ES')} €
+            </div>
+            <div style={{ height: '8px', backgroundColor: '#e2e8f0', borderRadius: '4px', position: 'relative' }}>
+               <div style={{ 
+                 position: 'absolute', left: 0, top: 0, bottom: 0, 
+                 width: `${Math.min(100, (stats.totalSpent / monthlyBudget) * 100)}%`, 
+                 backgroundColor: (stats.totalSpent > monthlyBudget) ? 'var(--danger)' : 'var(--primary)', 
+                 borderRadius: '4px' 
+               }} />
+            </div>
+            <div style={{ fontSize: '0.7rem', marginTop: '6px', color: (stats.totalSpent > monthlyBudget) ? 'var(--danger)' : 'var(--text-muted)' }}>
+               {stats.totalSpent > monthlyBudget 
+                 ? `Sobrecoste de ${(stats.totalSpent - monthlyBudget).toFixed(2)} €` 
+                 : `${((stats.totalSpent / monthlyBudget) * 100).toFixed(0)}% del presupuesto consumido`}
+            </div>
           </div>
-          <div style={{ flex: 1 }}>
-            <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', fontWeight: 500 }}>Pedidos Finalizados</div>
-            <div style={{ fontSize: '1.5rem', fontWeight: 700 }}>{stats.finishedOrdersCount}</div>
+        ) : (
+          <div 
+            className="card" 
+            style={{ padding: '20px', display: 'flex', alignItems: 'center', gap: '16px', cursor: 'pointer', transition: 'all 0.2s', border: '1px solid transparent' }}
+            onClick={() => onTabChange && onTabChange('pedidos')}
+            onMouseEnter={(e) => e.currentTarget.style.borderColor = 'var(--primary)'}
+            onMouseLeave={(e) => e.currentTarget.style.borderColor = 'transparent'}
+          >
+            <div style={{ width: '48px', height: '48px', borderRadius: '12px', backgroundColor: 'rgba(52, 211, 153, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#10B981' }}>
+              <Check size={24} />
+            </div>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', fontWeight: 500 }}>Pedidos Finalizados</div>
+              <div style={{ fontSize: '1.5rem', fontWeight: 700 }}>{stats.finishedOrdersCount}</div>
+            </div>
+            <ArrowUpRight size={16} color="var(--text-muted)" />
           </div>
-          <ArrowUpRight size={16} color="var(--text-muted)" />
-        </div>
+        )}
+
 
         <div>
           <div className="input-group" style={{ marginBottom: '8px' }}>
@@ -336,7 +381,51 @@ export default function Dashboard({ orders, articles, onTabChange }) {
         </div>
       </div>
 
+      {/* Admin Budget Analysis Table */}
+      {role === 'admin' && (
+        <div className="card" style={{ marginBottom: '24px' }}>
+          <div style={{ padding: '20px 24px', borderBottom: '1px solid var(--border)' }}>
+            <h3 style={{ margin: 0, fontSize: '1.1rem' }}>Control Presupuestario Mensual</h3>
+          </div>
+          <div className="table-wrapper">
+            <table>
+              <thead>
+                <tr>
+                  <th>Mes</th>
+                  <th style={{ textAlign: 'right' }}>Gasto Real</th>
+                  <th style={{ textAlign: 'right' }}>Presupuesto</th>
+                  <th style={{ textAlign: 'center' }}>Desviación</th>
+                  <th style={{ textAlign: 'center' }}>Estado</th>
+                </tr>
+              </thead>
+              <tbody>
+                {stats.monthlyChartData.map(d => {
+                  const diff = monthlyBudget - d.value;
+                  const isOver = diff < 0;
+                  return (
+                    <tr key={d.month}>
+                      <td style={{ fontWeight: 600 }}>{d.month}</td>
+                      <td style={{ textAlign: 'right' }}>{d.value.toLocaleString('es-ES', { minimumFractionDigits: 2 })} €</td>
+                      <td style={{ textAlign: 'right', color: 'var(--text-muted)' }}>{monthlyBudget.toLocaleString('es-ES')} €</td>
+                      <td style={{ textAlign: 'center', color: isOver ? 'var(--danger)' : '#16a34a', fontWeight: 'bold' }}>
+                        {isOver ? `+${Math.abs(diff).toFixed(2)} €` : `-${diff.toFixed(2)} €`}
+                      </td>
+                      <td style={{ textAlign: 'center' }}>
+                        <span className={`badge ${isOver ? 'badge-danger' : 'badge-success'}`}>
+                          {isOver ? 'EXCEDIDO' : 'DENTRO'}
+                        </span>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
       {/* Detailed Analysis Table */}
+
       <div className="card">
         <div className="flex-between" style={{ padding: '20px 24px', borderBottom: '1px solid var(--border)' }}>
           <h3 style={{ margin: 0, fontSize: '1.1rem' }}>Detalle por Referencia para Negociación</h3>

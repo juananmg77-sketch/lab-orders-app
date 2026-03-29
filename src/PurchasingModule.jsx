@@ -585,6 +585,7 @@ function PurchasingModule({ session, onLogout, globalLab, onBackToHub, role = 'o
             articles={labArticles} 
             suppliers={suppliers} 
             onTabChange={setActiveTab}
+            role={role}
             onNewOrder={() => {
               setEditingOrder(null);
               setDefaultSupplierForOrder('');
