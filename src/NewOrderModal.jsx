@@ -136,18 +136,38 @@ export default function NewOrderModal({ isOpen, onClose, onSaveOrder, suppliers,
     }, 0);
   };
 
+  const APPROVAL_THRESHOLD = 500;
+
+  const requiresApproval = () => {
+    const total = calculateTotal();
+    const alreadyApproved = !!editingOrder?.approved_by;
+    return total >= APPROVAL_THRESHOLD && !alreadyApproved;
+  };
+
   const getOrderData = () => {
     const orderSupplierName = selectedSupplierName || (cart.length > 0 ? cart[0].article.supplierName : '');
     const orderRef = editingOrder ? editingOrder.id : `ORD-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${Math.floor(Math.random() * 10000)}`;
-    
+    const total = calculateTotal();
+    const needsApproval = total >= APPROVAL_THRESHOLD && !editingOrder?.approved_by;
+
+    let status;
+    if (needsApproval) {
+      status = 'Pendiente de Aprobación';
+    } else if (editingOrder?.status && editingOrder.status !== 'Pendiente de Aprobación') {
+      status = editingOrder.status;
+    } else {
+      status = 'Pendiente';
+    }
+
     return {
       id: orderRef,
-      date: new Date().toLocaleDateString(),
+      date: editingOrder?.date || new Date().toLocaleDateString(),
       supplier: orderSupplierName || 'Proveedor Desconocido',
       items: cart.length,
       cart: cart,
-      total: calculateTotal(),
-      status: 'Pendiente'
+      total: total,
+      status: status,
+      ...(editingOrder?.approved_by ? { approved_by: editingOrder.approved_by, approval_date: editingOrder.approval_date } : {})
     };
   };
 
@@ -277,6 +297,10 @@ export default function NewOrderModal({ isOpen, onClose, onSaveOrder, suppliers,
       return;
     }
 
+    if (orderData.status === 'Pendiente de Aprobación') {
+      alert(`⚠️ Este pedido supera los ${APPROVAL_THRESHOLD}€ y quedará pendiente de aprobación por el administrador (jamunoz@hsconsulting.es) antes de poder generar el PDF o enviarlo al proveedor.`);
+    }
+
     onSaveOrder(orderData);
     setCart([]);
     onClose();
@@ -284,6 +308,10 @@ export default function NewOrderModal({ isOpen, onClose, onSaveOrder, suppliers,
 
   const handleGeneratePDFOnly = () => {
     if (cart.length === 0) return;
+    if (requiresApproval()) {
+      alert(`⛔ Este pedido supera los ${APPROVAL_THRESHOLD}€ y requiere aprobación del administrador antes de generar el PDF.`);
+      return;
+    }
     const orderData = getOrderData();
 
     if (orderData.supplier === 'Proveedor Desconocido') {
@@ -294,13 +322,17 @@ export default function NewOrderModal({ isOpen, onClose, onSaveOrder, suppliers,
     const doc = createPDF(orderData.id, orderData.supplier);
     const filename = `Pedido_${orderData.id}_${orderData.supplier.replace(/\s+/g, '_')}.pdf`;
     doc.save(filename);
-    
+
     // Auto-save order too as it's common sense when generating PDF
     onSaveOrder(orderData);
   };
 
   const handleGenerateAndSend = () => {
     if (cart.length === 0) return;
+    if (requiresApproval()) {
+      alert(`⛔ Este pedido supera los ${APPROVAL_THRESHOLD}€ y requiere aprobación del administrador antes de enviarlo al proveedor.`);
+      return;
+    }
     const orderData = getOrderData();
 
     if (orderData.supplier === 'Proveedor Desconocido') {
@@ -578,37 +610,62 @@ export default function NewOrderModal({ isOpen, onClose, onSaveOrder, suppliers,
               )}
             </div>
 
+            {/* Approval Warning Banner */}
+            {cart.length > 0 && requiresApproval() && (
+              <div style={{
+                marginTop: '16px',
+                padding: '10px 14px',
+                backgroundColor: '#fff8e1',
+                border: '1px solid #f59e0b',
+                borderLeft: '4px solid #f59e0b',
+                borderRadius: '8px',
+                fontSize: '0.78rem',
+                color: '#92400e',
+                display: 'flex',
+                gap: '8px',
+                alignItems: 'flex-start'
+              }}>
+                <span style={{ fontSize: '1rem' }}>⚠️</span>
+                <span>
+                  <strong>Requiere aprobación</strong><br/>
+                  El importe supera los {APPROVAL_THRESHOLD}€. El pedido quedará <em>Pendiente de Aprobación</em> hasta que el administrador lo autorice. PDF y envío bloqueados hasta entonces.
+                </span>
+              </div>
+            )}
+
             {/* Action Buttons */}
-            <div style={{ marginTop: '20px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
-              <button 
-                className={`btn btn-primary ${cart.length === 0 ? 'disabled' : ''}`} 
+            <div style={{ marginTop: '12px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              <button
+                className={`btn btn-primary ${cart.length === 0 ? 'disabled' : ''}`}
                 style={{ width: '100%', padding: '12px', fontSize: '1rem' }}
                 onClick={handleSaveOnly}
                 disabled={cart.length === 0 || isProcessing}
               >
-                Guardar Pedido
+                {cart.length > 0 && requiresApproval() ? '📋 Guardar y Solicitar Aprobación' : 'Guardar Pedido'}
               </button>
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-                <button 
-                  className="btn btn-secondary" 
-                  style={{ gap: '6px', fontSize: '0.85rem' }}
+                <button
+                  className="btn btn-secondary"
+                  style={{ gap: '6px', fontSize: '0.85rem', opacity: requiresApproval() ? 0.4 : 1, cursor: requiresApproval() ? 'not-allowed' : 'pointer' }}
                   onClick={handleGeneratePDFOnly}
-                  disabled={cart.length === 0 || isProcessing}
+                  disabled={cart.length === 0 || isProcessing || requiresApproval()}
+                  title={requiresApproval() ? `Bloqueado: pedido supera ${APPROVAL_THRESHOLD}€ y requiere aprobación del administrador` : 'Generar PDF'}
                 >
                   <FileText size={16} /> Generar PDF
                 </button>
-                <button 
-                  className="btn btn-secondary" 
-                  style={{ gap: '6px', fontSize: '0.85rem' }}
+                <button
+                  className="btn btn-secondary"
+                  style={{ gap: '6px', fontSize: '0.85rem', opacity: requiresApproval() ? 0.4 : 1, cursor: requiresApproval() ? 'not-allowed' : 'pointer' }}
                   onClick={handleGenerateAndSend}
-                  disabled={cart.length === 0 || isProcessing}
+                  disabled={cart.length === 0 || isProcessing || requiresApproval()}
+                  title={requiresApproval() ? `Bloqueado: pedido supera ${APPROVAL_THRESHOLD}€ y requiere aprobación del administrador` : 'PDF y Enviar'}
                 >
                   <Send size={16} /> PDF y Enviar
                 </button>
               </div>
             </div>
-            
+
             <p style={{ margin: '12px 0 0 0', fontSize: '0.75rem', color: 'var(--text-muted)', textAlign: 'center' }}>
               * Guardar pedido lo registrará en la lista sin descargar documentos.
             </p>

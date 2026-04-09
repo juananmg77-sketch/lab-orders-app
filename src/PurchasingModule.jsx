@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { 
-  ClipboardList, 
-  PackageSearch, 
-  Box, 
-  Truck, 
+import {
+  ClipboardList,
+  PackageSearch,
+  Box,
+  Truck,
   Plus,
   Search,
   Bell,
@@ -24,7 +24,10 @@ import {
   ArrowUpDown,
   Minus,
   AlertTriangle,
-  Eye
+  Eye,
+  ThumbsUp,
+  ThumbsDown,
+  Clock
 } from 'lucide-react';
 import { supabase } from './supabaseClient';
 import Auth from './Auth';
@@ -513,6 +516,37 @@ function PurchasingModule({ session, onLogout, globalLab, onBackToHub, role = 'o
     }
   };
 
+  const ADMIN_EMAIL = 'jamunoz@hsconsulting.es';
+
+  const handleApproveOrder = async (order) => {
+    const approverEmail = session?.user?.email || ADMIN_EMAIL;
+    const now = new Date().toLocaleDateString();
+    const { error } = await supabase.from('orders').update({
+      status: 'Pendiente',
+      approved_by: approverEmail,
+      approval_date: now
+    }).eq('id', order.id);
+    if (error) {
+      alert('Error al aprobar el pedido: ' + error.message);
+    } else {
+      await fetchOrders();
+    }
+  };
+
+  const handleRejectOrder = async (order) => {
+    const reason = prompt(`Indique el motivo del rechazo del pedido ${order.id}:`);
+    if (reason === null) return; // cancelled
+    const { error } = await supabase.from('orders').update({
+      status: 'Rechazado',
+      rejection_reason: reason || 'Sin motivo especificado'
+    }).eq('id', order.id);
+    if (error) {
+      alert('Error al rechazar el pedido: ' + error.message);
+    } else {
+      await fetchOrders();
+    }
+  };
+
   const handleSaveSupplier = async (supplierData) => {
     const { error } = await supabase.from('suppliers').upsert([supplierData]);
     if (error) {
@@ -616,9 +650,11 @@ function PurchasingModule({ session, onLogout, globalLab, onBackToHub, role = 'o
                   onChange={(e) => setOrderStatusFilter(e.target.value)}
                 >
                   <option value="">Todos los estados</option>
+                  <option value="Pendiente de Aprobación">Pendiente de Aprobación</option>
                   <option value="Pendiente">Pendiente</option>
                   <option value="Completado">Completado</option>
                   <option value="Incompleto">Incompleto</option>
+                  <option value="Rechazado">Rechazado</option>
                 </select>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
                   <span>Desde:</span>
@@ -675,17 +711,31 @@ function PurchasingModule({ session, onLogout, globalLab, onBackToHub, role = 'o
                       <td style={{ fontWeight: 600 }}>{order.total ? order.total.toFixed(2) + ' €' : '-'}</td>
                       <td>
                         <span className={`badge ${
-                          order.status === 'Completado' ? 'badge-success' : 
+                          order.status === 'Completado' ? 'badge-success' :
                           order.status === 'Incompleto' ? 'badge-warning' :
-                          order.status === 'Pendiente' ? 'badge-info' : 'badge-danger'
-                        }`}>
-                          {order.status}
+                          order.status === 'Pendiente' ? 'badge-info' :
+                          order.status === 'Pendiente de Aprobación' ? 'badge-danger' :
+                          order.status === 'Rechazado' ? 'badge-danger' : 'badge-danger'
+                        }`} style={order.status === 'Pendiente de Aprobación' ? { backgroundColor: '#f59e0b', color: '#fff' } : order.status === 'Rechazado' ? { backgroundColor: '#dc2626', color: '#fff' } : {}}>
+                          {order.status === 'Pendiente de Aprobación' ? '⏳ Pendiente de Aprobación' : order.status === 'Rechazado' ? '⛔ Rechazado' : order.status}
                         </span>
                       </td>
                       <td style={{ textAlign: 'center' }}>
-                        {order.incidents ? (
+                        {order.rejection_reason ? (
+                          <div title={`Rechazado: ${order.rejection_reason}`} style={{ color: '#dc2626', cursor: 'help', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            <ThumbsDown size={18} />
+                          </div>
+                        ) : order.approved_by ? (
+                          <div title={`Aprobado por ${order.approved_by} el ${order.approval_date}`} style={{ color: '#16a34a', cursor: 'help', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            <ThumbsUp size={18} />
+                          </div>
+                        ) : order.incidents ? (
                           <div title={order.incidents} style={{ color: 'var(--danger)', cursor: 'help', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                             <AlertTriangle size={18} />
+                          </div>
+                        ) : order.status === 'Pendiente de Aprobación' ? (
+                          <div title="Esperando aprobación del administrador" style={{ color: '#f59e0b', cursor: 'help', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            <Clock size={18} />
                           </div>
                         ) : '-'}
                       </td>
@@ -703,8 +753,30 @@ function PurchasingModule({ session, onLogout, globalLab, onBackToHub, role = 'o
                             <Eye size={16} />
                           </button>
                           
-                          <button 
-                            className="btn btn-secondary" 
+                          {/* Botones Aprobar / Rechazar — solo admin, solo cuando pendiente de aprobación */}
+                          {role === 'admin' && order.status === 'Pendiente de Aprobación' && (
+                            <>
+                              <button
+                                className="btn btn-secondary"
+                                style={{ padding: '6px', fontSize: '0.75rem', color: '#16a34a', borderColor: '#16a34a' }}
+                                title="Aprobar pedido"
+                                onClick={() => handleApproveOrder(order)}
+                              >
+                                <ThumbsUp size={16} />
+                              </button>
+                              <button
+                                className="btn btn-secondary"
+                                style={{ padding: '6px', fontSize: '0.75rem', color: '#dc2626', borderColor: '#dc2626' }}
+                                title="Rechazar pedido"
+                                onClick={() => handleRejectOrder(order)}
+                              >
+                                <ThumbsDown size={16} />
+                              </button>
+                            </>
+                          )}
+
+                          <button
+                            className="btn btn-secondary"
                             title={order.status === 'Incompleto' ? "Ver estado de recepción" : "Editar Pedido"}
                             onClick={() => {
                               if (order.status === 'Incompleto') {
@@ -715,20 +787,20 @@ function PurchasingModule({ session, onLogout, globalLab, onBackToHub, role = 'o
                                 setIsNewOrderModalOpen(true);
                               }
                             }}
-                            disabled={order.status === 'Completado'}
-                            style={{ 
-                              padding: '6px', 
-                              fontSize: '0.75rem', 
+                            disabled={order.status === 'Completado' || order.status === 'Rechazado'}
+                            style={{
+                              padding: '6px',
+                              fontSize: '0.75rem',
                               color: order.status === 'Incompleto' ? 'var(--warning)' : 'var(--primary)',
-                              display: order.status === 'Completado' ? 'none' : 'flex' 
+                              display: (order.status === 'Completado' || order.status === 'Rechazado') ? 'none' : 'flex'
                             }}
                           >
                             <Edit size={16} />
                           </button>
 
                           {(order.status === 'Completado' || order.status === 'Incompleto') && (
-                            <button 
-                              className="btn btn-secondary" 
+                            <button
+                              className="btn btn-secondary"
                               style={{ padding: '6px', fontSize: '0.75rem', color: 'var(--warning)' }}
                               title="Reabrir Pedido (Anular recepción)"
                               onClick={() => handleReopenOrder(order)}
@@ -736,10 +808,10 @@ function PurchasingModule({ session, onLogout, globalLab, onBackToHub, role = 'o
                               <RotateCcw size={16} />
                             </button>
                           )}
-                          
+
                           {order.status === 'Pendiente' && (
-                            <button 
-                              className="btn btn-primary" 
+                            <button
+                              className="btn btn-primary"
                               style={{ padding: '6px', fontSize: '0.75rem' }}
                               title="Recepcionar"
                               onClick={() => {
