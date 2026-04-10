@@ -70,6 +70,7 @@ function PurchasingModule({ session, onLogout, globalLab, onBackToHub, role = 'o
   const [orderStatusFilter, setOrderStatusFilter] = useState('');
   const [orderDateStart, setOrderDateStart] = useState('');
   const [orderDateEnd, setOrderDateEnd] = useState('');
+  const [orderMonthFilter, setOrderMonthFilter] = useState('');
 
   // Articles state
   const [articles, setArticles] = useState([]);
@@ -571,13 +572,30 @@ function PurchasingModule({ session, onLogout, globalLab, onBackToHub, role = 'o
     setIsSupplierModalOpen(true);
   };
 
+  // Available months derived from existing orders (for the month selector)
+  const availableMonths = useMemo(() => {
+    const seen = new Set();
+    labOrders.forEach(order => {
+      if (!order.date) return;
+      let d;
+      if (order.date.includes('-')) {
+        d = new Date(order.date);
+      } else {
+        const [day, m, y] = order.date.split('/');
+        d = new Date(y, m - 1, day);
+      }
+      if (!isNaN(d)) seen.add(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`);
+    });
+    return [...seen].sort((a, b) => b.localeCompare(a)); // most recent first
+  }, [labOrders]);
+
   const filteredOrders = useMemo(() => {
     return labOrders.filter(order => {
       const matchesStatus = orderStatusFilter === '' || order.status === orderStatusFilter;
-      
+
       let matchesDate = true;
       if (order.date) {
-        // Normalize order date for comparison (supports YYYY-MM-DD and DD/MM/YYYY)
+        // Normalize order date (supports YYYY-MM-DD and DD/MM/YYYY)
         let orderDate;
         if (order.date.includes('-')) {
           orderDate = new Date(order.date);
@@ -586,21 +604,29 @@ function PurchasingModule({ session, onLogout, globalLab, onBackToHub, role = 'o
           orderDate = new Date(y, m - 1, d);
         }
 
-        if (orderDateStart) {
-          const start = new Date(orderDateStart);
-          start.setHours(0, 0, 0, 0);
-          if (orderDate < start) matchesDate = false;
-        }
-        if (orderDateEnd) {
-          const end = new Date(orderDateEnd);
-          end.setHours(23, 59, 59, 999);
-          if (orderDate > end) matchesDate = false;
+        if (orderMonthFilter) {
+          // Month filter takes priority: match year-month
+          const [fy, fm] = orderMonthFilter.split('-').map(Number);
+          if (orderDate.getFullYear() !== fy || orderDate.getMonth() + 1 !== fm) {
+            matchesDate = false;
+          }
+        } else {
+          if (orderDateStart) {
+            const start = new Date(orderDateStart);
+            start.setHours(0, 0, 0, 0);
+            if (orderDate < start) matchesDate = false;
+          }
+          if (orderDateEnd) {
+            const end = new Date(orderDateEnd);
+            end.setHours(23, 59, 59, 999);
+            if (orderDate > end) matchesDate = false;
+          }
         }
       }
 
       return matchesStatus && matchesDate;
     });
-  }, [labOrders, orderStatusFilter, orderDateStart, orderDateEnd]);
+  }, [labOrders, orderStatusFilter, orderDateStart, orderDateEnd, orderMonthFilter]);
 
   const totalFilteredAmount = useMemo(() => {
     return filteredOrders.reduce((sum, order) => sum + (order.total || 0), 0);
@@ -656,22 +682,42 @@ function PurchasingModule({ session, onLogout, globalLab, onBackToHub, role = 'o
                   <option value="Incompleto">Incompleto</option>
                   <option value="Rechazado">Rechazado</option>
                 </select>
+                {/* Selector por mes */}
+                <select
+                  className="input-field"
+                  style={{ width: '160px', margin: 0 }}
+                  value={orderMonthFilter}
+                  onChange={(e) => {
+                    setOrderMonthFilter(e.target.value);
+                    if (e.target.value) { setOrderDateStart(''); setOrderDateEnd(''); }
+                  }}
+                >
+                  <option value="">Todos los meses</option>
+                  {availableMonths.map(ym => {
+                    const [y, m] = ym.split('-');
+                    const label = new Date(Number(y), Number(m) - 1, 1)
+                      .toLocaleDateString('es-ES', { month: 'long', year: 'numeric' });
+                    return <option key={ym} value={ym}>{label.charAt(0).toUpperCase() + label.slice(1)}</option>;
+                  })}
+                </select>
+
+                {/* Rango de fechas */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
                   <span>Desde:</span>
-                  <input 
-                    type="date" 
-                    className="input-field" 
+                  <input
+                    type="date"
+                    className="input-field"
                     style={{ width: '150px', margin: 0, padding: '8px' }}
                     value={orderDateStart}
-                    onChange={(e) => setOrderDateStart(e.target.value)}
+                    onChange={(e) => { setOrderDateStart(e.target.value); setOrderMonthFilter(''); }}
                   />
                   <span>Hasta:</span>
-                  <input 
-                    type="date" 
-                    className="input-field" 
+                  <input
+                    type="date"
+                    className="input-field"
                     style={{ width: '150px', margin: 0, padding: '8px' }}
                     value={orderDateEnd}
-                    onChange={(e) => setOrderDateEnd(e.target.value)}
+                    onChange={(e) => { setOrderDateEnd(e.target.value); setOrderMonthFilter(''); }}
                   />
                 </div>
                 <button className="btn btn-primary" onClick={() => {
