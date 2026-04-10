@@ -31,11 +31,10 @@ import {
 const COLORS = ['#0076CE', '#34D399', '#FBBF24', '#F87171', '#818CF8', '#A78BFA'];
 
 const STATUS_CONFIG = {
-  'Completado':              { label: 'Completado',              color: '#16a34a', bg: '#D4EDDA', icon: Check       },
-  'Pendiente':               { label: 'Pendiente',               color: '#0C5460', bg: '#D1ECF1', icon: ShoppingCart },
-  'Incompleto':              { label: 'Incompleto',              color: '#856404', bg: '#FFF3CD', icon: AlertCircle  },
-  'Pendiente de Aprobación': { label: 'Pdte. de Aprobación',    color: '#5B21B6', bg: '#EDE9F6', icon: Clock        },
-  'Rechazado':               { label: 'Rechazado',               color: '#475569', bg: '#F1F5F9', icon: ThumbsDown   },
+  'Completado':              { label: 'Completado',           color: '#16a34a', bg: '#D4EDDA', icon: Check        },
+  'Pendiente':               { label: 'Pendiente',            color: '#0C5460', bg: '#D1ECF1', icon: ShoppingCart },
+  'Incompleto':              { label: 'Incompleto',           color: '#856404', bg: '#FFF3CD', icon: AlertCircle  },
+  'Pendiente de Aprobación': { label: 'Pdte. Aprobación',    color: '#5B21B6', bg: '#EDE9F6', icon: Clock        },
 };
 
 function parseOrderDate(dateStr) {
@@ -293,6 +292,7 @@ export default function Dashboard({ orders, articles, onTabChange, role = 'opera
 
       {/* Status Summary Panel */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '12px', marginBottom: '24px' }}>
+        {/* 4 status cards */}
         {Object.entries(STATUS_CONFIG).map(([status, cfg]) => {
           const Icon = cfg.icon;
           const data = statusSummary[status] || { count: 0, total: 0 };
@@ -301,8 +301,8 @@ export default function Dashboard({ orders, articles, onTabChange, role = 'opera
               key={status}
               className="card"
               style={{ padding: '16px', cursor: 'pointer', transition: 'box-shadow 0.2s', borderTop: `3px solid ${cfg.color}` }}
-              onClick={() => { setStatusFilter(status === statusFilter ? 'Todos' : status); onTabChange && status === statusFilter && onTabChange('pedidos'); }}
-              title={`Ver pedidos "${cfg.label}"`}
+              onClick={() => { setStatusFilter(status === statusFilter ? 'Todos' : status); }}
+              title={`Filtrar por "${cfg.label}"`}
             >
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
                 <div style={{ width: '32px', height: '32px', borderRadius: '8px', backgroundColor: cfg.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', color: cfg.color, flexShrink: 0 }}>
@@ -317,6 +317,28 @@ export default function Dashboard({ orders, articles, onTabChange, role = 'opera
             </div>
           );
         })}
+
+        {/* Importe total card */}
+        {(() => {
+          const totalImporte = baseFiltered.reduce((s, o) => s + (o.total || 0), 0);
+          const totalPedidos = baseFiltered.length;
+          return (
+            <div className="card" style={{ padding: '16px', borderTop: '3px solid var(--primary)', backgroundColor: 'var(--primary-light)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
+                <div style={{ width: '32px', height: '32px', borderRadius: '8px', backgroundColor: 'rgba(0,118,206,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--primary)', flexShrink: 0 }}>
+                  <TrendingUp size={16} />
+                </div>
+                <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--primary)', lineHeight: 1.2 }}>Importe Total</span>
+              </div>
+              <div style={{ fontSize: '1.3rem', fontWeight: 800, color: 'var(--primary)', lineHeight: 1 }}>
+                {totalImporte.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
+              </div>
+              <div style={{ fontSize: '0.72rem', color: 'var(--primary)', marginTop: '4px', opacity: 0.75 }}>
+                {totalPedidos} pedido{totalPedidos !== 1 ? 's' : ''}
+              </div>
+            </div>
+          );
+        })()}
       </div>
 
       {/* KPI Cards */}
