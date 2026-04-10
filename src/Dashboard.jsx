@@ -93,6 +93,32 @@ export default function Dashboard({ orders, articles, onTabChange, role = 'opera
     return baseFiltered.filter(o => o.status === statusFilter);
   }, [baseFiltered, statusFilter]);
 
+  // Orders "realizados": sent to supplier (excludes Pendiente de Aprobación and Rechazado)
+  // Used exclusively for the monthly budget control table
+  const REALIZED_STATUSES = new Set(['Completado', 'Incompleto', 'Pendiente']);
+  const realizedOrders = useMemo(() =>
+    orders.filter(o => REALIZED_STATUSES.has(o.status)),
+  [orders]);
+
+  // Monthly spending computed only from realized orders (independent of all filters)
+  const budgetByMonth = useMemo(() => {
+    const map = {};
+    realizedOrders.forEach(o => {
+      const d = parseOrderDate(o.date);
+      if (!d) return;
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+      map[key] = (map[key] || 0) + (o.total || 0);
+    });
+    return Object.entries(map)
+      .map(([month, value]) => {
+        const [y, m] = month.split('-');
+        const label = new Date(Number(y), Number(m) - 1, 1)
+          .toLocaleDateString('es-ES', { month: 'long', year: 'numeric' });
+        return { month, label: label.charAt(0).toUpperCase() + label.slice(1), value };
+      })
+      .sort((a, b) => b.month.localeCompare(a.month)); // most recent first
+  }, [realizedOrders]);
+
   // Status summary (always all statuses, uses baseFiltered)
   const statusSummary = useMemo(() => {
     const map = {};
@@ -435,28 +461,38 @@ export default function Dashboard({ orders, articles, onTabChange, role = 'opera
       {/* Admin Budget Analysis Table */}
       {role === 'admin' && (
         <div className="card" style={{ marginBottom: '24px' }}>
-          <div style={{ padding: '20px 24px', borderBottom: '1px solid var(--border)' }}>
-            <h3 style={{ margin: 0, fontSize: '1.1rem' }}>Control Presupuestario Mensual</h3>
+          <div style={{ padding: '20px 24px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div>
+              <h3 style={{ margin: '0 0 2px 0', fontSize: '1.1rem' }}>Control Presupuestario Mensual</h3>
+              <p style={{ margin: 0, fontSize: '0.78rem', color: 'var(--text-muted)' }}>Suma de pedidos realizados (Completado + Incompleto + Pendiente) — excluye Pdte. Aprobación y Rechazados</p>
+            </div>
           </div>
           <div className="table-wrapper">
             <table>
               <thead>
                 <tr>
                   <th>Mes</th>
-                  <th style={{ textAlign: 'right' }}>Gasto Real</th>
+                  <th style={{ textAlign: 'right' }}>Pedidos Realizados</th>
                   <th style={{ textAlign: 'right' }}>Presupuesto</th>
                   <th style={{ textAlign: 'center' }}>Desviación</th>
                   <th style={{ textAlign: 'center' }}>Estado</th>
                 </tr>
               </thead>
               <tbody>
-                {stats.monthlyChartData.map(d => {
+                {budgetByMonth.length === 0 && (
+                  <tr>
+                    <td colSpan="5" style={{ textAlign: 'center', padding: '32px', color: 'var(--text-muted)' }}>
+                      No hay pedidos realizados registrados.
+                    </td>
+                  </tr>
+                )}
+                {budgetByMonth.map(d => {
                   const diff = monthlyBudget - d.value;
                   const isOver = diff < 0;
                   return (
                     <tr key={d.month}>
                       <td style={{ fontWeight: 600 }}>{d.label}</td>
-                      <td style={{ textAlign: 'right' }}>{d.value.toLocaleString('es-ES', { minimumFractionDigits: 2 })} €</td>
+                      <td style={{ textAlign: 'right', fontWeight: 600 }}>{d.value.toLocaleString('es-ES', { minimumFractionDigits: 2 })} €</td>
                       <td style={{ textAlign: 'right', color: 'var(--text-muted)' }}>{monthlyBudget.toLocaleString('es-ES')} €</td>
                       <td style={{ textAlign: 'center', color: isOver ? 'var(--danger)' : '#16a34a', fontWeight: 'bold' }}>
                         {isOver ? `+${Math.abs(diff).toFixed(2)} €` : `-${diff.toFixed(2)} €`}
