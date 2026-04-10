@@ -668,6 +668,13 @@ function PurchasingModule({ session, onLogout, globalLab, onBackToHub, role = 'o
             articles={labArticles}
             suppliers={suppliers}
             onTabChange={setActiveTab}
+            onNavigateToPedidos={(status) => {
+              setOrderStatusFilter(status || '');
+              setOrderMonthFilter('');
+              setOrderDateStart('');
+              setOrderDateEnd('');
+              setActiveTab('pedidos');
+            }}
             role={role}
             monthlyBudgets={monthlyBudgets}
             onSaveBudget={handleSaveBudget}

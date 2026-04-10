@@ -44,7 +44,7 @@ function parseOrderDate(dateStr) {
   return new Date(y, m - 1, d);
 }
 
-export default function Dashboard({ orders, articles, onTabChange, role = 'operations', monthlyBudgets = {}, onSaveBudget }) {
+export default function Dashboard({ orders, articles, onTabChange, onNavigateToPedidos, role = 'operations', monthlyBudgets = {}, onSaveBudget }) {
   const [monthFilter, setMonthFilter]           = useState('');
   const [dateRange, setDateRange]               = useState({ start: '', end: '' });
   const [spendingSupplier, setSpendingSupplier] = useState('Todos');
@@ -310,9 +310,9 @@ export default function Dashboard({ orders, articles, onTabChange, role = 'opera
             <div
               key={status}
               className="card"
-              style={{ padding: '16px', cursor: 'pointer', transition: 'box-shadow 0.2s', borderTop: `3px solid ${cfg.color}` }}
-              onClick={() => { setStatusFilter(status === statusFilter ? 'Todos' : status); }}
-              title={`Filtrar por "${cfg.label}"`}
+              style={{ padding: '16px', cursor: data.count > 0 ? 'pointer' : 'default', transition: 'box-shadow 0.2s', borderTop: `3px solid ${cfg.color}`, opacity: data.count === 0 ? 0.55 : 1 }}
+              onClick={() => { if (data.count > 0 && onNavigateToPedidos) onNavigateToPedidos(status); }}
+              title={data.count > 0 ? `Ver ${data.count} pedido(s) "${cfg.label}" en Gestión de Pedidos` : `Sin pedidos "${cfg.label}"`}
             >
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
                 <div style={{ width: '32px', height: '32px', borderRadius: '8px', backgroundColor: cfg.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', color: cfg.color, flexShrink: 0 }}>
