@@ -272,10 +272,12 @@ tr:hover {
   text-transform: uppercase;
 }
 
-.badge-success { background-color: #D4EDDA; color: #155724; }
-.badge-warning { background-color: #FFF3CD; color: #856404; }
-.badge-danger { background-color: #F8D7DA; color: #721C24; }
-.badge-info { background-color: #D1ECF1; color: #0C5460; }
+.badge-success  { background-color: #D4EDDA; color: #155724; }
+.badge-warning  { background-color: #FFF3CD; color: #856404; }
+.badge-danger   { background-color: #F8D7DA; color: #721C24; }
+.badge-info     { background-color: #D1ECF1; color: #0C5460; }
+.badge-approval { background-color: #EDE9F6; color: #5B21B6; }
+.badge-rejected { background-color: #F1F5F9; color: #475569; }
 
 /* Custom Scrollbar */
 ::-webkit-scrollbar { width: 8px; }

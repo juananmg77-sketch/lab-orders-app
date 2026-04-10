@@ -711,13 +711,13 @@ function PurchasingModule({ session, onLogout, globalLab, onBackToHub, role = 'o
                       <td style={{ fontWeight: 600 }}>{order.total ? order.total.toFixed(2) + ' €' : '-'}</td>
                       <td>
                         <span className={`badge ${
-                          order.status === 'Completado' ? 'badge-success' :
-                          order.status === 'Incompleto' ? 'badge-warning' :
-                          order.status === 'Pendiente' ? 'badge-info' :
-                          order.status === 'Pendiente de Aprobación' ? 'badge-danger' :
-                          order.status === 'Rechazado' ? 'badge-danger' : 'badge-danger'
-                        }`} style={order.status === 'Pendiente de Aprobación' ? { backgroundColor: '#f59e0b', color: '#fff' } : order.status === 'Rechazado' ? { backgroundColor: '#dc2626', color: '#fff' } : {}}>
-                          {order.status === 'Pendiente de Aprobación' ? '⏳ Pendiente de Aprobación' : order.status === 'Rechazado' ? '⛔ Rechazado' : order.status}
+                          order.status === 'Completado'              ? 'badge-success'  :
+                          order.status === 'Incompleto'              ? 'badge-warning'  :
+                          order.status === 'Pendiente'               ? 'badge-info'     :
+                          order.status === 'Pendiente de Aprobación' ? 'badge-approval' :
+                          order.status === 'Rechazado'               ? 'badge-rejected' : 'badge-info'
+                        }`}>
+                          {order.status}
                         </span>
                       </td>
                       <td style={{ textAlign: 'center' }}>
