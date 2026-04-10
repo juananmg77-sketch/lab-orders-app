@@ -44,15 +44,15 @@ function parseOrderDate(dateStr) {
   return new Date(y, m - 1, d);
 }
 
-export default function Dashboard({ orders, articles, onTabChange, role = 'operations' }) {
-  const [monthFilter, setMonthFilter]       = useState('');
-  const [dateRange, setDateRange]           = useState({ start: '', end: '' });
+export default function Dashboard({ orders, articles, onTabChange, role = 'operations', monthlyBudgets = {}, onSaveBudget }) {
+  const [monthFilter, setMonthFilter]           = useState('');
+  const [dateRange, setDateRange]               = useState({ start: '', end: '' });
   const [spendingSupplier, setSpendingSupplier] = useState('Todos');
-  const [stockSupplier, setStockSupplier]   = useState('Todos');
-  const [searchRef, setSearchRef]           = useState('');
-  const [statusFilter, setStatusFilter]     = useState('Todos');
-  const [monthlyBudget, setMonthlyBudget]   = useState(2500);
-  const [isEditingBudget, setIsEditingBudget] = useState(false);
+  const [stockSupplier, setStockSupplier]       = useState('Todos');
+  const [searchRef, setSearchRef]               = useState('');
+  const [statusFilter, setStatusFilter]         = useState('Todos');
+  // Local editing state: { 'YYYY-MM': string } — only active while input is focused
+  const [editingBudgets, setEditingBudgets]     = useState({});
 
   // Months available derived from orders
   const availableMonths = useMemo(() => {
@@ -212,6 +212,16 @@ export default function Dashboard({ orders, articles, onTabChange, role = 'opera
     return s.charAt(0).toUpperCase() + s.slice(1);
   };
 
+  // KPI presupuesto: mes filtrado o mes actual
+  const now = new Date();
+  const kpiMonth  = monthFilter || `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  const kpiBudget = monthlyBudgets[kpiMonth] || 0;
+  const kpiSpent  = realizedOrders
+    .filter(o => { const d = parseOrderDate(o.date); return d && `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}` === kpiMonth; })
+    .reduce((s, o) => s + (o.total || 0), 0);
+  const kpiLabelStr = monthLabel(kpiMonth);
+  const kpiIsOver   = kpiBudget > 0 && kpiSpent > kpiBudget;
+
   return (
     <div className="page-content" style={{ paddingBottom: '40px' }}>
 
@@ -370,35 +380,35 @@ export default function Dashboard({ orders, articles, onTabChange, role = 'opera
 
         {role === 'admin' ? (
           <div className="card" style={{ padding: '20px', position: 'relative', overflow: 'hidden' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', alignItems: 'center' }}>
-              <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)', fontWeight: 600 }}>Presupuesto Mensual</span>
-              {isEditingBudget ? (
-                <input autoFocus type="number" className="input-field"
-                  style={{ width: '80px', margin: 0, padding: '4px 8px', fontSize: '0.8rem' }}
-                  value={monthlyBudget}
-                  onBlur={() => setIsEditingBudget(false)}
-                  onChange={e => setMonthlyBudget(Number(e.target.value))} />
-              ) : (
-                <button onClick={() => setIsEditingBudget(true)}
-                  style={{ background: 'none', border: 'none', color: 'var(--primary)', fontSize: '0.75rem', fontWeight: 700, cursor: 'pointer' }}>
-                  EDITAR
-                </button>
-              )}
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px', alignItems: 'center' }}>
+              <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)', fontWeight: 600 }}>Presupuesto</span>
+              <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>{kpiLabelStr}</span>
             </div>
-            <div style={{ fontSize: '1.5rem', fontWeight: 700, marginBottom: '8px' }}>{monthlyBudget.toLocaleString('es-ES')} €</div>
-            <div style={{ height: '8px', backgroundColor: '#e2e8f0', borderRadius: '4px', position: 'relative' }}>
-              <div style={{
-                position: 'absolute', left: 0, top: 0, bottom: 0,
-                width: `${Math.min(100, (stats.totalSpent / monthlyBudget) * 100)}%`,
-                backgroundColor: stats.totalSpent > monthlyBudget ? 'var(--danger)' : 'var(--primary)',
-                borderRadius: '4px'
-              }} />
-            </div>
-            <div style={{ fontSize: '0.7rem', marginTop: '6px', color: stats.totalSpent > monthlyBudget ? 'var(--danger)' : 'var(--text-muted)' }}>
-              {stats.totalSpent > monthlyBudget
-                ? `Sobrecoste de ${(stats.totalSpent - monthlyBudget).toFixed(2)} €`
-                : `${((stats.totalSpent / monthlyBudget) * 100).toFixed(0)}% del presupuesto consumido`}
-            </div>
+            {kpiBudget > 0 ? (
+              <>
+                <div style={{ fontSize: '1.5rem', fontWeight: 700, marginBottom: '8px' }}>
+                  {kpiBudget.toLocaleString('es-ES')} €
+                </div>
+                <div style={{ height: '8px', backgroundColor: '#e2e8f0', borderRadius: '4px', position: 'relative' }}>
+                  <div style={{
+                    position: 'absolute', left: 0, top: 0, bottom: 0,
+                    width: `${Math.min(100, (kpiSpent / kpiBudget) * 100)}%`,
+                    backgroundColor: kpiIsOver ? 'var(--danger)' : 'var(--primary)',
+                    borderRadius: '4px', transition: 'width 0.4s'
+                  }} />
+                </div>
+                <div style={{ fontSize: '0.7rem', marginTop: '6px', color: kpiIsOver ? 'var(--danger)' : 'var(--text-muted)' }}>
+                  {kpiIsOver
+                    ? `Sobrecoste de ${(kpiSpent - kpiBudget).toFixed(2)} €`
+                    : `${((kpiSpent / kpiBudget) * 100).toFixed(0)}% consumido · ${kpiSpent.toFixed(2)} €`}
+                </div>
+              </>
+            ) : (
+              <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginTop: '8px' }}>
+                Sin presupuesto definido.<br/>
+                <span style={{ fontSize: '0.75rem' }}>Edítalo en la tabla inferior.</span>
+              </div>
+            )}
           </div>
         ) : (
           <div className="card" style={{ padding: '20px', display: 'flex', alignItems: 'center', gap: '16px', cursor: 'pointer', transition: 'all 0.2s', border: '1px solid transparent' }}
@@ -483,11 +493,11 @@ export default function Dashboard({ orders, articles, onTabChange, role = 'opera
       {/* Admin Budget Analysis Table */}
       {role === 'admin' && (
         <div className="card" style={{ marginBottom: '24px' }}>
-          <div style={{ padding: '20px 24px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <div>
-              <h3 style={{ margin: '0 0 2px 0', fontSize: '1.1rem' }}>Control Presupuestario Mensual</h3>
-              <p style={{ margin: 0, fontSize: '0.78rem', color: 'var(--text-muted)' }}>Suma de pedidos realizados (Completado + Incompleto + Pendiente) — excluye Pdte. Aprobación y Rechazados</p>
-            </div>
+          <div style={{ padding: '20px 24px', borderBottom: '1px solid var(--border)' }}>
+            <h3 style={{ margin: '0 0 2px 0', fontSize: '1.1rem' }}>Control Presupuestario Mensual</h3>
+            <p style={{ margin: 0, fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+              Suma de pedidos realizados (Completado + Incompleto + Pendiente) · Haz clic en el presupuesto de cada mes para editarlo
+            </p>
           </div>
           <div className="table-wrapper">
             <table>
@@ -509,20 +519,59 @@ export default function Dashboard({ orders, articles, onTabChange, role = 'opera
                   </tr>
                 )}
                 {budgetByMonth.map(d => {
-                  const diff = monthlyBudget - d.value;
-                  const isOver = diff < 0;
+                  const budget  = monthlyBudgets[d.month] ?? 0;
+                  const isEditing = d.month in editingBudgets;
+                  const editVal   = isEditing ? editingBudgets[d.month] : budget;
+                  const diff      = budget > 0 ? budget - d.value : null;
+                  const isOver    = diff !== null && diff < 0;
+                  const noBudget  = budget === 0;
+
+                  const commitEdit = () => {
+                    const val = Number(editingBudgets[d.month]) || 0;
+                    onSaveBudget && onSaveBudget(d.month, val);
+                    setEditingBudgets(prev => { const n = { ...prev }; delete n[d.month]; return n; });
+                  };
+
                   return (
                     <tr key={d.month}>
                       <td style={{ fontWeight: 600 }}>{d.label}</td>
-                      <td style={{ textAlign: 'right', fontWeight: 600 }}>{d.value.toLocaleString('es-ES', { minimumFractionDigits: 2 })} €</td>
-                      <td style={{ textAlign: 'right', color: 'var(--text-muted)' }}>{monthlyBudget.toLocaleString('es-ES')} €</td>
-                      <td style={{ textAlign: 'center', color: isOver ? 'var(--danger)' : '#16a34a', fontWeight: 'bold' }}>
-                        {isOver ? `+${Math.abs(diff).toFixed(2)} €` : `-${diff.toFixed(2)} €`}
+                      <td style={{ textAlign: 'right', fontWeight: 600 }}>
+                        {d.value.toLocaleString('es-ES', { minimumFractionDigits: 2 })} €
+                      </td>
+                      <td style={{ textAlign: 'right' }}>
+                        {isEditing ? (
+                          <input
+                            autoFocus
+                            type="number"
+                            min="0"
+                            step="100"
+                            className="input-field"
+                            style={{ width: '110px', margin: 0, padding: '4px 8px', fontSize: '0.85rem', textAlign: 'right' }}
+                            value={editVal}
+                            onChange={e => setEditingBudgets(prev => ({ ...prev, [d.month]: e.target.value }))}
+                            onBlur={commitEdit}
+                            onKeyDown={e => { if (e.key === 'Enter') commitEdit(); if (e.key === 'Escape') setEditingBudgets(prev => { const n = { ...prev }; delete n[d.month]; return n; }); }}
+                          />
+                        ) : (
+                          <button
+                            onClick={() => setEditingBudgets(prev => ({ ...prev, [d.month]: String(budget) }))}
+                            title="Haz clic para editar el presupuesto de este mes"
+                            style={{ background: 'none', border: 'none', cursor: 'pointer', fontWeight: 600, fontSize: '0.9rem', color: noBudget ? 'var(--text-muted)' : 'inherit', textDecoration: 'underline dotted', textUnderlineOffset: '3px' }}
+                          >
+                            {noBudget ? '— Definir —' : `${budget.toLocaleString('es-ES')} €`}
+                          </button>
+                        )}
+                      </td>
+                      <td style={{ textAlign: 'center', color: noBudget ? 'var(--text-muted)' : isOver ? 'var(--danger)' : '#16a34a', fontWeight: 'bold' }}>
+                        {noBudget ? '—' : isOver ? `+${Math.abs(diff).toFixed(2)} €` : `-${diff.toFixed(2)} €`}
                       </td>
                       <td style={{ textAlign: 'center' }}>
-                        <span className={`badge ${isOver ? 'badge-danger' : 'badge-success'}`}>
-                          {isOver ? 'EXCEDIDO' : 'DENTRO'}
-                        </span>
+                        {noBudget
+                          ? <span className="badge badge-info">SIN DEFINIR</span>
+                          : <span className={`badge ${isOver ? 'badge-danger' : 'badge-success'}`}>
+                              {isOver ? 'EXCEDIDO' : 'DENTRO'}
+                            </span>
+                        }
                       </td>
                     </tr>
                   );

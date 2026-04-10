@@ -129,6 +129,28 @@ function PurchasingModule({ session, onLogout, globalLab, onBackToHub, role = 'o
     }
   };
 
+  // Monthly budgets: { 'YYYY-MM': number }
+  const [monthlyBudgets, setMonthlyBudgets] = useState({});
+
+  const fetchBudgets = async () => {
+    const { data, error } = await supabase.from('monthly_budgets').select('*').eq('lab', selectedLab);
+    if (!error && data) {
+      const map = {};
+      data.forEach(row => { map[row.month] = row.budget; });
+      setMonthlyBudgets(map);
+    }
+  };
+
+  const handleSaveBudget = async (month, value) => {
+    const budget = Number(value) || 0;
+    const { error } = await supabase.from('monthly_budgets').upsert([{ month, lab: selectedLab, budget }]);
+    if (!error) {
+      setMonthlyBudgets(prev => ({ ...prev, [month]: budget }));
+    } else {
+      console.error('Error saving budget:', error.message);
+    }
+  };
+
   const labArticles = useMemo(() => articles.filter(a => (a.lab || 'HSLAB Baleares') === selectedLab), [articles, selectedLab]);
   const labOrders = useMemo(() => orders.filter(o => (o.lab || 'HSLAB Baleares') === selectedLab), [orders, selectedLab]);
 
@@ -229,6 +251,7 @@ function PurchasingModule({ session, onLogout, globalLab, onBackToHub, role = 'o
     fetchArticles();
     fetchSuppliers();
     fetchOrders();
+    fetchBudgets();
   }, [session, globalLab]);
 
 
@@ -640,12 +663,14 @@ function PurchasingModule({ session, onLogout, globalLab, onBackToHub, role = 'o
       case 'dashboard':
       case 'analisis': {
         return (
-          <Dashboard 
-            orders={labOrders} 
-            articles={labArticles} 
-            suppliers={suppliers} 
+          <Dashboard
+            orders={labOrders}
+            articles={labArticles}
+            suppliers={suppliers}
             onTabChange={setActiveTab}
             role={role}
+            monthlyBudgets={monthlyBudgets}
+            onSaveBudget={handleSaveBudget}
             onNewOrder={() => {
               setEditingOrder(null);
               setDefaultSupplierForOrder('');
