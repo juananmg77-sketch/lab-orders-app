@@ -1,5 +1,5 @@
-import React, { useState, useRef, useCallback, useEffect } from 'react';
-import { ArrowLeft, Upload, Download, FileText, AlertCircle, CheckCircle, RefreshCw, Info, Save } from 'lucide-react';
+import React, { useState, useRef, useCallback, useEffect, useMemo } from 'react';
+import { ArrowLeft, Upload, Download, FileText, AlertCircle, CheckCircle, RefreshCw, Info, Save, Filter, X } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { HISTORICO_LEGIONELLA } from './legionellaHistorico';
 import { supabase } from './supabaseClient';
@@ -61,7 +61,33 @@ const TABLA_MUESTRAS = [
   { max: 350, acs: 8, afch: 3 },
 ];
 
-// ─── Helpers ─────────────────────────────────────────────────────────────────
+// ─── Date helpers ─────────────────────────────────────────────────────────────
+
+function parseFecha(str) {
+  if (!str) return null;
+  const parts = str.split('/');
+  if (parts.length !== 3) return null;
+  const [d, m, y] = parts.map(Number);
+  if (!d || !m || !y || y < 2000) return null;
+  return new Date(y, m - 1, d);
+}
+
+function semanaDelMes(date) {
+  return Math.ceil(date.getDate() / 7);
+}
+
+function toInputDate(date) {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
+function formatDate(date) {
+  return `${String(date.getDate()).padStart(2, '0')}/${String(date.getMonth() + 1).padStart(2, '0')}/${date.getFullYear()}`;
+}
+
+// ─── Core helpers ─────────────────────────────────────────────────────────────
 
 function calcularMuestrasPorPuntosTerminales(puntos) {
   for (const tramo of TABLA_MUESTRAS) {
@@ -142,6 +168,8 @@ function procesarActividades(rows) {
     const establecimiento = row['establecimiento'] || '';
     const mes = row['mes'] || '';
     const region = (row['región'] || row['region'] || '').trim();
+    const fechaStr = row['fecha'] || '';
+    const fechaDate = parseFecha(fechaStr);
     const { muestras, estado, trimestre } = calcularMuestrasEstimadas(establecimiento, mes);
     return {
       establecimiento,
@@ -151,8 +179,11 @@ function procesarActividades(rows) {
       disciplina: row['disciplina'] || '',
       auditor: row['auditor'] || '',
       jornada: parseFloat(row['jornada'] || 0),
-      fecha: row['fecha'] || '',
+      fecha: fechaStr,
+      fechaDate,
+      semana: fechaDate ? semanaDelMes(fechaDate) : null,
       mes,
+      año: parseInt(row['año'] || row['ano'] || 0),
       muestras,
       estado,
       trimestre,
@@ -160,26 +191,47 @@ function procesarActividades(rows) {
   });
 }
 
-// Merge saved DB data + manual inputs → effective muestras
 function getEffectiveActs(actividades, savedDB, manualInputs) {
   return actividades.map(act => {
     if (act.estado !== 'SIN HISTÓRICO') return act;
-
-    // 1. Check manual inputs (in-session edits take priority)
     const inp = manualInputs[act.establecimiento];
     if (inp?.habitaciones) {
       const calc = calcularPorNormativa(inp.habitaciones, inp.zonasComunes || 0);
       if (calc) return { ...act, muestras: calc.total, estado: 'RD 487/2022', _normativa: calc, _guardado: inp._guardado };
     }
-
-    // 2. Fall back to saved DB
     const saved = savedDB[act.establecimiento];
     if (saved?.habitaciones) {
       const calc = calcularPorNormativa(saved.habitaciones, saved.zonas_comunes || 0);
       if (calc) return { ...act, muestras: calc.total, estado: 'RD 487/2022 (guardado)', _normativa: calc, _guardado: true };
     }
-
     return act;
+  });
+}
+
+function applyFilters(actividades, filters) {
+  return actividades.filter(act => {
+    // Zone filter
+    if (filters.zones.size > 0 && !filters.zones.has(act.nodo)) return false;
+
+    // Period filters
+    if (filters.mode === 'semana') {
+      if (act.semana !== filters.semana) return false;
+    } else if (filters.mode === 'mes') {
+      if (!act.fechaDate) return false;
+      if (act.fechaDate.getMonth() + 1 !== filters.mes || act.fechaDate.getFullYear() !== filters.año) return false;
+    } else if (filters.mode === 'rango') {
+      if (!act.fechaDate) return false;
+      if (filters.dateFrom) {
+        const from = new Date(filters.dateFrom);
+        if (act.fechaDate < from) return false;
+      }
+      if (filters.dateTo) {
+        const to = new Date(filters.dateTo);
+        to.setHours(23, 59, 59);
+        if (act.fechaDate > to) return false;
+      }
+    }
+    return true;
   });
 }
 
@@ -225,9 +277,160 @@ function exportarExcel(eD3, eD3bis, mesAno) {
   XLSX.writeFile(wb, `Prevision_Legionella_${mesAno.replace(/\s/g, '_')}.xlsx`);
 }
 
-// ─── Sub-components ──────────────────────────────────────────────────────────
+// ─── FilterBar ───────────────────────────────────────────────────────────────
 
-function ResumenNodos({ actividades }) {
+function FilterBar({ actividades, filters, onChange }) {
+  // Derive available weeks and months from data
+  const { semanas, meses, nodosPresentes } = useMemo(() => {
+    const sem = new Set(), mes = new Set(), nodos = new Set();
+    actividades.forEach(a => {
+      if (a.semana) sem.add(a.semana);
+      if (a.fechaDate) mes.add(`${a.fechaDate.getFullYear()}-${String(a.fechaDate.getMonth() + 1).padStart(2, '0')}`);
+      if (a.nodo) nodos.add(a.nodo);
+    });
+    return {
+      semanas: Array.from(sem).sort((a, b) => a - b),
+      meses: Array.from(mes).sort(),
+      nodosPresentes: Array.from(nodos),
+    };
+  }, [actividades]);
+
+  const sinFecha = actividades.filter(a => !a.fechaDate).length;
+  const activeFiltersCount = (filters.mode !== 'todos' ? 1 : 0) + filters.zones.size;
+
+  const btnStyle = (active) => ({
+    padding: '5px 12px',
+    borderRadius: '6px',
+    border: active ? 'none' : '1px solid var(--border)',
+    cursor: 'pointer',
+    fontSize: '0.82rem',
+    fontWeight: 600,
+    backgroundColor: active ? 'var(--primary)' : 'white',
+    color: active ? 'white' : 'var(--text-muted)',
+    whiteSpace: 'nowrap',
+    transition: 'all 0.15s',
+  });
+
+  const toggleZone = (nodo) => {
+    const next = new Set(filters.zones);
+    if (next.has(nodo)) next.delete(nodo); else next.add(nodo);
+    onChange({ ...filters, zones: next });
+  };
+
+  const resetAll = () => onChange({ mode: 'todos', semana: null, mes: null, año: null, dateFrom: '', dateTo: '', zones: new Set() });
+
+  return (
+    <div style={{ backgroundColor: 'white', border: '1px solid var(--border)', borderRadius: '12px', padding: '14px 18px', marginBottom: '20px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '12px', flexWrap: 'wrap' }}>
+        {/* Period label */}
+        <span style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--secondary)', display: 'flex', alignItems: 'center', gap: '5px', whiteSpace: 'nowrap' }}>
+          <Filter size={13} /> Período:
+        </span>
+
+        {/* All */}
+        <button style={btnStyle(filters.mode === 'todos')} onClick={() => onChange({ ...filters, mode: 'todos', semana: null, mes: null, año: null, dateFrom: '', dateTo: '' })}>
+          Todos
+        </button>
+
+        {/* Weeks */}
+        {semanas.map(sem => (
+          <button
+            key={sem}
+            style={btnStyle(filters.mode === 'semana' && filters.semana === sem)}
+            onClick={() => onChange({ ...filters, mode: 'semana', semana: sem, mes: null, año: null, dateFrom: '', dateTo: '' })}
+          >
+            Semana {sem}
+          </button>
+        ))}
+
+        {/* Months */}
+        {meses.length > 1 && meses.map(m => {
+          const [y, mo] = m.split('-');
+          const label = new Date(parseInt(y), parseInt(mo) - 1, 1).toLocaleDateString('es-ES', { month: 'long', year: 'numeric' });
+          return (
+            <button
+              key={m}
+              style={btnStyle(filters.mode === 'mes' && filters.mes === parseInt(mo) && filters.año === parseInt(y))}
+              onClick={() => onChange({ ...filters, mode: 'mes', mes: parseInt(mo), año: parseInt(y), semana: null, dateFrom: '', dateTo: '' })}
+            >
+              {label.charAt(0).toUpperCase() + label.slice(1)}
+            </button>
+          );
+        })}
+
+        {/* Custom range */}
+        <span style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--secondary)', marginLeft: '4px', whiteSpace: 'nowrap' }}>Rango:</span>
+        <input
+          type="date"
+          value={filters.dateFrom}
+          onChange={e => onChange({ ...filters, mode: 'rango', dateFrom: e.target.value })}
+          style={{ padding: '4px 8px', border: `1.5px solid ${filters.mode === 'rango' ? 'var(--primary)' : 'var(--border)'}`, borderRadius: '6px', fontSize: '0.82rem', cursor: 'pointer' }}
+        />
+        <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>—</span>
+        <input
+          type="date"
+          value={filters.dateTo}
+          onChange={e => onChange({ ...filters, mode: 'rango', dateTo: e.target.value })}
+          style={{ padding: '4px 8px', border: `1.5px solid ${filters.mode === 'rango' ? 'var(--primary)' : 'var(--border)'}`, borderRadius: '6px', fontSize: '0.82rem', cursor: 'pointer' }}
+        />
+
+        {/* Reset */}
+        {activeFiltersCount > 0 && (
+          <button onClick={resetAll} style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '4px', padding: '5px 10px', border: '1px solid #FCA5A5', borderRadius: '6px', backgroundColor: '#FEF2F2', color: '#DC2626', fontSize: '0.78rem', fontWeight: 600, cursor: 'pointer' }}>
+            <X size={12} /> Limpiar filtros
+          </button>
+        )}
+      </div>
+
+      {/* Zone filter */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+        <span style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--secondary)', whiteSpace: 'nowrap' }}>Zona:</span>
+        {NODOS_ORDEN.filter(n => nodosPresentes.includes(n)).map(nodo => {
+          const c = NODO_COLORS[nodo];
+          const active = filters.zones.has(nodo);
+          return (
+            <button
+              key={nodo}
+              onClick={() => toggleZone(nodo)}
+              style={{
+                padding: '4px 10px',
+                borderRadius: '20px',
+                border: `1.5px solid ${active ? c.border : 'var(--border)'}`,
+                cursor: 'pointer',
+                fontSize: '0.75rem',
+                fontWeight: 600,
+                backgroundColor: active ? c.bg : 'white',
+                color: active ? c.text : 'var(--text-muted)',
+                transition: 'all 0.15s',
+              }}
+            >
+              {nodo}
+            </button>
+          );
+        })}
+        {nodosPresentes.includes('Sin clasificar') && (
+          <button
+            onClick={() => toggleZone('Sin clasificar')}
+            style={{ padding: '4px 10px', borderRadius: '20px', border: `1.5px solid ${filters.zones.has('Sin clasificar') ? '#6c757d' : 'var(--border)'}`, cursor: 'pointer', fontSize: '0.75rem', fontWeight: 600, backgroundColor: filters.zones.has('Sin clasificar') ? '#f8f9fa' : 'white', color: '#6c757d', transition: 'all 0.15s' }}
+          >
+            Sin clasificar
+          </button>
+        )}
+        {filters.zones.size === 0 && <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontStyle: 'italic' }}>Todas las zonas</span>}
+      </div>
+
+      {sinFecha > 0 && filters.mode !== 'todos' && (
+        <p style={{ margin: '8px 0 0', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+          ⚠ {sinFecha} actividade{sinFecha > 1 ? 's' : ''} sin fecha asignada no se muestran en filtros de período.
+        </p>
+      )}
+    </div>
+  );
+}
+
+// ─── ResumenNodos ─────────────────────────────────────────────────────────────
+
+function ResumenNodos({ actividades, total: totalGlobal }) {
   const resumen = agruparPorNodo(actividades);
   const total = actividades.reduce((s, a) => s + (a.muestras || 0), 0);
   const pendientes = actividades.filter(a => a.estado === 'SIN HISTÓRICO').length;
@@ -240,28 +443,33 @@ function ResumenNodos({ actividades }) {
             {pendientes} pendiente{pendientes > 1 ? 's' : ''} de datos
           </span>
         )}
+        {totalGlobal !== undefined && totalGlobal !== actividades.length && (
+          <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+            Mostrando {actividades.length} de {totalGlobal}
+          </span>
+        )}
       </div>
       <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', marginBottom: '10px' }}>
         {NODOS_ORDEN.map(nodo => {
           const d = resumen[nodo]; const c = NODO_COLORS[nodo];
           return (
-            <div key={nodo} style={{ backgroundColor: c.bg, border: `1.5px solid ${c.border}`, borderRadius: '10px', padding: '12px 16px', minWidth: '160px', flex: '1 1 160px' }}>
-              <div style={{ fontSize: '0.72rem', fontWeight: 700, color: c.text, marginBottom: '4px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>{nodo}</div>
+            <div key={nodo} style={{ backgroundColor: c.bg, border: `1.5px solid ${c.border}`, borderRadius: '10px', padding: '12px 16px', minWidth: '155px', flex: '1 1 155px' }}>
+              <div style={{ fontSize: '0.7rem', fontWeight: 700, color: c.text, marginBottom: '4px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>{nodo}</div>
               <div style={{ fontSize: '1.5rem', fontWeight: 800, color: c.text }}>{d?.muestras || 0}</div>
-              <div style={{ fontSize: '0.75rem', color: c.text, opacity: 0.7 }}>{d?.count || 0} establec.</div>
+              <div style={{ fontSize: '0.73rem', color: c.text, opacity: 0.7 }}>{d?.count || 0} establec.</div>
             </div>
           );
         })}
         {resumen['Sin clasificar']?.count > 0 && (
-          <div style={{ backgroundColor: '#f8f9fa', border: '1.5px solid #dee2e6', borderRadius: '10px', padding: '12px 16px', minWidth: '160px', flex: '1 1 160px' }}>
-            <div style={{ fontSize: '0.72rem', fontWeight: 700, color: '#6c757d', marginBottom: '4px', textTransform: 'uppercase' }}>Sin clasificar</div>
+          <div style={{ backgroundColor: '#f8f9fa', border: '1.5px solid #dee2e6', borderRadius: '10px', padding: '12px 16px', minWidth: '155px', flex: '1 1 155px' }}>
+            <div style={{ fontSize: '0.7rem', fontWeight: 700, color: '#6c757d', marginBottom: '4px', textTransform: 'uppercase' }}>Sin clasificar</div>
             <div style={{ fontSize: '1.5rem', fontWeight: 800, color: '#6c757d' }}>{resumen['Sin clasificar'].muestras}</div>
-            <div style={{ fontSize: '0.75rem', color: '#6c757d' }}>{resumen['Sin clasificar'].count} establec.</div>
+            <div style={{ fontSize: '0.73rem', color: '#6c757d' }}>{resumen['Sin clasificar'].count} establec.</div>
           </div>
         )}
       </div>
       <div style={{ backgroundColor: 'var(--secondary)', color: 'white', borderRadius: '10px', padding: '12px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <span style={{ fontWeight: 700 }}>TOTAL GENERAL</span>
+        <span style={{ fontWeight: 700 }}>TOTAL {totalGlobal !== actividades.length ? '(filtrado)' : 'GENERAL'}</span>
         <span style={{ fontSize: '1.4rem', fontWeight: 800 }}>{total} envases</span>
         <span style={{ opacity: 0.7, fontSize: '0.85rem' }}>{actividades.length} establecimientos</span>
       </div>
@@ -269,11 +477,14 @@ function ResumenNodos({ actividades }) {
   );
 }
 
+// ─── TablaActividades ─────────────────────────────────────────────────────────
+
 function TablaActividades({ actividades, manualInputs, onInputChange, savingStates }) {
-  const [sortField, setSortField] = useState('nodo');
+  const [sortField, setSortField] = useState('fechaDate');
   const [sortAsc, setSortAsc] = useState(true);
   const sorted = [...actividades].sort((a, b) => {
     const va = a[sortField] ?? '', vb = b[sortField] ?? '';
+    if (va instanceof Date && vb instanceof Date) return sortAsc ? va - vb : vb - va;
     return sortAsc ? String(va).localeCompare(String(vb)) : String(vb).localeCompare(String(va));
   });
   const handleSort = (f) => { if (sortField === f) setSortAsc(s => !s); else { setSortField(f); setSortAsc(true); } };
@@ -285,7 +496,7 @@ function TablaActividades({ actividades, manualInputs, onInputChange, savingStat
       <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.86rem' }}>
         <thead>
           <tr>
-            {[['nodo','Nodo Logístico'],['establecimiento','Establecimiento'],['grupo','Grupo'],['auditor','Auditor'],['fecha','Fecha'],['muestras','Muestras Est.'],['estado','Fuente']].map(([f,l]) => (
+            {[['fechaDate','Fecha'],['semana','Sem.'],['nodo','Nodo Logístico'],['establecimiento','Establecimiento'],['grupo','Grupo'],['auditor','Auditor'],['muestras','Muestras Est.'],['estado','Fuente']].map(([f,l]) => (
               <th key={f} style={th} onClick={() => handleSort(f)}>{l}<SortIcon field={f} /></th>
             ))}
           </tr>
@@ -303,13 +514,20 @@ function TablaActividades({ actividades, manualInputs, onInputChange, savingStat
             return (
               <React.Fragment key={idx}>
                 <tr style={{ backgroundColor: sinHist ? '#FFFBEB' : (idx % 2 === 0 ? '#fff' : '#f9fafb'), borderBottom: sinHist ? 'none' : '1px solid var(--border)' }}>
+                  <td style={{ padding: '9px 12px', whiteSpace: 'nowrap', color: 'var(--text-muted)', fontSize: '0.82rem' }}>
+                    {act.fecha && act.fechaDate ? act.fecha : <span style={{ color: '#ccc' }}>—</span>}
+                  </td>
+                  <td style={{ padding: '9px 12px', textAlign: 'center' }}>
+                    {act.semana ? (
+                      <span style={{ backgroundColor: '#F1F5F9', color: '#475569', borderRadius: '4px', padding: '2px 6px', fontSize: '0.75rem', fontWeight: 700 }}>S{act.semana}</span>
+                    ) : <span style={{ color: '#ccc' }}>—</span>}
+                  </td>
                   <td style={{ padding: '9px 12px', whiteSpace: 'nowrap' }}>
                     <span style={{ backgroundColor: c.bg, color: c.text, border: `1px solid ${c.border}`, borderRadius: '6px', padding: '2px 7px', fontSize: '0.72rem', fontWeight: 600 }}>{act.nodo}</span>
                   </td>
                   <td style={{ padding: '9px 12px', fontWeight: 600, color: 'var(--secondary)' }}>{act.establecimiento}</td>
                   <td style={{ padding: '9px 12px', color: 'var(--text-muted)', fontSize: '0.8rem' }}>{act.grupo}</td>
                   <td style={{ padding: '9px 12px', whiteSpace: 'nowrap' }}>{act.auditor}</td>
-                  <td style={{ padding: '9px 12px', whiteSpace: 'nowrap', color: 'var(--text-muted)' }}>{act.fecha}</td>
                   <td style={{ padding: '9px 12px', textAlign: 'center', fontWeight: 700, fontSize: '1rem', color: sinHist ? '#D97706' : 'var(--secondary)' }}>
                     {sinHist ? (preview ? `${preview.total}` : '—') : act.muestras}
                   </td>
@@ -332,34 +550,22 @@ function TablaActividades({ actividades, manualInputs, onInputChange, savingStat
                 </tr>
                 {sinHist && (
                   <tr style={{ backgroundColor: '#FFFBEB', borderBottom: '1px solid var(--border)' }}>
-                    <td colSpan={7} style={{ padding: '6px 12px 10px 40px' }}>
+                    <td colSpan={8} style={{ padding: '6px 12px 10px 40px' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '14px', flexWrap: 'wrap' }}>
                         <span style={{ fontSize: '0.78rem', color: '#92400E', fontWeight: 600 }}>Cálculo RD 487/2022:</span>
                         <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.8rem', color: '#92400E' }}>
                           Habitaciones
-                          <input
-                            type="number" min="0"
-                            value={inp.habitaciones || ''}
-                            onChange={e => onInputChange(act.establecimiento, 'habitaciones', e.target.value)}
-                            placeholder="Nº hab."
-                            style={{ width: '80px', padding: '4px 8px', border: '1.5px solid #FCD34D', borderRadius: '6px', fontSize: '0.82rem', backgroundColor: 'white', outline: 'none' }}
-                          />
+                          <input type="number" min="0" value={inp.habitaciones || ''} onChange={e => onInputChange(act.establecimiento, 'habitaciones', e.target.value)} placeholder="Nº hab." style={{ width: '80px', padding: '4px 8px', border: '1.5px solid #FCD34D', borderRadius: '6px', fontSize: '0.82rem', backgroundColor: 'white', outline: 'none' }} />
                         </label>
                         <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.8rem', color: '#92400E' }}>
                           Zonas comunes
-                          <input
-                            type="number" min="0"
-                            value={inp.zonasComunes || ''}
-                            onChange={e => onInputChange(act.establecimiento, 'zonasComunes', e.target.value)}
-                            placeholder="Puntos extra"
-                            style={{ width: '100px', padding: '4px 8px', border: '1.5px solid #FCD34D', borderRadius: '6px', fontSize: '0.82rem', backgroundColor: 'white', outline: 'none' }}
-                          />
+                          <input type="number" min="0" value={inp.zonasComunes || ''} onChange={e => onInputChange(act.establecimiento, 'zonasComunes', e.target.value)} placeholder="Puntos extra" style={{ width: '100px', padding: '4px 8px', border: '1.5px solid #FCD34D', borderRadius: '6px', fontSize: '0.82rem', backgroundColor: 'white', outline: 'none' }} />
                         </label>
-                        {preview ? (
+                        {preview && (
                           <span style={{ fontSize: '0.8rem', color: '#0369A1', backgroundColor: '#E0F2FE', border: '1px solid #7DD3FC', borderRadius: '6px', padding: '3px 10px', fontWeight: 600 }}>
                             {preview.puntos} pts → {preview.acs} ACS + {preview.afch} AFCH = <strong>{preview.total} muestras</strong>
                           </span>
-                        ) : null}
+                        )}
                         {saving === 'saving' && <span style={{ fontSize: '0.75rem', color: '#0891B2' }}>Guardando…</span>}
                         {saving === 'saved' && <span style={{ fontSize: '0.75rem', color: '#16A34A', display: 'flex', alignItems: 'center', gap: '3px' }}><Save size={11} /> Guardado</span>}
                         {saving === 'error' && <span style={{ fontSize: '0.75rem', color: '#DC2626' }}>Error al guardar</span>}
@@ -373,13 +579,17 @@ function TablaActividades({ actividades, manualInputs, onInputChange, savingStat
         </tbody>
       </table>
       {actividades.length === 0 && (
-        <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>No hay actividades para esta categoría.</div>
+        <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>
+          No hay actividades para los filtros seleccionados.
+        </div>
       )}
     </div>
   );
 }
 
 // ─── Main Component ───────────────────────────────────────────────────────────
+
+const DEFAULT_FILTERS = { mode: 'todos', semana: null, mes: null, año: null, dateFrom: '', dateTo: '', zones: new Set() };
 
 export default function LegionellaForecastModule({ onBackToHub }) {
   const [csvData, setCsvData] = useState(null);
@@ -389,13 +599,13 @@ export default function LegionellaForecastModule({ onBackToHub }) {
   const [activeTab, setActiveTab] = useState('d3');
   const [isDragging, setIsDragging] = useState(false);
   const [error, setError] = useState(null);
-  const [manualInputs, setManualInputs] = useState({});   // { name: { habitaciones, zonasComunes } }
-  const [savedDB, setSavedDB] = useState({});              // { name: { habitaciones, zonas_comunes } }
-  const [savingStates, setSavingStates] = useState({});    // { name: 'saving'|'saved'|'error' }
+  const [manualInputs, setManualInputs] = useState({});
+  const [savedDB, setSavedDB] = useState({});
+  const [savingStates, setSavingStates] = useState({});
+  const [filters, setFilters] = useState(DEFAULT_FILTERS);
   const fileInputRef = useRef(null);
   const saveTimers = useRef({});
 
-  // Load saved establishments from Supabase once
   useEffect(() => {
     supabase.from('legionella_establecimientos').select('nombre, habitaciones, zonas_comunes').then(({ data }) => {
       if (!data) return;
@@ -405,26 +615,16 @@ export default function LegionellaForecastModule({ onBackToHub }) {
     });
   }, []);
 
-  // Auto-save to Supabase with 1s debounce after user stops typing
   const handleInputChange = useCallback((establecimiento, field, value) => {
     setManualInputs(prev => {
       const updated = { ...prev, [establecimiento]: { ...prev[establecimiento], [field]: value } };
       const inp = updated[establecimiento];
-
-      // Only save when habitaciones has a valid value
       if (!parseInt(inp.habitaciones)) return updated;
-
-      // Debounce save
       clearTimeout(saveTimers.current[establecimiento]);
       setSavingStates(s => ({ ...s, [establecimiento]: 'saving' }));
-
       saveTimers.current[establecimiento] = setTimeout(async () => {
         const { error } = await supabase.from('legionella_establecimientos').upsert(
-          {
-            nombre: establecimiento,
-            habitaciones: parseInt(inp.habitaciones) || 0,
-            zonas_comunes: parseInt(inp.zonasComunes || inp.zonas_comunes || 0) || 0,
-          },
+          { nombre: establecimiento, habitaciones: parseInt(inp.habitaciones) || 0, zonas_comunes: parseInt(inp.zonasComunes || 0) || 0 },
           { onConflict: 'nombre' }
         );
         if (error) {
@@ -433,11 +633,9 @@ export default function LegionellaForecastModule({ onBackToHub }) {
           setSavedDB(prev => ({ ...prev, [establecimiento]: { habitaciones: parseInt(inp.habitaciones), zonas_comunes: parseInt(inp.zonasComunes || 0) } }));
           setManualInputs(prev2 => ({ ...prev2, [establecimiento]: { ...prev2[establecimiento], _guardado: true } }));
           setSavingStates(s => ({ ...s, [establecimiento]: 'saved' }));
-          // Clear 'saved' badge after 3s
           setTimeout(() => setSavingStates(s => ({ ...s, [establecimiento]: null })), 3000);
         }
       }, 1000);
-
       return updated;
     });
   }, []);
@@ -459,6 +657,7 @@ export default function LegionellaForecastModule({ onBackToHub }) {
       setCsvData(rows);
       setManualInputs({});
       setSavingStates({});
+      setFilters(DEFAULT_FILTERS);
       setActiveTab('d3');
     };
     reader.readAsText(file, 'UTF-8');
@@ -466,18 +665,19 @@ export default function LegionellaForecastModule({ onBackToHub }) {
 
   const handleReset = () => {
     setCsvData(null); setD3([]); setD3bis([]); setMesAno('');
-    setError(null); setManualInputs({}); setSavingStates({});
+    setError(null); setManualInputs({}); setSavingStates({}); setFilters(DEFAULT_FILTERS);
   };
 
   const baseActs = activeTab === 'd3' ? d3 : d3bis;
   const effectiveActs = getEffectiveActs(baseActs, savedDB, manualInputs);
-  const sinHistoricoPendientes = effectiveActs.filter(a => a.estado === 'SIN HISTÓRICO');
+  const filteredActs = applyFilters(effectiveActs, filters);
+  const sinHistoricoPendientes = filteredActs.filter(a => a.estado === 'SIN HISTÓRICO');
   const eD3 = getEffectiveActs(d3, savedDB, manualInputs);
   const eD3bis = getEffectiveActs(d3bis, savedDB, manualInputs);
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', backgroundColor: 'var(--background)' }}>
-      <header style={{ height: '64px', backgroundColor: 'var(--surface)', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', padding: '0 32px', gap: '20px', boxShadow: '0 2px 8px rgba(0,0,0,0.04)' }}>
+      <header style={{ height: '64px', backgroundColor: 'var(--surface)', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', padding: '0 32px', gap: '20px', boxShadow: '0 2px 8px rgba(0,0,0,0.04)', flexShrink: 0 }}>
         <button onClick={onBackToHub} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--primary)', display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 600, fontSize: '0.9rem' }}>
           <ArrowLeft size={18} /> Portal
         </button>
@@ -534,14 +734,19 @@ export default function LegionellaForecastModule({ onBackToHub }) {
           </div>
         ) : (
           <div style={{ maxWidth: '1400px', margin: '0 auto' }}>
-            <div style={{ display: 'flex', gap: '4px', marginBottom: '24px', backgroundColor: 'white', borderRadius: '10px', padding: '4px', border: '1px solid var(--border)', width: 'fit-content' }}>
+            {/* Tabs */}
+            <div style={{ display: 'flex', gap: '4px', marginBottom: '20px', backgroundColor: 'white', borderRadius: '10px', padding: '4px', border: '1px solid var(--border)', width: 'fit-content' }}>
               {[{ key: 'd3', label: `D3 – Muestreo (${d3.length})` }, ...(d3bis.length > 0 ? [{ key: 'd3bis', label: `D3bis – Remuestreo (${d3bis.length})` }] : [])].map(tab => (
-                <button key={tab.key} onClick={() => setActiveTab(tab.key)} style={{ padding: '8px 20px', borderRadius: '7px', border: 'none', cursor: 'pointer', fontWeight: 600, fontSize: '0.9rem', backgroundColor: activeTab === tab.key ? 'var(--primary)' : 'transparent', color: activeTab === tab.key ? 'white' : 'var(--text-muted)', transition: 'all 0.15s' }}>
+                <button key={tab.key} onClick={() => { setActiveTab(tab.key); setFilters(DEFAULT_FILTERS); }} style={{ padding: '8px 20px', borderRadius: '7px', border: 'none', cursor: 'pointer', fontWeight: 600, fontSize: '0.9rem', backgroundColor: activeTab === tab.key ? 'var(--primary)' : 'transparent', color: activeTab === tab.key ? 'white' : 'var(--text-muted)', transition: 'all 0.15s' }}>
                   {tab.label}
                 </button>
               ))}
             </div>
 
+            {/* Filter bar */}
+            <FilterBar actividades={effectiveActs} filters={filters} onChange={setFilters} />
+
+            {/* Alert */}
             {sinHistoricoPendientes.length > 0 && (
               <div style={{ marginBottom: '20px', padding: '12px 16px', backgroundColor: '#FFFBEB', border: '1px solid #FCD34D', borderRadius: '8px', display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
                 <AlertCircle size={18} color="#D97706" style={{ flexShrink: 0, marginTop: '1px' }} />
@@ -549,14 +754,14 @@ export default function LegionellaForecastModule({ onBackToHub }) {
                   <span style={{ fontWeight: 700, color: '#92400E' }}>
                     {sinHistoricoPendientes.length} establecimiento{sinHistoricoPendientes.length > 1 ? 's' : ''} pendientes —
                   </span>
-                  <span style={{ color: '#92400E', fontSize: '0.86rem' }}> introduce el nº de habitaciones para calcular según RD 487/2022. Los datos se guardan automáticamente para próximas importaciones.</span>
+                  <span style={{ color: '#92400E', fontSize: '0.86rem' }}> introduce el nº de habitaciones para calcular según RD 487/2022. Los datos se guardan para próximas importaciones.</span>
                 </div>
               </div>
             )}
 
-            <ResumenNodos actividades={effectiveActs} />
+            <ResumenNodos actividades={filteredActs} total={effectiveActs.length} />
             <TablaActividades
-              actividades={effectiveActs}
+              actividades={filteredActs}
               manualInputs={manualInputs}
               onInputChange={handleInputChange}
               savingStates={savingStates}
