@@ -648,6 +648,14 @@ function PurchasingModule({ session, onLogout, globalLab, onBackToHub, role = 'o
       }
 
       return matchesStatus && matchesDate;
+    }).sort((a, b) => {
+      const parseDate = d => {
+        if (!d) return 0;
+        if (d.includes('-')) return new Date(d).getTime();
+        const [dd, mm, yy] = d.split('/');
+        return new Date(yy, mm - 1, dd).getTime();
+      };
+      return parseDate(a.date) - parseDate(b.date);
     });
   }, [labOrders, orderStatusFilter, orderDateStart, orderDateEnd, orderMonthFilter]);
 
