@@ -1,7 +1,8 @@
-import React, { useState, useRef, useCallback } from 'react';
-import { ArrowLeft, Upload, Download, FileText, AlertCircle, CheckCircle, RefreshCw, Info } from 'lucide-react';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
+import { ArrowLeft, Upload, Download, FileText, AlertCircle, CheckCircle, RefreshCw, Info, Save } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { HISTORICO_LEGIONELLA } from './legionellaHistorico';
+import { supabase } from './supabaseClient';
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
@@ -37,12 +38,8 @@ const REGION_A_NODO = {
 };
 
 const NODOS_ORDEN = [
-  'Islas Baleares',
-  'Islas Canarias',
-  'Zona Cataluña',
-  'Zona Levante',
-  'Zona Andalucía',
-  'Zona Madrid (Centro/Norte)',
+  'Islas Baleares', 'Islas Canarias', 'Zona Cataluña',
+  'Zona Levante', 'Zona Andalucía', 'Zona Madrid (Centro/Norte)',
 ];
 
 const NODO_COLORS = {
@@ -55,7 +52,6 @@ const NODO_COLORS = {
 };
 
 // Tabla 2 Anexo V RD 487/2022 modificada por RD 614/2024
-// Puntos terminales → { acs, afch } muestras mínimas por circuito
 const TABLA_MUESTRAS = [
   { max: 10,  acs: 1, afch: 1 },
   { max: 20,  acs: 3, afch: 1 },
@@ -71,12 +67,8 @@ function calcularMuestrasPorPuntosTerminales(puntos) {
   for (const tramo of TABLA_MUESTRAS) {
     if (puntos <= tramo.max) return { acs: tramo.acs, afch: tramo.afch };
   }
-  // > 350: proporcional — 1 muestra ACS extra por cada 50 puntos adicionales
-  // y 1 muestra AFCH extra por cada 100 puntos adicionales (por encima de 350)
   const exceso = puntos - 350;
-  const extraAcs = Math.ceil(exceso / 50);
-  const extraAfch = Math.ceil(exceso / 100);
-  return { acs: 8 + extraAcs, afch: 3 + extraAfch };
+  return { acs: 8 + Math.ceil(exceso / 50), afch: 3 + Math.ceil(exceso / 100) };
 }
 
 function calcularPorNormativa(habitaciones, zonasComunes = 0) {
@@ -89,13 +81,7 @@ function calcularPorNormativa(habitaciones, zonasComunes = 0) {
 }
 
 function normalizeName(name) {
-  return String(name)
-    .trim()
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .toLowerCase()
-    .replace(/\s+/g, ' ')
-    .replace(/["""'']/g, '');
+  return String(name).trim().normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/\s+/g, ' ').replace(/["""'']/g, '');
 }
 
 const HISTORICO_INDEX = {};
@@ -114,7 +100,7 @@ function buscarHistorico(nombre) {
 
 function calcularPromedio(hist) {
   const vals = [hist.Q1, hist.Q2, hist.Q3, hist.Q4].filter(v => v > 0);
-  if (vals.length === 0) return 0;
+  if (!vals.length) return 0;
   return Math.round(vals.reduce((a, b) => a + b, 0) / vals.length);
 }
 
@@ -122,8 +108,8 @@ function calcularMuestrasEstimadas(nombre, mes) {
   const hist = buscarHistorico(nombre);
   if (!hist) return { muestras: null, estado: 'SIN HISTÓRICO' };
   const trimestre = MES_A_TRIMESTRE[mes.toLowerCase()] || 'Q1';
-  const valorTrimestre = hist[trimestre];
-  if (valorTrimestre > 0) return { muestras: valorTrimestre, estado: 'OK', trimestre };
+  const vt = hist[trimestre];
+  if (vt > 0) return { muestras: vt, estado: 'OK', trimestre };
   const promedio = calcularPromedio(hist);
   if (promedio > 0) return { muestras: promedio, estado: 'OK (PROMEDIO)', trimestre };
   return { muestras: null, estado: 'SIN HISTÓRICO' };
@@ -134,15 +120,12 @@ function parsearCSV(texto) {
   if (lineas.length < 2) return [];
   const sep = lineas[0].includes(';') ? ';' : ',';
   const parseRow = (line) => {
-    const result = [];
-    let inQuotes = false, current = '';
+    const result = []; let inQ = false, cur = '';
     for (const ch of line) {
-      if (ch === '"') { inQuotes = !inQuotes; continue; }
-      if (ch === sep && !inQuotes) { result.push(current.trim()); current = ''; }
-      else current += ch;
+      if (ch === '"') { inQ = !inQ; continue; }
+      if (ch === sep && !inQ) { result.push(cur.trim()); cur = ''; } else cur += ch;
     }
-    result.push(current.trim());
-    return result;
+    result.push(cur.trim()); return result;
   };
   const headers = parseRow(lineas[0]).map(h => h.toLowerCase().trim());
   return lineas.slice(1).reduce((acc, linea) => {
@@ -150,8 +133,7 @@ function parsearCSV(texto) {
     if (cols.length < 7) return acc;
     const row = {};
     headers.forEach((h, i) => { row[h] = cols[i] || ''; });
-    acc.push(row);
-    return acc;
+    acc.push(row); return acc;
   }, []);
 }
 
@@ -178,20 +160,26 @@ function procesarActividades(rows) {
   });
 }
 
-// Merge manual inputs into actividades — returns new array with effective muestras
-function getEffectiveActs(actividades, manualInputs) {
+// Merge saved DB data + manual inputs → effective muestras
+function getEffectiveActs(actividades, savedDB, manualInputs) {
   return actividades.map(act => {
     if (act.estado !== 'SIN HISTÓRICO') return act;
+
+    // 1. Check manual inputs (in-session edits take priority)
     const inp = manualInputs[act.establecimiento];
-    if (!inp?.habitaciones) return act;
-    const calc = calcularPorNormativa(inp.habitaciones, inp.zonasComunes || 0);
-    if (!calc) return act;
-    return {
-      ...act,
-      muestras: calc.total,
-      estado: 'RD 487/2022',
-      _normativa: calc,
-    };
+    if (inp?.habitaciones) {
+      const calc = calcularPorNormativa(inp.habitaciones, inp.zonasComunes || 0);
+      if (calc) return { ...act, muestras: calc.total, estado: 'RD 487/2022', _normativa: calc, _guardado: inp._guardado };
+    }
+
+    // 2. Fall back to saved DB
+    const saved = savedDB[act.establecimiento];
+    if (saved?.habitaciones) {
+      const calc = calcularPorNormativa(saved.habitaciones, saved.zonas_comunes || 0);
+      if (calc) return { ...act, muestras: calc.total, estado: 'RD 487/2022 (guardado)', _normativa: calc, _guardado: true };
+    }
+
+    return act;
   });
 }
 
@@ -207,7 +195,7 @@ function agruparPorNodo(actividades) {
   return resumen;
 }
 
-function exportarExcel(effectiveD3, effectiveD3bis, mesAno) {
+function exportarExcel(eD3, eD3bis, mesAno) {
   const wb = XLSX.utils.book_new();
   const toSheet = (actividades, titulo) => {
     const resumen = agruparPorNodo(actividades);
@@ -220,20 +208,20 @@ function exportarExcel(effectiveD3, effectiveD3bis, mesAno) {
       ['TOTAL GENERAL', actividades.length, actividades.reduce((s, a) => s + (a.muestras || 0), 0)],
       [], [],
       ['DETALLE DE ACTIVIDADES'],
-      ['Establecimiento', 'Grupo', 'Región', 'Nodo Logístico', 'Disciplina', 'Auditor', 'Jornada', 'Fecha', 'Muestras Estimadas', 'Fuente / Estado'],
+      ['Establecimiento', 'Grupo', 'Región', 'Nodo Logístico', 'Disciplina', 'Auditor', 'Jornada', 'Fecha', 'Muestras Estimadas', 'Fuente'],
       ...actividades.map(a => [
         a.establecimiento, a.grupo, a.region, a.nodo, a.disciplina,
         a.auditor, a.jornada, a.fecha,
         a.muestras ?? 'PENDIENTE',
-        a.estado === 'RD 487/2022'
-          ? `RD 487/2022 (${a._normativa?.puntos} pts: ${a._normativa?.acs} ACS + ${a._normativa?.afch} AFCH)`
+        a._normativa
+          ? `RD 487/2022 (${a._normativa.puntos} pts: ${a._normativa.acs} ACS + ${a._normativa.afch} AFCH)`
           : a.estado,
       ]),
     ];
     return XLSX.utils.aoa_to_sheet(wsData);
   };
-  if (effectiveD3.length > 0) XLSX.utils.book_append_sheet(wb, toSheet(effectiveD3, `Previsión D3 - Muestreo Legionella - ${mesAno}`), 'D3 - Muestreo');
-  if (effectiveD3bis.length > 0) XLSX.utils.book_append_sheet(wb, toSheet(effectiveD3bis, `Previsión D3bis - Remuestreo Legionella - ${mesAno}`), 'D3bis - Remuestreo');
+  if (eD3.length > 0) XLSX.utils.book_append_sheet(wb, toSheet(eD3, `Previsión D3 - Muestreo Legionella - ${mesAno}`), 'D3 - Muestreo');
+  if (eD3bis.length > 0) XLSX.utils.book_append_sheet(wb, toSheet(eD3bis, `Previsión D3bis - Remuestreo Legionella - ${mesAno}`), 'D3bis - Remuestreo');
   XLSX.writeFile(wb, `Prevision_Legionella_${mesAno.replace(/\s/g, '_')}.xlsx`);
 }
 
@@ -243,13 +231,10 @@ function ResumenNodos({ actividades }) {
   const resumen = agruparPorNodo(actividades);
   const total = actividades.reduce((s, a) => s + (a.muestras || 0), 0);
   const pendientes = actividades.filter(a => a.estado === 'SIN HISTÓRICO').length;
-
   return (
     <div style={{ marginBottom: '24px' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px' }}>
-        <h3 style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--secondary)', margin: 0 }}>
-          Resumen por Nodo Logístico
-        </h3>
+        <h3 style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--secondary)', margin: 0 }}>Resumen por Nodo Logístico</h3>
         {pendientes > 0 && (
           <span style={{ fontSize: '0.78rem', backgroundColor: '#FFFBEB', color: '#D97706', border: '1px solid #FCD34D', borderRadius: '20px', padding: '2px 10px', fontWeight: 600 }}>
             {pendientes} pendiente{pendientes > 1 ? 's' : ''} de datos
@@ -258,8 +243,7 @@ function ResumenNodos({ actividades }) {
       </div>
       <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', marginBottom: '10px' }}>
         {NODOS_ORDEN.map(nodo => {
-          const d = resumen[nodo];
-          const c = NODO_COLORS[nodo];
+          const d = resumen[nodo]; const c = NODO_COLORS[nodo];
           return (
             <div key={nodo} style={{ backgroundColor: c.bg, border: `1.5px solid ${c.border}`, borderRadius: '10px', padding: '12px 16px', minWidth: '160px', flex: '1 1 160px' }}>
               <div style={{ fontSize: '0.72rem', fontWeight: 700, color: c.text, marginBottom: '4px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>{nodo}</div>
@@ -285,27 +269,15 @@ function ResumenNodos({ actividades }) {
   );
 }
 
-function TablaActividades({ actividades, manualInputs, onInputChange }) {
+function TablaActividades({ actividades, manualInputs, onInputChange, savingStates }) {
   const [sortField, setSortField] = useState('nodo');
   const [sortAsc, setSortAsc] = useState(true);
-
   const sorted = [...actividades].sort((a, b) => {
-    const va = a[sortField] ?? '';
-    const vb = b[sortField] ?? '';
+    const va = a[sortField] ?? '', vb = b[sortField] ?? '';
     return sortAsc ? String(va).localeCompare(String(vb)) : String(vb).localeCompare(String(va));
   });
-
-  const handleSort = (field) => {
-    if (sortField === field) setSortAsc(s => !s);
-    else { setSortField(field); setSortAsc(true); }
-  };
-
-  const SortIcon = ({ field }) => (
-    <span style={{ marginLeft: '4px', opacity: sortField === field ? 1 : 0.3 }}>
-      {sortField === field ? (sortAsc ? '↑' : '↓') : '↕'}
-    </span>
-  );
-
+  const handleSort = (f) => { if (sortField === f) setSortAsc(s => !s); else { setSortField(f); setSortAsc(true); } };
+  const SortIcon = ({ field }) => <span style={{ marginLeft: '4px', opacity: sortField === field ? 1 : 0.3 }}>{sortField === field ? (sortAsc ? '↑' : '↓') : '↕'}</span>;
   const th = { padding: '10px 12px', textAlign: 'left', fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'white', backgroundColor: 'var(--secondary)', cursor: 'pointer', whiteSpace: 'nowrap', userSelect: 'none' };
 
   return (
@@ -313,7 +285,7 @@ function TablaActividades({ actividades, manualInputs, onInputChange }) {
       <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.86rem' }}>
         <thead>
           <tr>
-            {[['nodo','Nodo Logístico'],['establecimiento','Establecimiento'],['grupo','Grupo'],['auditor','Auditor'],['fecha','Fecha'],['muestras','Muestras Est.'],['estado','Fuente']].map(([f, l]) => (
+            {[['nodo','Nodo Logístico'],['establecimiento','Establecimiento'],['grupo','Grupo'],['auditor','Auditor'],['fecha','Fecha'],['muestras','Muestras Est.'],['estado','Fuente']].map(([f,l]) => (
               <th key={f} style={th} onClick={() => handleSort(f)}>{l}<SortIcon field={f} /></th>
             ))}
           </tr>
@@ -322,9 +294,11 @@ function TablaActividades({ actividades, manualInputs, onInputChange }) {
           {sorted.map((act, idx) => {
             const c = NODO_COLORS[act.nodo] || { bg: '#f8f9fa', border: '#dee2e6', text: '#495057' };
             const sinHist = act.estado === 'SIN HISTÓRICO';
-            const porNorm = act.estado === 'RD 487/2022';
+            const porNorm = act.estado.startsWith('RD 487/2022');
+            const guardado = act._guardado;
             const inp = manualInputs[act.establecimiento] || {};
             const preview = sinHist && inp.habitaciones ? calcularPorNormativa(inp.habitaciones, inp.zonasComunes || 0) : null;
+            const saving = savingStates[act.establecimiento];
 
             return (
               <React.Fragment key={idx}>
@@ -337,7 +311,7 @@ function TablaActividades({ actividades, manualInputs, onInputChange }) {
                   <td style={{ padding: '9px 12px', whiteSpace: 'nowrap' }}>{act.auditor}</td>
                   <td style={{ padding: '9px 12px', whiteSpace: 'nowrap', color: 'var(--text-muted)' }}>{act.fecha}</td>
                   <td style={{ padding: '9px 12px', textAlign: 'center', fontWeight: 700, fontSize: '1rem', color: sinHist ? '#D97706' : 'var(--secondary)' }}>
-                    {sinHist ? (preview ? `${preview.total}*` : '—') : act.muestras}
+                    {sinHist ? (preview ? `${preview.total}` : '—') : act.muestras}
                   </td>
                   <td style={{ padding: '9px 12px' }}>
                     {sinHist ? (
@@ -345,8 +319,9 @@ function TablaActividades({ actividades, manualInputs, onInputChange }) {
                         <AlertCircle size={12} /> SIN HISTÓRICO
                       </span>
                     ) : porNorm ? (
-                      <span style={{ display: 'flex', alignItems: 'center', gap: '4px', color: '#0891B2', fontSize: '0.75rem', fontWeight: 600 }}>
-                        <Info size={12} /> RD 487/2022
+                      <span style={{ display: 'flex', alignItems: 'center', gap: '4px', color: guardado ? '#16A34A' : '#0891B2', fontSize: '0.75rem', fontWeight: 600 }}>
+                        {guardado ? <Save size={12} /> : <Info size={12} />}
+                        {guardado ? 'Guardado' : 'RD 487/2022'}
                       </span>
                     ) : (
                       <span style={{ display: 'flex', alignItems: 'center', gap: '4px', color: '#16A34A', fontSize: '0.75rem', fontWeight: 600 }}>
@@ -357,16 +332,13 @@ function TablaActividades({ actividades, manualInputs, onInputChange }) {
                 </tr>
                 {sinHist && (
                   <tr style={{ backgroundColor: '#FFFBEB', borderBottom: '1px solid var(--border)' }}>
-                    <td colSpan={7} style={{ padding: '6px 12px 12px 40px' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}>
-                        <span style={{ fontSize: '0.78rem', color: '#92400E', fontWeight: 600 }}>
-                          Cálculo según RD 487/2022:
-                        </span>
+                    <td colSpan={7} style={{ padding: '6px 12px 10px 40px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '14px', flexWrap: 'wrap' }}>
+                        <span style={{ fontSize: '0.78rem', color: '#92400E', fontWeight: 600 }}>Cálculo RD 487/2022:</span>
                         <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.8rem', color: '#92400E' }}>
                           Habitaciones
                           <input
-                            type="number"
-                            min="0"
+                            type="number" min="0"
                             value={inp.habitaciones || ''}
                             onChange={e => onInputChange(act.establecimiento, 'habitaciones', e.target.value)}
                             placeholder="Nº hab."
@@ -376,22 +348,21 @@ function TablaActividades({ actividades, manualInputs, onInputChange }) {
                         <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.8rem', color: '#92400E' }}>
                           Zonas comunes
                           <input
-                            type="number"
-                            min="0"
+                            type="number" min="0"
                             value={inp.zonasComunes || ''}
                             onChange={e => onInputChange(act.establecimiento, 'zonasComunes', e.target.value)}
                             placeholder="Puntos extra"
                             style={{ width: '100px', padding: '4px 8px', border: '1.5px solid #FCD34D', borderRadius: '6px', fontSize: '0.82rem', backgroundColor: 'white', outline: 'none' }}
                           />
                         </label>
-                        {preview && (
+                        {preview ? (
                           <span style={{ fontSize: '0.8rem', color: '#0369A1', backgroundColor: '#E0F2FE', border: '1px solid #7DD3FC', borderRadius: '6px', padding: '3px 10px', fontWeight: 600 }}>
-                            {preview.puntos} puntos terminales → {preview.acs} ACS + {preview.afch} AFCH = <strong>{preview.total} muestras</strong>
+                            {preview.puntos} pts → {preview.acs} ACS + {preview.afch} AFCH = <strong>{preview.total} muestras</strong>
                           </span>
-                        )}
-                        {!preview && inp.habitaciones && (
-                          <span style={{ fontSize: '0.78rem', color: '#DC2626' }}>Introduce un número válido</span>
-                        )}
+                        ) : null}
+                        {saving === 'saving' && <span style={{ fontSize: '0.75rem', color: '#0891B2' }}>Guardando…</span>}
+                        {saving === 'saved' && <span style={{ fontSize: '0.75rem', color: '#16A34A', display: 'flex', alignItems: 'center', gap: '3px' }}><Save size={11} /> Guardado</span>}
+                        {saving === 'error' && <span style={{ fontSize: '0.75rem', color: '#DC2626' }}>Error al guardar</span>}
                       </div>
                     </td>
                   </tr>
@@ -418,14 +389,57 @@ export default function LegionellaForecastModule({ onBackToHub }) {
   const [activeTab, setActiveTab] = useState('d3');
   const [isDragging, setIsDragging] = useState(false);
   const [error, setError] = useState(null);
-  const [manualInputs, setManualInputs] = useState({});
+  const [manualInputs, setManualInputs] = useState({});   // { name: { habitaciones, zonasComunes } }
+  const [savedDB, setSavedDB] = useState({});              // { name: { habitaciones, zonas_comunes } }
+  const [savingStates, setSavingStates] = useState({});    // { name: 'saving'|'saved'|'error' }
   const fileInputRef = useRef(null);
+  const saveTimers = useRef({});
 
+  // Load saved establishments from Supabase once
+  useEffect(() => {
+    supabase.from('legionella_establecimientos').select('nombre, habitaciones, zonas_comunes').then(({ data }) => {
+      if (!data) return;
+      const map = {};
+      data.forEach(r => { map[r.nombre] = r; });
+      setSavedDB(map);
+    });
+  }, []);
+
+  // Auto-save to Supabase with 1s debounce after user stops typing
   const handleInputChange = useCallback((establecimiento, field, value) => {
-    setManualInputs(prev => ({
-      ...prev,
-      [establecimiento]: { ...prev[establecimiento], [field]: value },
-    }));
+    setManualInputs(prev => {
+      const updated = { ...prev, [establecimiento]: { ...prev[establecimiento], [field]: value } };
+      const inp = updated[establecimiento];
+
+      // Only save when habitaciones has a valid value
+      if (!parseInt(inp.habitaciones)) return updated;
+
+      // Debounce save
+      clearTimeout(saveTimers.current[establecimiento]);
+      setSavingStates(s => ({ ...s, [establecimiento]: 'saving' }));
+
+      saveTimers.current[establecimiento] = setTimeout(async () => {
+        const { error } = await supabase.from('legionella_establecimientos').upsert(
+          {
+            nombre: establecimiento,
+            habitaciones: parseInt(inp.habitaciones) || 0,
+            zonas_comunes: parseInt(inp.zonasComunes || inp.zonas_comunes || 0) || 0,
+          },
+          { onConflict: 'nombre' }
+        );
+        if (error) {
+          setSavingStates(s => ({ ...s, [establecimiento]: 'error' }));
+        } else {
+          setSavedDB(prev => ({ ...prev, [establecimiento]: { habitaciones: parseInt(inp.habitaciones), zonas_comunes: parseInt(inp.zonasComunes || 0) } }));
+          setManualInputs(prev2 => ({ ...prev2, [establecimiento]: { ...prev2[establecimiento], _guardado: true } }));
+          setSavingStates(s => ({ ...s, [establecimiento]: 'saved' }));
+          // Clear 'saved' badge after 3s
+          setTimeout(() => setSavingStates(s => ({ ...s, [establecimiento]: null })), 3000);
+        }
+      }, 1000);
+
+      return updated;
+    });
   }, []);
 
   const processFile = useCallback((file) => {
@@ -434,29 +448,32 @@ export default function LegionellaForecastModule({ onBackToHub }) {
     const reader = new FileReader();
     reader.onload = (e) => {
       const rows = parsearCSV(e.target.result);
-      if (rows.length === 0) { setError('El CSV no contiene datos válidos.'); return; }
+      if (!rows.length) { setError('El CSV no contiene datos válidos.'); return; }
       const allActs = procesarActividades(rows);
-      const d3Acts = allActs.filter(a => !a.disciplina.toLowerCase().includes('d3bis') && !a.disciplina.toLowerCase().includes('remuestreo'));
       const d3bisActs = allActs.filter(a => a.disciplina.toLowerCase().includes('d3bis') || a.disciplina.toLowerCase().includes('remuestreo'));
-      const mes = rows[0]['mes'] || '';
-      const ano = rows[0]['año'] || rows[0]['ano'] || '';
+      const d3Acts = d3bisActs.length === 0 ? allActs : allActs.filter(a => !a.disciplina.toLowerCase().includes('d3bis') && !a.disciplina.toLowerCase().includes('remuestreo'));
+      const mes = rows[0]['mes'] || '', ano = rows[0]['año'] || rows[0]['ano'] || '';
       setMesAno(`${mes} ${ano}`);
-      setD3(d3bisActs.length === 0 ? allActs : d3Acts);
+      setD3(d3Acts);
       setD3bis(d3bisActs);
       setCsvData(rows);
       setManualInputs({});
+      setSavingStates({});
       setActiveTab('d3');
     };
     reader.readAsText(file, 'UTF-8');
   }, []);
 
-  const handleReset = () => { setCsvData(null); setD3([]); setD3bis([]); setMesAno(''); setError(null); setManualInputs({}); };
+  const handleReset = () => {
+    setCsvData(null); setD3([]); setD3bis([]); setMesAno('');
+    setError(null); setManualInputs({}); setSavingStates({});
+  };
 
   const baseActs = activeTab === 'd3' ? d3 : d3bis;
-  const effectiveActs = getEffectiveActs(baseActs, manualInputs);
+  const effectiveActs = getEffectiveActs(baseActs, savedDB, manualInputs);
   const sinHistoricoPendientes = effectiveActs.filter(a => a.estado === 'SIN HISTÓRICO');
-  const efectiveD3 = getEffectiveActs(d3, manualInputs);
-  const efectiveD3bis = getEffectiveActs(d3bis, manualInputs);
+  const eD3 = getEffectiveActs(d3, savedDB, manualInputs);
+  const eD3bis = getEffectiveActs(d3bis, savedDB, manualInputs);
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', backgroundColor: 'var(--background)' }}>
@@ -474,10 +491,7 @@ export default function LegionellaForecastModule({ onBackToHub }) {
             <button onClick={handleReset} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 16px', backgroundColor: 'var(--background)', border: '1px solid var(--border)', borderRadius: '8px', cursor: 'pointer', fontSize: '0.88rem', fontWeight: 600, color: 'var(--text-muted)' }}>
               <RefreshCw size={14} /> Nuevo CSV
             </button>
-            <button
-              onClick={() => exportarExcel(efectiveD3, efectiveD3bis, mesAno)}
-              style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 18px', backgroundColor: 'var(--primary)', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '0.88rem', fontWeight: 700 }}
-            >
+            <button onClick={() => exportarExcel(eD3, eD3bis, mesAno)} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 18px', backgroundColor: 'var(--primary)', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '0.88rem', fontWeight: 700 }}>
               <Download size={14} /> Exportar Excel
             </button>
           </div>
@@ -492,14 +506,12 @@ export default function LegionellaForecastModule({ onBackToHub }) {
                 <FileText size={36} color="var(--primary)" />
               </div>
               <h2 style={{ color: 'var(--secondary)', margin: '0 0 8px', fontSize: '1.5rem' }}>Previsión Mensual Legionella</h2>
-              <p style={{ color: 'var(--text-muted)', margin: 0 }}>
-                Sube el fichero de actividades CSV para calcular automáticamente los envases previstos por nodo logístico.
-              </p>
+              <p style={{ color: 'var(--text-muted)', margin: 0 }}>Sube el fichero de actividades CSV para calcular automáticamente los envases previstos por nodo logístico.</p>
             </div>
             <div
-              onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
+              onDragOver={e => { e.preventDefault(); setIsDragging(true); }}
               onDragLeave={() => setIsDragging(false)}
-              onDrop={(e) => { e.preventDefault(); setIsDragging(false); processFile(e.dataTransfer.files[0]); }}
+              onDrop={e => { e.preventDefault(); setIsDragging(false); processFile(e.dataTransfer.files[0]); }}
               onClick={() => fileInputRef.current?.click()}
               style={{ border: `2px dashed ${isDragging ? 'var(--primary)' : 'var(--border)'}`, borderRadius: '14px', padding: '48px 32px', textAlign: 'center', cursor: 'pointer', backgroundColor: isDragging ? '#EFF6FF' : 'white', transition: 'all 0.2s ease' }}
             >
@@ -535,9 +547,9 @@ export default function LegionellaForecastModule({ onBackToHub }) {
                 <AlertCircle size={18} color="#D97706" style={{ flexShrink: 0, marginTop: '1px' }} />
                 <div>
                   <span style={{ fontWeight: 700, color: '#92400E' }}>
-                    {sinHistoricoPendientes.length} establecimiento{sinHistoricoPendientes.length > 1 ? 's' : ''} sin histórico —
+                    {sinHistoricoPendientes.length} establecimiento{sinHistoricoPendientes.length > 1 ? 's' : ''} pendientes —
                   </span>
-                  <span style={{ color: '#92400E', fontSize: '0.86rem' }}> introduce el nº de habitaciones en la fila correspondiente para calcular según RD 487/2022.</span>
+                  <span style={{ color: '#92400E', fontSize: '0.86rem' }}> introduce el nº de habitaciones para calcular según RD 487/2022. Los datos se guardan automáticamente para próximas importaciones.</span>
                 </div>
               </div>
             )}
@@ -547,6 +559,7 @@ export default function LegionellaForecastModule({ onBackToHub }) {
               actividades={effectiveActs}
               manualInputs={manualInputs}
               onInputChange={handleInputChange}
+              savingStates={savingStates}
             />
           </div>
         )}
