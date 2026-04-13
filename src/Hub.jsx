@@ -1,5 +1,5 @@
 import React from 'react';
-import { ShoppingCart, LogOut, Settings, Bell, Microscope, Users } from 'lucide-react';
+import { ShoppingCart, LogOut, Settings, Bell, Microscope, Users, FlaskConical } from 'lucide-react';
 import logo from './assets/logo.png';
 
 export default function Hub({ session, globalLab, setGlobalLab, onSelectModule, onLogout, role = 'operations' }) {
@@ -184,6 +184,37 @@ export default function Hub({ session, globalLab, setGlobalLab, onSelectModule, 
               <h2 style={{ fontSize: '1.5rem', color: '#475569', margin: '0 0 12px 0' }}>Gestión de RRHH</h2>
               <p style={{ color: '#94a3b8', margin: 0, lineHeight: 1.5 }}>
                 Control de turnos, vacaciones, formación técnica y prevención de riesgos.
+              </p>
+            </div>
+          )}
+
+          {/* Module 3b: Previsión Legionella (Admin + Lab) */}
+          {['admin', 'lab'].includes(role) && (
+            <div
+              onClick={() => onSelectModule('legionella')}
+              style={{
+                width: '320px',
+                backgroundColor: 'white',
+                borderRadius: '20px',
+                padding: '40px 30px',
+                boxShadow: '0 10px 30px rgba(0,0,0,0.08)',
+                cursor: 'pointer',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                textAlign: 'center',
+                borderTop: '6px solid #0891B2',
+                transition: 'transform 0.3s ease, box-shadow 0.3s ease'
+              }}
+              onMouseOver={(e) => e.currentTarget.style.transform = 'translateY(-10px)'}
+              onMouseOut={(e) => e.currentTarget.style.transform = 'translateY(0)'}
+            >
+              <div style={{ width: '80px', height: '80px', borderRadius: '40px', backgroundColor: '#ECFEFF', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '24px' }}>
+                <FlaskConical size={40} color="#0891B2" />
+              </div>
+              <h2 style={{ fontSize: '1.5rem', color: 'var(--secondary)', margin: '0 0 12px 0' }}>Previsión Legionella</h2>
+              <p style={{ color: 'var(--text-muted)', margin: 0, lineHeight: 1.5 }}>
+                Cálculo mensual de envases previstos por nodo logístico a partir del fichero de actividades.
               </p>
             </div>
           )}

@@ -6,6 +6,7 @@ import PurchasingModule from './PurchasingModule';
 
 import EquipmentModule from './EquipmentModule';
 import UserManagementModule from './UserManagementModule';
+import LegionellaForecastModule from './LegionellaForecastModule';
 
 
 export default function App() {
@@ -85,6 +86,14 @@ export default function App() {
         onLogout={handleLogout}
         onBackToHub={() => setActiveModule(null)}
         onSelectModule={setActiveModule}
+      />
+    );
+  }
+
+  if (activeModule === 'legionella') {
+    return (
+      <LegionellaForecastModule
+        onBackToHub={() => setActiveModule(null)}
       />
     );
   }
