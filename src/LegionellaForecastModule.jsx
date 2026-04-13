@@ -1,5 +1,5 @@
 import React, { useState, useRef, useCallback, useEffect, useMemo } from 'react';
-import { ArrowLeft, Upload, Download, FileText, AlertCircle, CheckCircle, RefreshCw, Info, Save, Filter, X } from 'lucide-react';
+import { ArrowLeft, Upload, Download, FileText, AlertCircle, CheckCircle, RefreshCw, Info, Save, Filter, X, LayoutGrid, List } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { HISTORICO_LEGIONELLA } from './legionellaHistorico';
 import { supabase } from './supabaseClient';
@@ -587,6 +587,161 @@ function TablaActividades({ actividades, manualInputs, onInputChange, savingStat
   );
 }
 
+// ─── Calendar helpers ────────────────────────────────────────────────────────
+
+const DIAS_SEMANA_CORTO = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
+
+function groupByDay(actividades) {
+  const byDay = {};
+  actividades.forEach(act => {
+    if (!act.fechaDate) return;
+    const d = act.fechaDate.getDate();
+    if (!byDay[d]) byDay[d] = [];
+    byDay[d].push(act);
+  });
+  return byDay;
+}
+
+function MonthlyCalendar({ actividades, año, mes }) {
+  const byDay = groupByDay(actividades);
+  const firstDay = new Date(año, mes - 1, 1);
+  const lastDay = new Date(año, mes, 0).getDate();
+  const startOffset = (firstDay.getDay() + 6) % 7; // Lun=0
+
+  const cells = [
+    ...Array(startOffset).fill(null),
+    ...Array.from({ length: lastDay }, (_, i) => i + 1),
+  ];
+  while (cells.length % 7 !== 0) cells.push(null);
+  const weeks = Array.from({ length: cells.length / 7 }, (_, i) => cells.slice(i * 7, i * 7 + 7));
+  const sinFecha = actividades.filter(a => !a.fechaDate);
+
+  return (
+    <div>
+      {/* Day headers */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '4px', marginBottom: '4px' }}>
+        {DIAS_SEMANA_CORTO.map(d => (
+          <div key={d} style={{ textAlign: 'center', fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)', padding: '6px 0', letterSpacing: '0.05em' }}>{d}</div>
+        ))}
+      </div>
+      {/* Calendar grid */}
+      {weeks.map((week, wi) => (
+        <div key={wi} style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '4px', marginBottom: '4px' }}>
+          {week.map((day, di) => {
+            const acts = day ? (byDay[day] || []) : [];
+            const totalMuestras = acts.reduce((s, a) => s + (a.muestras || 0), 0);
+            const byNodo = {};
+            acts.forEach(a => { byNodo[a.nodo] = (byNodo[a.nodo] || { count: 0, muestras: 0 }); byNodo[a.nodo].count++; byNodo[a.nodo].muestras += a.muestras || 0; });
+            const isWeekend = di >= 5;
+
+            return (
+              <div key={di} style={{
+                minHeight: '88px',
+                backgroundColor: !day ? 'transparent' : (acts.length > 0 ? 'white' : (isWeekend ? '#FAFAFA' : '#FCFCFC')),
+                border: day ? `1px solid ${acts.length > 0 ? 'var(--border)' : '#EBEBEB'}` : 'none',
+                borderRadius: '8px',
+                padding: day ? '7px' : 0,
+                position: 'relative',
+              }}>
+                {day && (
+                  <>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '4px' }}>
+                      <span style={{ fontSize: '0.82rem', fontWeight: acts.length > 0 ? 700 : 400, color: acts.length > 0 ? 'var(--secondary)' : '#CCC' }}>{day}</span>
+                      {totalMuestras > 0 && <span style={{ fontSize: '0.68rem', fontWeight: 700, color: 'var(--text-muted)', backgroundColor: '#F1F5F9', borderRadius: '4px', padding: '1px 5px' }}>{totalMuestras}m</span>}
+                    </div>
+                    {Object.entries(byNodo).map(([nodo, { count, muestras }]) => {
+                      const c = NODO_COLORS[nodo] || { bg: '#f8f9fa', border: '#dee2e6', text: '#495057' };
+                      const label = nodo.replace('Zona ', '').replace('Islas ', '');
+                      return (
+                        <div key={nodo} title={`${nodo}: ${count} visita${count > 1 ? 's' : ''}, ${muestras} muestras`} style={{ fontSize: '0.66rem', fontWeight: 600, color: c.text, backgroundColor: c.bg, border: `1px solid ${c.border}`, borderRadius: '4px', padding: '1px 5px', marginBottom: '2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {count} · {label}
+                        </div>
+                      );
+                    })}
+                  </>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      ))}
+      {/* Activities without date */}
+      {sinFecha.length > 0 && (
+        <div style={{ marginTop: '12px', padding: '10px 14px', backgroundColor: '#F8FAFC', border: '1px solid var(--border)', borderRadius: '8px' }}>
+          <span style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-muted)' }}>Sin fecha asignada ({sinFecha.length}): </span>
+          <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>{sinFecha.map(a => a.establecimiento).join(', ')}</span>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function WeeklyCalendar({ actividades, semana, año, mes }) {
+  const startDay = (semana - 1) * 7 + 1;
+  const lastDayOfMonth = new Date(año, mes, 0).getDate();
+  const endDay = Math.min(semana * 7, lastDayOfMonth);
+
+  const days = Array.from({ length: endDay - startDay + 1 }, (_, i) => {
+    const d = startDay + i;
+    const date = new Date(año, mes - 1, d);
+    const dayName = DIAS_SEMANA_CORTO[(date.getDay() + 6) % 7];
+    const acts = actividades.filter(a =>
+      a.fechaDate && a.fechaDate.getDate() === d &&
+      a.fechaDate.getMonth() + 1 === mes && a.fechaDate.getFullYear() === año
+    );
+    return { d, dayName, acts };
+  });
+
+  const sinFecha = actividades.filter(a => !a.fechaDate);
+
+  return (
+    <div>
+      <div style={{ display: 'grid', gridTemplateColumns: `repeat(${days.length}, 1fr)`, gap: '8px' }}>
+        {days.map(({ d, dayName, acts }) => {
+          const totalMuestras = acts.reduce((s, a) => s + (a.muestras || 0), 0);
+          const hasActs = acts.length > 0;
+          return (
+            <div key={d} style={{ backgroundColor: 'white', border: `1px solid ${hasActs ? 'var(--border)' : '#EBEBEB'}`, borderRadius: '10px', overflow: 'hidden', opacity: hasActs ? 1 : 0.6 }}>
+              <div style={{ padding: '10px 12px', backgroundColor: hasActs ? 'var(--secondary)' : '#F1F5F9', borderBottom: `1px solid ${hasActs ? 'rgba(255,255,255,0.1)' : 'var(--border)'}` }}>
+                <div style={{ fontSize: '0.7rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: hasActs ? 'rgba(255,255,255,0.65)' : 'var(--text-muted)' }}>{dayName}</div>
+                <div style={{ fontSize: '1.3rem', fontWeight: 800, color: hasActs ? 'white' : '#CBD5E1', lineHeight: 1.1 }}>{d}</div>
+                {totalMuestras > 0 && <div style={{ fontSize: '0.68rem', color: 'rgba(255,255,255,0.65)', marginTop: '3px' }}>{acts.length} visita{acts.length > 1 ? 's' : ''} · {totalMuestras} muestras</div>}
+              </div>
+              <div style={{ padding: '8px', maxHeight: '500px', overflowY: 'auto' }}>
+                {acts.length === 0 ? (
+                  <div style={{ textAlign: 'center', padding: '20px 0', color: '#D1D5DB', fontSize: '0.78rem' }}>Sin visitas</div>
+                ) : acts.map((act, i) => {
+                  const c = NODO_COLORS[act.nodo] || { bg: '#f8f9fa', border: '#dee2e6', text: '#495057' };
+                  return (
+                    <div key={i} style={{ marginBottom: '6px', padding: '8px 9px', backgroundColor: c.bg, border: `1px solid ${c.border}`, borderRadius: '7px' }}>
+                      <div style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--secondary)', lineHeight: 1.2, marginBottom: '3px' }}>{act.establecimiento}</div>
+                      <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginBottom: '5px' }}>{act.auditor}</div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span style={{ fontSize: '0.66rem', color: c.text, fontWeight: 600, backgroundColor: 'white', border: `1px solid ${c.border}`, borderRadius: '4px', padding: '1px 5px' }}>
+                          {act.nodo.replace('Zona ', '').replace('Islas ', '')}
+                        </span>
+                        <span style={{ fontSize: '0.8rem', fontWeight: 800, color: act.estado === 'SIN HISTÓRICO' ? '#D97706' : c.text }}>
+                          {act.muestras ?? '—'}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+      {sinFecha.length > 0 && (
+        <div style={{ marginTop: '12px', padding: '10px 14px', backgroundColor: '#F8FAFC', border: '1px solid var(--border)', borderRadius: '8px' }}>
+          <span style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-muted)' }}>Sin fecha ({sinFecha.length}): </span>
+          <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>{sinFecha.map(a => a.establecimiento).join(', ')}</span>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 const DEFAULT_FILTERS = { mode: 'todos', semana: null, mes: null, año: null, dateFrom: '', dateTo: '', zones: new Set() };
@@ -603,6 +758,7 @@ export default function LegionellaForecastModule({ onBackToHub }) {
   const [savedDB, setSavedDB] = useState({});
   const [savingStates, setSavingStates] = useState({});
   const [filters, setFilters] = useState(DEFAULT_FILTERS);
+  const [viewMode, setViewMode] = useState('tabla'); // 'tabla' | 'calendario'
   const fileInputRef = useRef(null);
   const saveTimers = useRef({});
 
@@ -658,6 +814,7 @@ export default function LegionellaForecastModule({ onBackToHub }) {
       setManualInputs({});
       setSavingStates({});
       setFilters(DEFAULT_FILTERS);
+      setViewMode('tabla');
       setActiveTab('d3');
     };
     reader.readAsText(file, 'UTF-8');
@@ -674,6 +831,13 @@ export default function LegionellaForecastModule({ onBackToHub }) {
   const sinHistoricoPendientes = filteredActs.filter(a => a.estado === 'SIN HISTÓRICO');
   const eD3 = getEffectiveActs(d3, savedDB, manualInputs);
   const eD3bis = getEffectiveActs(d3bis, savedDB, manualInputs);
+
+  // Calendar month/year derived from data
+  const calMesAno = useMemo(() => {
+    const act = effectiveActs.find(a => a.fechaDate);
+    if (!act) return null;
+    return { mes: act.fechaDate.getMonth() + 1, año: act.fechaDate.getFullYear() };
+  }, [effectiveActs]);
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', backgroundColor: 'var(--background)' }}>
@@ -734,13 +898,26 @@ export default function LegionellaForecastModule({ onBackToHub }) {
           </div>
         ) : (
           <div style={{ maxWidth: '1400px', margin: '0 auto' }}>
-            {/* Tabs */}
-            <div style={{ display: 'flex', gap: '4px', marginBottom: '20px', backgroundColor: 'white', borderRadius: '10px', padding: '4px', border: '1px solid var(--border)', width: 'fit-content' }}>
-              {[{ key: 'd3', label: `D3 – Muestreo (${d3.length})` }, ...(d3bis.length > 0 ? [{ key: 'd3bis', label: `D3bis – Remuestreo (${d3bis.length})` }] : [])].map(tab => (
-                <button key={tab.key} onClick={() => { setActiveTab(tab.key); setFilters(DEFAULT_FILTERS); }} style={{ padding: '8px 20px', borderRadius: '7px', border: 'none', cursor: 'pointer', fontWeight: 600, fontSize: '0.9rem', backgroundColor: activeTab === tab.key ? 'var(--primary)' : 'transparent', color: activeTab === tab.key ? 'white' : 'var(--text-muted)', transition: 'all 0.15s' }}>
-                  {tab.label}
-                </button>
-              ))}
+            {/* Tabs + View toggle */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '20px', flexWrap: 'wrap' }}>
+              <div style={{ display: 'flex', gap: '4px', backgroundColor: 'white', borderRadius: '10px', padding: '4px', border: '1px solid var(--border)' }}>
+                {[{ key: 'd3', label: `D3 – Muestreo (${d3.length})` }, ...(d3bis.length > 0 ? [{ key: 'd3bis', label: `D3bis – Remuestreo (${d3bis.length})` }] : [])].map(tab => (
+                  <button key={tab.key} onClick={() => { setActiveTab(tab.key); setFilters(DEFAULT_FILTERS); setViewMode('tabla'); }} style={{ padding: '8px 20px', borderRadius: '7px', border: 'none', cursor: 'pointer', fontWeight: 600, fontSize: '0.9rem', backgroundColor: activeTab === tab.key ? 'var(--primary)' : 'transparent', color: activeTab === tab.key ? 'white' : 'var(--text-muted)', transition: 'all 0.15s' }}>
+                    {tab.label}
+                  </button>
+                ))}
+              </div>
+              {/* View mode toggle */}
+              <div style={{ display: 'flex', gap: '4px', backgroundColor: 'white', borderRadius: '10px', padding: '4px', border: '1px solid var(--border)', marginLeft: 'auto' }}>
+                {[
+                  { key: 'tabla', icon: <List size={15} />, label: 'Tabla' },
+                  { key: 'calendario', icon: <LayoutGrid size={15} />, label: 'Calendario' },
+                ].map(v => (
+                  <button key={v.key} onClick={() => setViewMode(v.key)} style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '7px 14px', borderRadius: '7px', border: 'none', cursor: 'pointer', fontWeight: 600, fontSize: '0.85rem', backgroundColor: viewMode === v.key ? 'var(--secondary)' : 'transparent', color: viewMode === v.key ? 'white' : 'var(--text-muted)', transition: 'all 0.15s' }}>
+                    {v.icon}{v.label}
+                  </button>
+                ))}
+              </div>
             </div>
 
             {/* Filter bar */}
@@ -760,12 +937,30 @@ export default function LegionellaForecastModule({ onBackToHub }) {
             )}
 
             <ResumenNodos actividades={filteredActs} total={effectiveActs.length} />
-            <TablaActividades
-              actividades={filteredActs}
-              manualInputs={manualInputs}
-              onInputChange={handleInputChange}
-              savingStates={savingStates}
-            />
+
+            {viewMode === 'tabla' ? (
+              <TablaActividades
+                actividades={filteredActs}
+                manualInputs={manualInputs}
+                onInputChange={handleInputChange}
+                savingStates={savingStates}
+              />
+            ) : calMesAno && (
+              filters.mode === 'semana' && filters.semana ? (
+                <WeeklyCalendar
+                  actividades={filteredActs}
+                  semana={filters.semana}
+                  año={calMesAno.año}
+                  mes={calMesAno.mes}
+                />
+              ) : (
+                <MonthlyCalendar
+                  actividades={effectiveActs}
+                  año={calMesAno.año}
+                  mes={calMesAno.mes}
+                />
+              )
+            )}
           </div>
         )}
       </main>
