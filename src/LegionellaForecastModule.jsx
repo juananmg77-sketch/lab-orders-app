@@ -155,7 +155,7 @@ function csvRowToRecord(row, savedDB) {
     jornada: parseFloat(row['jornada'] || 0),
     auditor: row['auditor'] || '',
     fecha: fechaStr,
-    fecha_date: fechaDate ? fechaDate.toISOString().split('T')[0] : null,
+    fecha_date: fechaDate ? `${fechaDate.getFullYear()}-${String(fechaDate.getMonth()+1).padStart(2,'0')}-${String(fechaDate.getDate()).padStart(2,'0')}` : null,
     semana: fechaDate ? semanaDelMes(fechaDate) : null,
     auditoria_ref: row['auditoría'] || row['auditoria'] || null,
     muestras_estimadas: muestrasEst,
