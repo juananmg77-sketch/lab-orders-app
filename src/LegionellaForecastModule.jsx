@@ -423,6 +423,7 @@ function MonthlyCalendar({ actividades, año, mes }) {
             const acts=day?(byDay[day]||[]):[];
             const totalEst=acts.reduce((s,a)=>s+(a.muestras_estimadas||0),0);
             const totalReal=acts.reduce((s,a)=>s+(a.muestras_reales||0),0);
+            const sinEstimar=acts.length>0&&totalEst===0;
             const byNodo={};
             acts.forEach(a=>{byNodo[a.nodo]=byNodo[a.nodo]||{count:0};byNodo[a.nodo].count++;});
             return (
@@ -431,6 +432,7 @@ function MonthlyCalendar({ actividades, año, mes }) {
                   <div style={{ display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:'3px' }}>
                     <span style={{ fontSize:'0.82rem',fontWeight:acts.length>0?700:400,color:acts.length>0?'var(--secondary)':'#CCC' }}>{day}</span>
                     {totalEst>0&&<span style={{ fontSize:'0.65rem',fontWeight:700,color:'var(--text-muted)',backgroundColor:'#F1F5F9',borderRadius:'4px',padding:'1px 4px' }}>{totalEst}m</span>}
+                    {sinEstimar&&<span style={{ fontSize:'0.65rem',fontWeight:700,color:'#D97706',backgroundColor:'#FFFBEB',border:'1px solid #FCD34D',borderRadius:'4px',padding:'1px 4px' }}>{acts.length} est.</span>}
                   </div>
                   {totalReal>0&&<div style={{ fontSize:'0.65rem',color:'#16A34A',fontWeight:700,marginBottom:'2px' }}>✓ {totalReal} recogidas</div>}
                   {Object.entries(byNodo).map(([nodo,{count}])=>{
