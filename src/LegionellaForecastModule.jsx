@@ -404,6 +404,7 @@ function groupByDay(acts, mes, año) {
 }
 
 function MonthlyCalendar({ actividades, año, mes }) {
+  const [expandedDay, setExpandedDay] = useState(null);
   const byDay = groupByDay(actividades, mes, año);
   const firstDay = new Date(año, mes-1, 1);
   const lastDay = new Date(año, mes, 0).getDate();
@@ -411,13 +412,18 @@ function MonthlyCalendar({ actividades, año, mes }) {
   const cells = [...Array(startOffset).fill(null), ...Array.from({length:lastDay},(_,i)=>i+1)];
   while(cells.length%7!==0) cells.push(null);
   const weeks = Array.from({length:cells.length/7},(_,i)=>cells.slice(i*7,i*7+7));
-  const sinFecha = actividades.filter(a=>!a.fechaDate);
+  const sinFecha = actividades.filter(a=>!a.fechaDate || a.fechaDate.getMonth()+1!==mes || a.fechaDate.getFullYear()!==año);
+  const mesNombre = MES_ORDEN[mes-1];
+  const expandedActs = expandedDay ? (byDay[expandedDay]||[]) : [];
 
   return (
     <div>
+      {/* Cabecera días semana */}
       <div style={{ display:'grid',gridTemplateColumns:'repeat(7,1fr)',gap:'4px',marginBottom:'4px' }}>
         {DIAS_SEMANA_CORTO.map(d=><div key={d} style={{ textAlign:'center',fontSize:'0.73rem',fontWeight:700,color:'var(--text-muted)',padding:'6px 0' }}>{d}</div>)}
       </div>
+
+      {/* Semanas */}
       {weeks.map((week,wi)=>(
         <div key={wi} style={{ display:'grid',gridTemplateColumns:'repeat(7,1fr)',gap:'4px',marginBottom:'4px' }}>
           {week.map((day,di)=>{
@@ -425,20 +431,28 @@ function MonthlyCalendar({ actividades, año, mes }) {
             const totalEst=acts.reduce((s,a)=>s+(a.muestras_estimadas||0),0);
             const totalReal=acts.reduce((s,a)=>s+(a.muestras_reales||0),0);
             const sinEstimar=acts.length>0&&totalEst===0;
+            const isExpanded=expandedDay===day;
             const byNodo={};
-            acts.forEach(a=>{byNodo[a.nodo]=byNodo[a.nodo]||{count:0};byNodo[a.nodo].count++;});
+            acts.forEach(a=>{
+              if(!byNodo[a.nodo]) byNodo[a.nodo]={count:0,muestras:0};
+              byNodo[a.nodo].count++;
+              byNodo[a.nodo].muestras+=a.muestras_estimadas||0;
+            });
             return (
-              <div key={di} style={{ minHeight:'88px',backgroundColor:!day?'transparent':acts.length>0?'white':'#FCFCFC',border:day?`1px solid ${acts.length>0?'var(--border)':'#EBEBEB'}`:'none',borderRadius:'8px',padding:day?'7px':0 }}>
+              <div key={di}
+                onClick={()=>acts.length>0&&setExpandedDay(isExpanded?null:day)}
+                style={{ minHeight:'100px',backgroundColor:!day?'transparent':acts.length>0?'white':'#FCFCFC',border:day?`1.5px solid ${isExpanded?'var(--primary)':acts.length>0?'var(--border)':'#EBEBEB'}`:'none',borderRadius:'8px',padding:day?'7px':0,cursor:acts.length>0?'pointer':'default',transition:'border-color 0.15s',boxShadow:isExpanded?'0 0 0 3px rgba(14,165,233,0.15)':'none' }}>
                 {day&&<>
-                  <div style={{ display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:'3px' }}>
-                    <span style={{ fontSize:'0.82rem',fontWeight:acts.length>0?700:400,color:acts.length>0?'var(--secondary)':'#CCC' }}>{day}</span>
-                    {totalEst>0&&<span style={{ fontSize:'0.65rem',fontWeight:700,color:'var(--text-muted)',backgroundColor:'#F1F5F9',borderRadius:'4px',padding:'1px 4px' }}>{totalEst}m</span>}
-                    {sinEstimar&&<span style={{ fontSize:'0.65rem',fontWeight:700,color:'#D97706',backgroundColor:'#FFFBEB',border:'1px solid #FCD34D',borderRadius:'4px',padding:'1px 4px' }}>{acts.length} est.</span>}
+                  <div style={{ display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:'4px' }}>
+                    <span style={{ fontSize:'0.85rem',fontWeight:acts.length>0?700:400,color:acts.length>0?'var(--secondary)':'#CCC' }}>{day}</span>
+                    {totalEst>0&&<span style={{ fontSize:'0.75rem',fontWeight:800,color:'white',backgroundColor:'var(--primary)',borderRadius:'5px',padding:'2px 7px',letterSpacing:'-0.01em' }}>{totalEst}m</span>}
+                    {sinEstimar&&<span style={{ fontSize:'0.68rem',fontWeight:700,color:'#D97706',backgroundColor:'#FFFBEB',border:'1px solid #FCD34D',borderRadius:'5px',padding:'2px 6px' }}>{acts.length}est</span>}
                   </div>
-                  {totalReal>0&&<div style={{ fontSize:'0.65rem',color:'#16A34A',fontWeight:700,marginBottom:'2px' }}>✓ {totalReal} recogidas</div>}
-                  {Object.entries(byNodo).map(([nodo,{count}])=>{
+                  {totalReal>0&&<div style={{ fontSize:'0.65rem',color:'#16A34A',fontWeight:700,marginBottom:'3px' }}>✓ {totalReal} rec.</div>}
+                  {Object.entries(byNodo).map(([nodo,{count,muestras}])=>{
                     const c=NODO_COLORS[nodo]||{bg:'#f8f9fa',border:'#dee2e6',text:'#495057'};
-                    return <div key={nodo} title={`${nodo}: ${count}`} style={{ fontSize:'0.63rem',fontWeight:600,color:c.text,backgroundColor:c.bg,border:`1px solid ${c.border}`,borderRadius:'3px',padding:'1px 4px',marginBottom:'2px',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap' }}>{count} · {nodo.replace('Zona ','').replace('Islas ','')}</div>;
+                    const label=muestras>0?`${muestras}m`:`${count}est`;
+                    return <div key={nodo} title={`${nodo}: ${count} establec. · ${muestras} muestras`} style={{ fontSize:'0.63rem',fontWeight:700,color:c.text,backgroundColor:c.bg,border:`1px solid ${c.border}`,borderRadius:'3px',padding:'2px 5px',marginBottom:'2px',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap' }}>{label} · {nodo.replace('Zona ','').replace('Islas ','')}</div>;
                   })}
                 </>}
               </div>
@@ -446,6 +460,43 @@ function MonthlyCalendar({ actividades, año, mes }) {
           })}
         </div>
       ))}
+
+      {/* Panel detalle día */}
+      {expandedDay&&expandedActs.length>0&&(
+        <div style={{ marginTop:'10px',backgroundColor:'white',border:'1.5px solid var(--primary)',borderRadius:'12px',overflow:'hidden',boxShadow:'0 4px 24px rgba(0,0,0,0.10)' }}>
+          <div style={{ padding:'14px 20px',backgroundColor:'var(--secondary)',display:'flex',justifyContent:'space-between',alignItems:'center' }}>
+            <div>
+              <div style={{ color:'rgba(255,255,255,0.65)',fontSize:'0.75rem',fontWeight:600,marginBottom:'2px' }}>
+                {DIAS_SEMANA_CORTO[(new Date(año,mes-1,expandedDay).getDay()+6)%7]} {expandedDay} de {mesNombre} {año}
+              </div>
+              <div style={{ color:'white',fontWeight:800,fontSize:'1.05rem' }}>
+                {expandedActs.reduce((s,a)=>s+(a.muestras_estimadas||0),0)} muestras estimadas &nbsp;·&nbsp; {expandedActs.length} establecimiento{expandedActs.length>1?'s':''}
+              </div>
+            </div>
+            <button onClick={e=>{e.stopPropagation();setExpandedDay(null);}} style={{ background:'none',border:'none',color:'rgba(255,255,255,0.7)',cursor:'pointer',fontSize:'1.3rem',lineHeight:1,padding:'4px 8px' }}>✕</button>
+          </div>
+          <div style={{ display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(260px,1fr))',gap:'8px',padding:'14px' }}>
+            {expandedActs.sort((a,b)=>(b.muestras_estimadas||0)-(a.muestras_estimadas||0)).map((act,i)=>{
+              const c=NODO_COLORS[act.nodo]||{bg:'#f8f9fa',border:'#dee2e6',text:'#495057'};
+              return (
+                <div key={i} style={{ backgroundColor:c.bg,border:`1px solid ${c.border}`,borderRadius:'8px',padding:'10px 14px',display:'flex',justifyContent:'space-between',alignItems:'center',gap:'10px' }}>
+                  <div style={{ flex:1,minWidth:0 }}>
+                    <div style={{ fontWeight:700,color:'var(--secondary)',fontSize:'0.85rem',marginBottom:'2px',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap' }}>{act.establecimiento}</div>
+                    <div style={{ fontSize:'0.73rem',color:'var(--text-muted)',marginBottom:'4px' }}>{act.auditor||'—'}</div>
+                    <span style={{ fontSize:'0.67rem',color:c.text,fontWeight:600,border:`1px solid ${c.border}`,backgroundColor:'white',borderRadius:'4px',padding:'1px 6px' }}>{act.nodo?.replace('Zona ','').replace('Islas ','')}</span>
+                  </div>
+                  <div style={{ textAlign:'right',flexShrink:0 }}>
+                    <div style={{ fontSize:'1.5rem',fontWeight:800,color:act.muestras_estimadas?c.text:'#D97706',lineHeight:1 }}>{act.muestras_estimadas??'?'}</div>
+                    <div style={{ fontSize:'0.63rem',color:'var(--text-muted)' }}>muestras</div>
+                    {act.muestras_reales!=null&&<div style={{ fontSize:'0.7rem',color:'#16A34A',fontWeight:700,marginTop:'2px' }}>✓ {act.muestras_reales}</div>}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       {sinFecha.length>0&&<div style={{ marginTop:'12px',padding:'10px 14px',backgroundColor:'#F8FAFC',border:'1px solid var(--border)',borderRadius:'8px',fontSize:'0.78rem',color:'var(--text-muted)' }}><strong>Sin fecha ({sinFecha.length}):</strong> {sinFecha.map(a=>a.establecimiento).join(', ')}</div>}
     </div>
   );
