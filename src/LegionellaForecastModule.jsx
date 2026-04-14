@@ -232,8 +232,7 @@ function ResumenNodos({ actividades, allActs, filters, onFiltersChange }) {
 
   const toggleNodo = (nodo) => {
     const s = new Set(filters.zones);
-    if (s.has(nodo) && s.size === 1) { s.clear(); }
-    else { s.clear(); s.add(nodo); }
+    if (s.has(nodo)) { s.delete(nodo); } else { s.add(nodo); }
     onFiltersChange({ ...filters, zones: s });
   };
 
@@ -242,7 +241,7 @@ function ResumenNodos({ actividades, allActs, filters, onFiltersChange }) {
       <div style={{ display:'flex', alignItems:'center', gap:'12px', marginBottom:'12px' }}>
         <h3 style={{ fontSize:'1rem', fontWeight:700, color:'var(--secondary)', margin:0 }}>Resumen por Nodo Logístico</h3>
         {pendientes>0 && <span style={{ fontSize:'0.78rem', backgroundColor:'#FFFBEB', color:'#D97706', border:'1px solid #FCD34D', borderRadius:'20px', padding:'2px 10px', fontWeight:600 }}>{pendientes} pendiente{pendientes>1?'s':''}</span>}
-        {isFiltered && <button onClick={()=>onFiltersChange(DEFAULT_FILTERS)} style={{ fontSize:'0.75rem', color:'#DC2626', background:'none', border:'1px solid #FCA5A5', borderRadius:'20px', padding:'2px 10px', cursor:'pointer', fontWeight:600 }}>✕ Quitar filtro</button>}
+        {isFiltered && <button onClick={()=>onFiltersChange(DEFAULT_FILTERS)} style={{ fontSize:'0.75rem', color:'#DC2626', background:'none', border:'1px solid #FCA5A5', borderRadius:'20px', padding:'2px 10px', cursor:'pointer', fontWeight:600 }}>✕ Quitar filtro{filters.zones.size>1?` (${filters.zones.size})`:''}</button>}
         {isFiltered && <span style={{ fontSize:'0.78rem', color:'var(--text-muted)' }}>Mostrando {actividades.length} de {allActs.length}</span>}
       </div>
       <div style={{ display:'flex', gap:'10px', flexWrap:'wrap', marginBottom:'10px' }}>
@@ -252,12 +251,14 @@ function ResumenNodos({ actividades, allActs, filters, onFiltersChange }) {
           const isInactive = isFiltered && !isActive;
           const real = allActs.filter(a=>a.nodo===nodo).reduce((s,a)=>s+(a.muestras_reales||0),0);
           return (
-            <div key={nodo} onClick={()=>toggleNodo(nodo)} style={{ backgroundColor:c.bg, border:`2px solid ${isActive?c.border:'transparent'}`, outline:`1px solid ${isActive?'transparent':c.border}`, borderRadius:'10px', padding:'12px 16px', minWidth:'155px', flex:'1 1 155px', cursor:'pointer', opacity:isInactive?0.4:1, transition:'all 0.15s', userSelect:'none' }}>
-              <div style={{ fontSize:'0.7rem', fontWeight:700, color:c.text, marginBottom:'4px', textTransform:'uppercase', letterSpacing:'0.04em' }}>{nodo}</div>
+            <div key={nodo} onClick={()=>toggleNodo(nodo)} style={{ backgroundColor:c.bg, border:`2px solid ${isActive?c.border:c.border}`, borderRadius:'10px', padding:'12px 16px', minWidth:'155px', flex:'1 1 155px', cursor:'pointer', opacity:isInactive?0.35:1, transition:'all 0.15s', userSelect:'none', boxShadow:isActive?`0 0 0 2px ${c.border}`:'none' }}>
+              <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start' }}>
+                <div style={{ fontSize:'0.7rem', fontWeight:700, color:c.text, marginBottom:'4px', textTransform:'uppercase', letterSpacing:'0.04em' }}>{nodo}</div>
+                {isActive && <span style={{ fontSize:'0.75rem', color:c.text, fontWeight:800 }}>✓</span>}
+              </div>
               <div style={{ fontSize:'1.4rem', fontWeight:800, color:c.text }}>{d?.muestras||0}</div>
               {real>0 && <div style={{ fontSize:'0.72rem', color:c.text, opacity:0.8 }}>✓ {real} recogidas</div>}
               <div style={{ fontSize:'0.73rem', color:c.text, opacity:0.65 }}>{d?.count||0} establec.</div>
-              {isActive && <div style={{ fontSize:'0.65rem', color:c.text, fontWeight:700, marginTop:'4px' }}>FILTRADO ▼</div>}
             </div>
           );
         })}
