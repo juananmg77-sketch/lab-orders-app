@@ -681,8 +681,9 @@ export default function LegionellaForecastModule({ onBackToHub }) {
   const d3bisCount = useMemo(() => baseActs.filter(a=>a.disciplina?.toLowerCase().includes('d3bis')||a.disciplina?.toLowerCase().includes('remuestreo')).length, [baseActs]);
 
   const calMesAno = useMemo(() => {
+    if (selectedMes) return { mes: MES_ORDEN.indexOf(selectedMes.mes) + 1, año: selectedMes.año };
     const a = tabActs.find(x => x.fechaDate);
-    return a ? { mes: a.fechaDate.getMonth()+1, año: a.fechaDate.getFullYear() } : (selectedMes ? { mes: MES_ORDEN.indexOf(selectedMes.mes)+1, año: selectedMes.año } : null);
+    return a ? { mes: a.fechaDate.getMonth()+1, año: a.fechaDate.getFullYear() } : null;
   }, [tabActs, selectedMes]);
 
   const sinHistoricoPendientes = tabActs.filter(a => !a.estado_estimacion || a.estado_estimacion === 'SIN HISTÓRICO');
