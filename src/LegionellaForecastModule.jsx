@@ -636,7 +636,8 @@ export default function LegionellaForecastModule({ onBackToHub }) {
   const [savingStates, setSavingStates] = useState({});
   const [filters, setFilters] = useState(DEFAULT_FILTERS);
   const [viewMode, setViewMode] = useState('calendario');
-  const [activeTab, setActiveTab] = useState('d3');
+  const [showD3, setShowD3] = useState(true);
+  const [showD3bis, setShowD3bis] = useState(false);
   const [selectedMes, setSelectedMes] = useState(null); // { mes, año }
   const [showImport, setShowImport] = useState(false);
   const saveTimers = useRef({});
@@ -721,15 +722,16 @@ export default function LegionellaForecastModule({ onBackToHub }) {
     return actividades.filter(a => a.mes === selectedMes.mes && a.año === selectedMes.año);
   }, [actividades, selectedMes]);
 
-  const tabActs = useMemo(() => {
-    if (activeTab === 'd3') return baseActs.filter(a => !a.disciplina?.toLowerCase().includes('d3bis') && !a.disciplina?.toLowerCase().includes('remuestreo'));
-    return baseActs.filter(a => a.disciplina?.toLowerCase().includes('d3bis') || a.disciplina?.toLowerCase().includes('remuestreo'));
-  }, [baseActs, activeTab]);
+  const isD3bis = a => a.disciplina?.toLowerCase().includes('d3bis') || a.disciplina?.toLowerCase().includes('remuestreo');
+  const tabActs = useMemo(() => baseActs.filter(a => {
+    const bis = isD3bis(a);
+    return (showD3 && !bis) || (showD3bis && bis);
+  }), [baseActs, showD3, showD3bis]);
 
   const filteredActs = useMemo(() => applyFilters(tabActs, filters), [tabActs, filters]);
 
-  const d3Count = useMemo(() => baseActs.filter(a=>!a.disciplina?.toLowerCase().includes('d3bis')&&!a.disciplina?.toLowerCase().includes('remuestreo')).length, [baseActs]);
-  const d3bisCount = useMemo(() => baseActs.filter(a=>a.disciplina?.toLowerCase().includes('d3bis')||a.disciplina?.toLowerCase().includes('remuestreo')).length, [baseActs]);
+  const d3Count = useMemo(() => baseActs.filter(a=>!isD3bis(a)).length, [baseActs]);
+  const d3bisCount = useMemo(() => baseActs.filter(a=>isD3bis(a)).length, [baseActs]);
 
   const calMesAno = useMemo(() => {
     if (selectedMes) return { mes: MES_ORDEN.indexOf(selectedMes.mes) + 1, año: selectedMes.año };
@@ -785,15 +787,21 @@ export default function LegionellaForecastModule({ onBackToHub }) {
               {mesesDisponibles.map(m=>{
                 const isActive = selectedMes?.mes===m.mes&&selectedMes?.año===m.año;
                 const label = `${m.mes.charAt(0).toUpperCase()+m.mes.slice(1)} ${m.año}`;
-                return <button key={`${m.mes}-${m.año}`} onClick={()=>{setSelectedMes(m);setFilters(DEFAULT_FILTERS);setActiveTab('d3');}} style={{ padding:'6px 14px',borderRadius:'20px',border:`1.5px solid ${isActive?'var(--primary)':'var(--border)'}`,cursor:'pointer',fontWeight:isActive?700:500,fontSize:'0.85rem',backgroundColor:isActive?'var(--primary)':'white',color:isActive?'white':'var(--text-muted)',transition:'all 0.15s' }}>{label}</button>;
+                return <button key={`${m.mes}-${m.año}`} onClick={()=>{setSelectedMes(m);setFilters(DEFAULT_FILTERS);setShowD3(true);setShowD3bis(false);}} style={{ padding:'6px 14px',borderRadius:'20px',border:`1.5px solid ${isActive?'var(--primary)':'var(--border)'}`,cursor:'pointer',fontWeight:isActive?700:500,fontSize:'0.85rem',backgroundColor:isActive?'var(--primary)':'white',color:isActive?'white':'var(--text-muted)',transition:'all 0.15s' }}>{label}</button>;
               })}
             </div>
 
             {/* Tabs + View toggle */}
             <div style={{ display:'flex',alignItems:'center',gap:'12px',marginBottom:'20px',flexWrap:'wrap' }}>
-              <div style={{ display:'flex',gap:'4px',backgroundColor:'white',borderRadius:'10px',padding:'4px',border:'1px solid var(--border)' }}>
-                {[{key:'d3',label:`D3 – Muestreo (${d3Count})`},...(d3bisCount>0?[{key:'d3bis',label:`D3bis – Remuestreo (${d3bisCount})`}]:[])].map(tab=>(
-                  <button key={tab.key} onClick={()=>{setActiveTab(tab.key);setFilters(DEFAULT_FILTERS);}} style={{ padding:'8px 20px',borderRadius:'7px',border:'none',cursor:'pointer',fontWeight:600,fontSize:'0.9rem',backgroundColor:activeTab===tab.key?'var(--primary)':'transparent',color:activeTab===tab.key?'white':'var(--text-muted)',transition:'all 0.15s' }}>{tab.label}</button>
+              <div style={{ display:'flex',gap:'6px',alignItems:'center' }}>
+                {[
+                  {active:showD3, toggle:()=>{setShowD3(v=>!v);setFilters(DEFAULT_FILTERS);}, label:'D3 – Muestreo', count:d3Count, color:'var(--primary)'},
+                  ...(d3bisCount>0?[{active:showD3bis, toggle:()=>{setShowD3bis(v=>!v);setFilters(DEFAULT_FILTERS);}, label:'D3bis – Remuestreo', count:d3bisCount, color:'#7C3AED'}]:[]),
+                ].map(({active,toggle,label,count,color})=>(
+                  <button key={label} onClick={toggle} style={{ display:'flex',alignItems:'center',gap:'6px',padding:'8px 16px',borderRadius:'8px',border:`2px solid ${active?color:'var(--border)'}`,cursor:'pointer',fontWeight:600,fontSize:'0.88rem',backgroundColor:active?color:'white',color:active?'white':'var(--text-muted)',transition:'all 0.15s',boxShadow:active?`0 2px 8px ${color}33`:'none' }}>
+                    {active&&<span style={{fontSize:'0.8rem'}}>✓</span>}
+                    {label} <span style={{ fontSize:'0.78rem',opacity:0.75,fontWeight:500 }}>({count})</span>
+                  </button>
                 ))}
               </div>
               <div style={{ display:'flex',gap:'4px',backgroundColor:'white',borderRadius:'10px',padding:'4px',border:'1px solid var(--border)',marginLeft:'auto' }}>
