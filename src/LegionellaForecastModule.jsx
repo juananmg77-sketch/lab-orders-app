@@ -416,18 +416,15 @@ function PendientesModal({ actividades, savedDB, onSave, onClose }) {
 
 // ─── ResumenNodos ─────────────────────────────────────────────────────────────
 
-function ResumenNodos({ actividades, allActs, baseActs, filters, onFiltersChange, onPendientesClick, nodosVisibles = NODOS_ORDEN }) {
+function ResumenNodos({ actividades, allActs, sinFechaData, filters, onFiltersChange, onPendientesClick, nodosVisibles = NODOS_ORDEN }) {
   const res = agruparPorNodo(allActs);
   const totalEst = actividades.reduce((s,a)=>s+(a.muestras_estimadas||0),0);
   const totalReal = actividades.reduce((s,a)=>s+(a.muestras_reales||0),0);
   const pendientes = allActs.filter(a => ['d3','d3bis'].includes(getDisciplinaCategoria(a.disciplina)) && (!a.estado_estimacion||a.estado_estimacion==='SIN HISTÓRICO')).length;
   const isFiltered = filters.zones.size > 0;
 
-  // Sin fecha asignada — calculado sobre baseActs (sin filtro de categoría)
-  // Incluye fechaDate nula O con año < 2000 (placeholder 1970 cuando el consultor no asigna fecha)
-  const sinFechaActs = (baseActs || allActs).filter(a => !a.fechaDate || a.fechaDate.getFullYear() < 2000);
-  const sinFechaMuestras = sinFechaActs.reduce((s,a)=>s+(a.muestras_estimadas||0),0);
-  const sinFechaCount = sinFechaActs.length;
+  const sinFechaCount = sinFechaData?.count || 0;
+  const sinFechaMuestras = sinFechaData?.muestras || 0;
 
   const toggleNodo = (nodo) => {
     const s = new Set(filters.zones);
@@ -1283,6 +1280,11 @@ export default function LegionellaForecastModule({ onBackToHub, globalLab }) {
 
   const filteredActs = useMemo(() => applyFilters(tabActs, filters), [tabActs, filters]);
 
+  const sinFechaData = useMemo(() => {
+    const acts = baseActs.filter(a => !a.fechaDate || a.fechaDate.getFullYear() < 2000);
+    return { count: acts.length, muestras: acts.reduce((s,a) => s + (a.muestras_estimadas||0), 0) };
+  }, [baseActs]);
+
   const categoryCounts = useMemo(() => {
     const counts = {};
     TABS_ORDER.forEach(k => { counts[k] = 0; });
@@ -1387,7 +1389,7 @@ export default function LegionellaForecastModule({ onBackToHub, globalLab }) {
               </div>
             )}
 
-            <ResumenNodos actividades={filteredActs} allActs={tabActs} baseActs={baseActs} filters={filters} onFiltersChange={setFilters} onPendientesClick={() => setShowPendientes(true)} nodosVisibles={isCanariasMode ? ['Islas Canarias'] : NODOS_ORDEN}/>
+            <ResumenNodos actividades={filteredActs} allActs={tabActs} sinFechaData={sinFechaData} filters={filters} onFiltersChange={setFilters} onPendientesClick={() => setShowPendientes(true)} nodosVisibles={isCanariasMode ? ['Islas Canarias'] : NODOS_ORDEN}/>
 
             {viewMode==='tabla'?(
               <TablaActividades
