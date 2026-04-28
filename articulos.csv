@@ -1,0 +1,98 @@
+HS LAB ANALYSIS  ·  CATÁLOGO DE ARTÍCULOS DEL LABORATORIO,,,,,,,,,,,,,
+Base de Datos de Compras  ·  Precios y Stock  ·  Versión 1.1  ·  16/03/2026,,,,,,,,,,,,,
+"CÓD.
+ARTÍCULO","DESCRIPCIÓN DEL
+ARTÍCULO",CATEGORÍA,PROVEEDOR,MARCA,"REF.
+PROVEEDOR","UNIDAD
+DE MEDIDA","PRECIO UNIT.
+SIN IVA (€)",% IVA,"PRECIO UNIT.
+CON IVA (€)","STOCK
+MÍNIMO","UNIDD. POR
+PEDIDO","ACTIVO
+(S/N)",OBSERVACIONES
+LAB-001,Agar R2A para recuento heterótrofo en agua,Medios de Cultivo,Cultimed,Panreac,212264.1210,Frasco 500g,"45,80 €",21%,"55,42 €",2,2,S,Medio diferencial para agua
+LAB-002,Agar Slanetz-Bartley (Enterococcus),Medios de Cultivo,BioMérieux,BioMérieux,43011,Frasco 500g,"52,30 €",21%,"63,28 €",2,2,S,Detección Enterococcus en agua
+LAB-003,Caldo Tripticasa Soya (TSB),Medios de Cultivo,Cultimed,Panreac,214046.1210,Frasco 500g,"38,50 €",21%,"46,59 €",3,3,S,Caldo de enriquecimiento universal
+LAB-004,Agar Columbia + 5% Sangre Carnero (placas),Medios de Cultivo,BioMérieux,BioMérieux,43049,Caja 20 placas,"28,40 €",21%,"34,36 €",4,4,S,Placas listas para uso
+LAB-005,BCYE-alpha (Agar para Legionella),Medios de Cultivo,Bio-Rad,Bio-Rad,356208,Frasco 500g,"89,70 €",21%,"108,54 €",2,2,S,Medio selectivo Legionella ISO 11731
+LAB-006,Agar CLED (orina),Medios de Cultivo,Cultimed,Panreac,212044.1210,Frasco 500g,"41,20 €",21%,"49,85 €",1,2,S,Recuento bacterias en orina
+LAB-007,Placas Petri Ø 90mm estériles,Consumibles,VWR,VWR,391-0883,Bolsa 20 ud,"3,85 €",21%,"4,66 €",10,10,S,Uso microbiología
+LAB-008,Tubos Falcon 50ml estériles,Consumibles,Thermo,Thermo Fisher,339652,Caja 500 ud,"42,00 €",21%,"50,82 €",5,5,S,
+LAB-009,Tubos Falcon 15ml estériles,Consumibles,Thermo,Thermo Fisher,339650,Caja 500 ud,"38,00 €",21%,"45,98 €",5,5,S,
+LAB-010,Puntas micropipeta 1000µl amarillas,Consumibles,VWR,VWR,732-2389,Caja 1000 ud,"18,50 €",21%,"22,39 €",3,5,S,
+LAB-011,Puntas micropipeta 200µl amarillas,Consumibles,VWR,VWR,732-2388,Caja 1000 ud,"14,80 €",21%,"17,91 €",3,5,S,
+LAB-012,Puntas micropipeta 10µl blancas,Consumibles,VWR,VWR,732-2387,Caja 1000 ud,"16,20 €",21%,"19,60 €",3,5,S,
+LAB-013,Guantes nitrilo talla M (sin polvo),EPI,Mercaplast,Nitrile Pro,NP-M-100,Caja 100 ud,"8,90 €",21%,"10,77 €",5,10,S,EPI obligatorio manipulación muestras
+LAB-014,Guantes nitrilo talla L (sin polvo),EPI,Mercaplast,Nitrile Pro,NP-L-100,Caja 100 ud,"8,90 €",21%,"10,77 €",5,10,S,
+LAB-015,Mascarilla FFP2 sin válvula,EPI,Protekta,3M,3M-8822,Caja 20 ud,"14,50 €",21%,"17,55 €",3,5,S,Protección aerosoles biológicos
+LAB-016,Reactivo DPD nº1 cloro libre (polvo),Reactivos Químicos,Hanna Inst.,Hanna,HI-93700-01,Sobre 100 dosis,"9,20 €",21%,"11,13 €",5,5,S,Determinación cloro libre piscinas/agua
+LAB-017,Reactivo DPD nº3 cloro total (polvo),Reactivos Químicos,Hanna Inst.,Hanna,HI-93710-01,Sobre 100 dosis,"9,20 €",21%,"11,13 €",5,5,S,Determinación cloro total
+LAB-018,Estándar pH 4.01 (solución tampón),Reactivos Químicos,Crison,Crison,11-40-04,Frasco 500ml,"6,80 €",21%,"8,23 €",3,6,S,Calibración pHmetro
+LAB-019,Estándar pH 7.00 (solución tampón),Reactivos Químicos,Crison,Crison,11-40-07,Frasco 500ml,"6,80 €",21%,"8,23 €",3,6,S,Calibración pHmetro
+LAB-020,Hipoclorito sódico 50L (desinfectante),Desinfección,Quimidrops,Quimidrops,QD-NaClO-50,Garrafa 50L,"28,50 €",21%,"34,49 €",2,2,S,Desinfección superficies y equipos
+LAB-021,Kit detección Legionella Urine Antigen,Kits Rápidos,BioMérieux,BioMérieux,22190,Caja 25 pruebas,"185,00 €",21%,"223,85 €",1,1,S,Ensayo inmunocromatográfico Ag urinario
+LAB-022,Filtros membrana 0.45µm Ø47mm (blancas),Filtración,Millipore,Merck Millipore,HAWP04700,Paquete 100 ud,"38,60 €",21%,"46,71 €",3,5,S,Filtración microbiológica agua ISO 9308
+LAB-023,Filtros membrana 0.22µm Ø47mm,Filtración,Millipore,Merck Millipore,GSWP04700,Paquete 100 ud,"42,80 €",21%,"51,79 €",2,3,S,Esterilización por filtración
+LAB-024,Probeta graduada 1000ml PP,Material de Vidrio/PP,VWR,Kartell,612-0055,Unidad,"12,40 €",21%,"15,00 €",2,2,S,
+LAB-025,Matraz Erlenmeyer 500ml vidrio,Material de Vidrio/PP,VWR,Duran,612-0144,Unidad,"8,90 €",21%,"10,77 €",4,4,S,
+LAB-026,Agua Destilada estéril 500ml,Reactivos Químicos,Baxter,Baxter,L7502,Frasco 500ml,"2,80 €",21%,"3,39 €",10,20,S,Diluciones y preparaciones
+LAB-027,Papel de filtro Whatman nº 1 Ø185mm,Consumibles,Sigma-Aldrich,Whatman,1001-185,Caja 100 ud,"28,00 €",21%,"33,88 €",2,3,S,
+LAB-028,Bolsas Stomacher 400ml (estériles),Consumibles,VWR,Whirl-Pak,B01064WA,Caja 500 ud,"89,00 €",21%,"107,69 €",2,2,S,Homogeneización muestras alimentos
+LAB-029,Tiras reactivas pH 0-14 (no sangrado),Reactivos Químicos,Merck,MColorpHast,1095350001,Caja 100 tiras,"14,20 €",21%,"17,18 €",3,6,S,Control rápido pH
+LAB-030,Etanol 96% (desinfección instrumental),Reactivos Químicos,Panreac,Panreac,121086.1211,Frasco 1L,"8,50 €",21%,"10,29 €",3,6,S,Grado técnico. Uso interno laboratorio
+LAB-031,PLACA PETRI 90X14MM,Medios de Cultivo,EQUILABO,EQUILABO,200200,Unidad (placa),"0,09 €",21%,"0,11 €",3,5,S,
+LAB-032,PLACA PETRI 90X14MM (ESTÉRIL),Medios de Cultivo,EQUILABO,EQUILABO,200200E,Unidad (placa),"0,09 €",21%,"0,11 €",3,5,S,
+LAB-033,PLACA PETRI 55X14MM ASÉPTICA,Medios de Cultivo,EQUILABO,EQUILABO,200201,Unidad (placa),"0,06 €",21%,"0,08 €",3,5,S,
+LAB-034,FILTRO MEMBRANA CN 0.45µm 47mmØ BLANCA CUADRIC. ST,Filtración,EQUILABO,EQUILABO,100-1003,Unidad,"0,19 €",21%,"0,22 €",3,5,S,
+LAB-035,ASA DIGRALSKY B/5,Consumibles,EQUILABO,EQUILABO,200500.1,Unidad,"0,08 €",21%,"0,09 €",3,5,S,
+LAB-036,BOTELLA ESTÉRIL RECOGIDA AGUAS C/TIOSULFATO 500 ML,Consumibles,EQUILABO,EQUILABO,282323,Frasco 500 ml,"0,71 €",21%,"0,86 €",3,5,S,
+LAB-037,BOTELLA ESTÉRIL RECOGIDA AGUAS C/TIOSULFATO 1000 ML,Consumibles,EQUILABO,EQUILABO,282324,Frasco 1 L,"0,91 €",21%,"1,10 €",3,5,S,
+LAB-038,AMIES PS+VISCOSA,Medios de Cultivo,EQUILABO,EQUILABO,300287,Unidad,"0,22 €",21%,"0,27 €",3,5,S,
+LAB-039,FRASCO 120ML PP B/U ESTÉRIL,Consumibles,EQUILABO,EQUILABO,409726,Frasco 120 ml,"0,12 €",21%,"0,15 €",3,5,S,
+LAB-040,RAPID SALMONELLA CAPSULE X100 (BIO RAD FOOD),Medios de Cultivo,EQUILABO,EQUILABO,3564710.0100,Kit 100 test,"47,00 €",21%,"56,87 €",3,5,S,
+LAB-041,SUPLEMENTO ESTÉRIL CEFSULODINA P/MUG PLUS 100 ML,Reactivos Químicos,EQUILABO,EQUILABO,SMS400,Frasco 100 ml,"228,40 €",21%,"276,36 €",1,1,S,
+LAB-042,QUANTITATIVE PACKAGE RONDA MC358 (INTERCOMPARACIÓN),Control de Calidad,EQUILABO,EQUILABO,PT-MC-36,Unidad,"1.020,00 €",21%,"1.234,20 €",1,1,S,
+LAB-043,QUALITATIVE PACKAGE (INTERCOMPARACIÓN),Control de Calidad,EQUILABO,EQUILABO,PT-MC-37,Unidad,"1.020,00 €",21%,"1.234,20 €",1,1,S,
+LAB-044,PIPETA GRADUADA CLASE A 10ML C/5,Consumibles,BIOLINEA,BIOLINEA,LB-MPIA-010-005,Pack 5 ud,"11,20 €",21%,"13,55 €",3,5,S,
+LAB-045,PIPETA GRADUADA CLASE A 20ML C/5,Consumibles,BIOLINEA,BIOLINEA,LB-MPIA-020-005,Pack 5 ud,"17,32 €",21%,"20,96 €",3,5,S,
+LAB-046,FRASCO PET ESTÉRIL C/TIOSULFATO 1L C/48,Consumibles,BIOLINEA,BIOLINEA,LB-WSBE-1KT-048,Caja 48 ud,"78,95 €",21%,"95,53 €",3,5,S,
+LAB-047,TUBO GRADUADO PP 15ML ESTÉRIL C/500,Consumibles,BIOLINEA,BIOLINEA,LB-CTGP-E15-500,Caja 500/100 ud,"65,00 €",21%,"78,65 €",3,5,S,
+LAB-048,TUBO 50ML PP C/FALDÓN ESTÉRIL C/500 EN BOLSAS,Consumibles,BIOLINEA,BIOLINEA,LB-CTSP-E50-500,Caja 500/100 ud,"75,00 €",21%,"90,75 €",3,5,S,
+LAB-049,"PATRÓN CONDUCTIVIDAD 12,88 mS/cm 500ML",Patrones y Calibración,BIOLINEA,BIOLINEA,LPROC-G51100643,Frasco 500 ml,"14,00 €",21%,"16,94 €",2,3,S,
+LAB-050,TUBERÍA SILICONA 8X12MM 5 METROS,Consumibles,BIOLINEA,BIOLINEA,LB-SILT-008-005,Rollo 5 m,"16,97 €",21%,"20,53 €",3,5,S,
+LAB-051,DISOLUCIÓN TAMPÓN pH 1.679 ISO 17034 500ML,Patrones y Calibración,BIOLINEA,BIOLINEA,LPROC-101679CRM,Frasco 500 ml,"67,00 €",21%,"81,07 €",2,3,S,
+LAB-052,DISOLUCIÓN TAMPÓN pH 7 ISO 17034 500ML,Patrones y Calibración,BIOLINEA,BIOLINEA,LPROC-1070525C,Frasco 500 ml,"53,00 €",21%,"64,13 €",2,3,S,
+LAB-053,DISOLUCIÓN TAMPÓN pH 10 ISO 17034 500ML,Patrones y Calibración,BIOLINEA,BIOLINEA,LPROC-1100525C,Frasco 500 ml,"53,00 €",21%,"64,13 €",2,3,S,
+LAB-054,AGITADOR VORTEX MULTITUBO DMT,Equipos,BIOLINEA,BIOLINEA,LAB55990,Unidad,"1.425,00 €",21%,"1.724,25 €",1,1,S,
+LAB-055,SOPORTE UNIVERSAL PARA ADAPTADORES VORTEX,Consumibles,BIOLINEA,BIOLINEA,LB-VORX-A04-001,Unidad,"18,06 €",21%,"21,85 €",3,5,S,
+LAB-056,SOPORTE ESTÁNDAR P/TUBOS DE MENOS 30MM VORTEX,Consumibles,BIOLINEA,BIOLINEA,LB-VORX-A03-001,Unidad,"8,34 €",21%,"10,09 €",3,5,S,
+LAB-057,ADAPTADOR PARA 8 TUBOS DE 20MM VORTEX,Consumibles,BIOLINEA,BIOLINEA,LB-VORX-A81-001,Unidad,"24,00 €",21%,"29,04 €",3,5,S,
+LAB-058,GLICERINA 99% AGR 1L,Reactivos Químicos,BIOLINEA,BIOLINEA,LB-GLIO-00A-1K0,Frasco 1 L,"27,38 €",21%,"33,13 €",2,3,S,
+LAB-059,HIERRO VISOCOLOR 0.04-2.0,Reactivos Químicos,BIOLINEA,BIOLINEA,PANR931225RM,Unidad,"91,50 €",21%,"110,72 €",2,3,S,
+LAB-060,YEMA DE HUEVO CON TELURITO 100ML,Reactivos Químicos,BIOLINEA,BIOLINEA,CONDA5129,Frasco 100 ml,"40,00 €",21%,"48,40 €",2,3,S,
+LAB-061,GUANTE NITRILO S/POLVO TALLA S C/100 UDS,EPI,BIOLINEA,BIOLINEA,PS-GN11,Caja 500/100 ud,"5,50 €",21%,"6,66 €",3,5,S,
+LAB-062,GUANTE NITRILO S/POLVO TALLA M C/100 UDS,EPI,BIOLINEA,BIOLINEA,PS-GN22,Caja 500/100 ud,"5,50 €",21%,"6,66 €",3,5,S,
+LAB-063,GUANTE NITRILO S/POLVO TALLA L C/100 UDS,EPI,BIOLINEA,BIOLINEA,PS-GN33,Caja 500/100 ud,"5,50 €",21%,"6,66 €",3,5,S,
+LAB-064,LEGIONELLA ANISA WDCM 00106 VITROIDS (CEPA REF.),Cepas de Referencia,MERCK,MERCK,VT001066-10EA,Unidad,"78,40 €",21%,"94,86 €",1,2,S,
+LAB-065,LEGIONELLA PNEUMOPHILA SEROGROUP 1 WDCM (CEPA REF.),Cepas de Referencia,MERCK,MERCK,VT001076-10EA,Unidad,"85,70 €",21%,"103,70 €",1,2,S,
+LAB-066,STAPHYLOCOCCUS AUREUS SUSP. AUREUS WDCM (CEPA REF.),Cepas de Referencia,MERCK,MERCK,VT000326-10EA,Unidad,"92,00 €",21%,"111,32 €",1,2,S,
+LAB-067,BACILLUS SUBTILIS WDCM 00003 VITROIDS (CEPA REF.),Cepas de Referencia,MERCK,MERCK,VT000036-10EA,Unidad,"101,00 €",21%,"122,21 €",1,2,S,
+LAB-068,REACTIVO FOTÓMETRO LOVIBOND DPD-1 TABLETA 250 UD.,Reactivos Químicos,COMERCIAL PEDRO,COMERCIAL PEDRO,1141,Caja 250 tabletas,"16,28 €",21%,"19,70 €",2,3,S,
+LAB-069,REACTIVO FOTÓMETRO LOVIBOND DPD-3 TABLETA 250 UD.,Reactivos Químicos,COMERCIAL PEDRO,COMERCIAL PEDRO,1142,Caja 250 tabletas,"17,08 €",21%,"20,67 €",2,3,S,
+LAB-070,REACTIVO FOTÓMETRO LOVIBOND pH PHENOL RED TABLETA 250 UD.,Reactivos Químicos,COMERCIAL PEDRO,COMERCIAL PEDRO,1143,Caja 250 tabletas,"16,60 €",21%,"20,09 €",2,3,S,
+LAB-071,PATRÓN CLORO LOVIBOND MD100/200 REF. STD KIT 0.2-1 PPM,Patrones y Calibración,COMERCIAL PEDRO,COMERCIAL PEDRO,57180,Kit,"107,00 €",21%,"129,47 €",2,3,S,
+LAB-072,PATRÓN pH MD100/200 REF. STD KIT 7.45 (LOVIBOND),Patrones y Calibración,COMERCIAL PEDRO,COMERCIAL PEDRO,57181,Kit,"99,20 €",21%,"120,03 €",2,3,S,
+LAB-073,TOALLAS SECAMANOS TORK H2 2C PLEG Z CJ 21 PQ 190S,Fungibles / Limpieza,COMERCIAL PEDRO,COMERCIAL PEDRO,150400,Caja 21 pq,"55,20 €",21%,"66,79 €",2,3,S,
+LAB-074,BRILLIANCE LISTERIA AGAR (ISO) - PLACA,Medios de Cultivo,THERMO FISHER,THERMO FISHER,PO5332A,Unidad (placa),"8,60 €",21%,"10,41 €",3,5,S,
+LAB-075,BRILLIANCE SALMONELLA AGAR - PLACA (10 ud),Medios de Cultivo,THERMO FISHER,THERMO FISHER,PO5098A,Unidad (placa),"8,60 €",21%,"10,41 €",3,5,S,
+LAB-076,LEGIONELLA BCYEa MEDIUM WITHOUT CYSTEIN - PLACA,Consumibles,THERMO FISHER,THERMO FISHER,PO5028A,Unidad (placa),"4,66 €",21%,"5,64 €",3,5,S,
+LAB-077,LEGIONELLA GVPC - PLACA,Medios de Cultivo,THERMO FISHER,THERMO FISHER,PO5074A,Unidad (placa),"4,36 €",21%,"5,28 €",3,5,S,
+LAB-078,LEGIONELLA BCYEa WITH L-CYST. - PLACA,Consumibles,THERMO FISHER,THERMO FISHER,PO5072A,Unidad (placa),"4,94 €",21%,"5,98 €",3,5,S,
+LAB-079,OXOID SALMONELLA 100 TEST KIT,Kits Rápidos,THERMO FISHER,THERMO FISHER,DR1108A,Kit 100 test,"175,00 €",21%,"211,75 €",1,2,S,
+LAB-080,LEGIONELLA LATEX TEST KIT 3,Kits Rápidos,THERMO FISHER,THERMO FISHER,DR0800M,Kit,"197,00 €",21%,"238,37 €",1,2,S,
+LAB-081,LEGIONELLA TEST SPECIES KIT 2,Kits Rápidos,THERMO FISHER,THERMO FISHER,DR0803M,Kit,"87,00 €",21%,"105,27 €",1,2,S,
+LAB-082,LEGIONELLA ACID BUFFER SOLUTION BOTELLA,Kits Rápidos,THERMO FISHER,THERMO FISHER,EB1375W,Unidad,"56,00 €",21%,"67,76 €",1,2,S,
+LAB-083,INTERCOMPARACIÓN BIPEA - CUOTA ANUAL (Jul-Jun),Control de Calidad,BIPEA,BIPEA,COTN,Unidad,"195,00 €",21%,"235,95 €",1,1,S,
+LAB-084,INTERCOMPARACIÓN BIPEA - CUOTA ADHESIÓN,Control de Calidad,BIPEA,BIPEA,DROIT,Unidad,"13,00 €",21%,"15,73 €",1,1,S,
+LAB-085,NEVERA TRANSPORTE MUESTRAS BIOLÓGICAS GRAN CAPACIDAD,Equipos,IBEROMED,IBEROMED,ESISOMUES002,Unidad,"155,46 €",21%,"188,11 €",1,1,S,
+LAB-086,CAJA ISOTÉRMICA FXPS 300x200x200mm XPS5mm 12L F204,Material de Transporte,TEMPACK,TEMPACK,413F000023A,Unidad,"3,69 €",21%,"4,46 €",2,3,S,
