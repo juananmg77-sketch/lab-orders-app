@@ -424,7 +424,8 @@ function ResumenNodos({ actividades, allActs, baseActs, filters, onFiltersChange
   const isFiltered = filters.zones.size > 0;
 
   // Sin fecha asignada — calculado sobre baseActs (sin filtro de categoría)
-  const sinFechaActs = (baseActs || allActs).filter(a => !a.fechaDate);
+  // Incluye fechaDate nula O con año < 2000 (placeholder 1970 cuando el consultor no asigna fecha)
+  const sinFechaActs = (baseActs || allActs).filter(a => !a.fechaDate || a.fechaDate.getFullYear() < 2000);
   const sinFechaMuestras = sinFechaActs.reduce((s,a)=>s+(a.muestras_estimadas||0),0);
   const sinFechaCount = sinFechaActs.length;
 
@@ -602,7 +603,7 @@ function TablaActividades({ actividades, savedDB, manualInputs, onInputChange, s
 function groupByDay(acts, mes, año) {
   const m = {};
   acts.forEach(a => {
-    if (!a.fechaDate) return;
+    if (!a.fechaDate || a.fechaDate.getFullYear() < 2000) return;
     if (a.fechaDate.getMonth() + 1 !== mes || a.fechaDate.getFullYear() !== año) return;
     const d = a.fechaDate.getDate();
     m[d] = m[d] || [];
@@ -724,7 +725,7 @@ function MonthlyCalendar({ actividades, año, mes, savedDB = {}, onSaveHabitacio
   const cells = [...Array(startOffset).fill(null), ...Array.from({length:lastDay},(_,i)=>i+1)];
   while(cells.length%7!==0) cells.push(null);
   const weeks = Array.from({length:cells.length/7},(_,i)=>cells.slice(i*7,i*7+7));
-  const sinFecha = actividades.filter(a=>!a.fechaDate || a.fechaDate.getMonth()+1!==mes || a.fechaDate.getFullYear()!==año);
+  const sinFecha = actividades.filter(a=>!a.fechaDate || a.fechaDate.getFullYear()<2000 || a.fechaDate.getMonth()+1!==mes || a.fechaDate.getFullYear()!==año);
   const mesNombre = MES_ORDEN[mes-1];
   const expandedActs = expandedDay ? (byDay[expandedDay]||[]) : [];
 
@@ -926,7 +927,7 @@ function WeeklyCalendar({ actividades, semana, año, mes }) {
     const acts=actividades.filter(a=>a.fechaDate&&a.fechaDate.getDate()===d&&a.fechaDate.getMonth()+1===mes&&a.fechaDate.getFullYear()===año);
     return {d,dayName,acts};
   });
-  const sinFecha=actividades.filter(a=>!a.fechaDate);
+  const sinFecha=actividades.filter(a=>!a.fechaDate||a.fechaDate.getFullYear()<2000);
 
   return (
     <div>
