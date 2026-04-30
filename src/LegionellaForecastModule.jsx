@@ -881,33 +881,91 @@ function MonthlyCalendar({ actividades, año, mes, savedDB = {}, onSaveHabitacio
       )}
 
       {sinFecha.length>0&&(
-        <div style={{ marginTop:'12px', backgroundColor:'#F8FAFC', border:'1px solid #E2E8F0', borderRadius:'10px', overflow:'hidden' }}>
+        <div style={{ marginTop:'12px', border:'1.5px solid #E2E8F0', borderRadius:'12px', overflow:'hidden', boxShadow:'0 2px 8px rgba(0,0,0,0.05)' }}>
+          {/* Cabecera clickable */}
           <button
             onClick={() => setShowPendientes(v => !v)}
-            style={{ width:'100%', padding:'10px 16px', display:'flex', alignItems:'center', justifyContent:'space-between', background:'none', border:'none', cursor:'pointer', textAlign:'left' }}
+            style={{ width:'100%', padding:'12px 18px', display:'flex', alignItems:'center', justifyContent:'space-between', background: showPendientes ? 'var(--secondary)' : '#F8FAFC', border:'none', cursor:'pointer', textAlign:'left', transition:'background 0.15s' }}
           >
-            <div style={{ display:'flex', alignItems:'center', gap:'8px' }}>
-              <span style={{ fontSize:'0.8rem', fontWeight:700, color:'#64748B' }}>Pendiente de programar</span>
-              <span style={{ fontSize:'0.72rem', backgroundColor:'#E2E8F0', color:'#64748B', borderRadius:'20px', padding:'1px 8px', fontWeight:600 }}>{sinFecha.length}</span>
+            <div style={{ display:'flex', alignItems:'center', gap:'10px' }}>
+              <span style={{ fontSize:'0.85rem', fontWeight:700, color: showPendientes ? 'white' : '#475569' }}>Sin fecha asignada</span>
+              <span style={{ fontSize:'0.72rem', backgroundColor: showPendientes ? 'rgba(255,255,255,0.2)' : '#E2E8F0', color: showPendientes ? 'white' : '#64748B', borderRadius:'20px', padding:'1px 9px', fontWeight:700 }}>{sinFecha.length} centros</span>
+              {sinFecha.reduce((s,a)=>s+(a.muestras_estimadas||0),0)>0&&(
+                <span style={{ fontSize:'0.72rem', backgroundColor: showPendientes ? 'rgba(255,255,255,0.15)' : '#EFF6FF', color: showPendientes ? 'white' : 'var(--primary)', borderRadius:'20px', padding:'1px 9px', fontWeight:700, border: showPendientes ? 'none' : '1px solid #BFDBFE' }}>
+                  {sinFecha.reduce((s,a)=>s+(a.muestras_estimadas||0),0)} m est.
+                </span>
+              )}
             </div>
-            <span style={{ fontSize:'0.8rem', color:'#94A3B8' }}>{showPendientes ? '▲' : '▼'}</span>
+            <span style={{ fontSize:'0.8rem', color: showPendientes ? 'rgba(255,255,255,0.7)' : '#94A3B8' }}>{showPendientes ? '▲' : '▼'}</span>
           </button>
+
+          {/* Detalle expandido */}
           {showPendientes && (
-            <div style={{ borderTop:'1px solid #E2E8F0', display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(260px,1fr))', gap:'8px', padding:'10px' }}>
-              {sinFecha.map((act, i) => {
-                if (act.estado_estimacion === 'SIN HISTÓRICO') return <SinHistoricoCard key={i} act={act} />;
-                if (act.estado_estimacion === 'SIN DATOS PISCINAS') return <SinPiscinasCard key={i} act={act} />;
-                const c = NODO_COLORS[act.nodo] || { bg:'#f8f9fa', border:'#dee2e6', text:'#495057' };
+            <div style={{ borderTop:'1px solid #E2E8F0', padding:'14px', display:'flex', flexDirection:'column', gap:'14px', backgroundColor:'white' }}>
+              {TABS_ORDER.map(cat => {
+                const cfg = TABS_CONFIG[cat];
+                const catActs = sinFecha.filter(a => getDisciplinaCategoria(a.disciplina) === cat);
+                if (!catActs.length) return null;
+                const catTotal = catActs.reduce((s,a) => s+(a.muestras_estimadas||0), 0);
                 return (
-                  <div key={i} style={{ fontSize:'0.82rem', color:'var(--secondary)', padding:'8px 12px', backgroundColor:'white', border:`1px solid ${c.border}`, borderRadius:'6px', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-                    <div>
-                      <div style={{ fontWeight:600, marginBottom:'2px' }}>{act.establecimiento}</div>
-                      <div style={{ fontSize:'0.72rem', color:'#94A3B8' }}>{act.auditor || '—'}</div>
+                  <div key={cat}>
+                    <div style={{ display:'flex', alignItems:'center', gap:'8px', marginBottom:'8px' }}>
+                      <span style={{ fontSize:'0.72rem', fontWeight:800, color:'white', backgroundColor:cfg.color, borderRadius:'5px', padding:'2px 10px' }}>{cfg.label}</span>
+                      <span style={{ fontSize:'0.72rem', color:'var(--text-muted)', fontWeight:600 }}>
+                        {catTotal>0 ? `${catTotal} muestras · ` : ''}{catActs.length} establec.
+                      </span>
                     </div>
-                    <span style={{ fontSize:'0.65rem', color:c.text, fontWeight:600, border:`1px solid ${c.border}`, backgroundColor:c.bg, borderRadius:'4px', padding:'1px 5px', flexShrink:0 }}>{act.nodo?.replace('Zona ','').replace('Islas ','')}</span>
+                    <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(260px,1fr))', gap:'6px' }}>
+                      {catActs.sort((a,b)=>(b.muestras_estimadas||0)-(a.muestras_estimadas||0)).map((act,i) => {
+                        if (act.estado_estimacion === 'SIN HISTÓRICO') return <SinHistoricoCard key={i} act={act} />;
+                        if (act.estado_estimacion === 'SIN DATOS PISCINAS') return <SinPiscinasCard key={i} act={act} />;
+                        const c = NODO_COLORS[act.nodo] || { bg:'#f8f9fa', border:'#dee2e6', text:'#495057' };
+                        return (
+                          <div key={i} style={{ backgroundColor:c.bg, border:`1px solid ${c.border}`, borderRadius:'8px', padding:'10px 14px', display:'flex', justifyContent:'space-between', alignItems:'center', gap:'10px' }}>
+                            <div style={{ flex:1, minWidth:0 }}>
+                              <div style={{ fontWeight:700, color:'var(--secondary)', fontSize:'0.85rem', marginBottom:'2px', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{act.establecimiento}</div>
+                              <div style={{ fontSize:'0.73rem', color:'var(--text-muted)', marginBottom:'4px' }}>{act.auditor||'—'}</div>
+                              <span style={{ fontSize:'0.67rem', color:c.text, fontWeight:600, border:`1px solid ${c.border}`, backgroundColor:'white', borderRadius:'4px', padding:'1px 6px' }}>{act.nodo?.replace('Zona ','').replace('Islas ','')}</span>
+                            </div>
+                            <div style={{ textAlign:'right', flexShrink:0 }}>
+                              <div style={{ fontSize:'1.5rem', fontWeight:800, color:cfg.color, lineHeight:1 }}>{act.muestras_estimadas??'?'}</div>
+                              <div style={{ fontSize:'0.63rem', color:'var(--text-muted)' }}>muestras</div>
+                              {act.muestras_reales!=null&&<div style={{ fontSize:'0.7rem', color:'#16A34A', fontWeight:700, marginTop:'2px' }}>✓ {act.muestras_reales}</div>}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
                   </div>
                 );
               })}
+              {/* Otras disciplinas no clasificadas */}
+              {sinFecha.filter(a=>getDisciplinaCategoria(a.disciplina)==='other').length>0&&(
+                <div>
+                  <div style={{ display:'flex', alignItems:'center', gap:'8px', marginBottom:'8px' }}>
+                    <span style={{ fontSize:'0.72rem', fontWeight:800, color:'white', backgroundColor:'#64748B', borderRadius:'5px', padding:'2px 10px' }}>Otras disciplinas</span>
+                    <span style={{ fontSize:'0.72rem', color:'var(--text-muted)', fontWeight:600 }}>{sinFecha.filter(a=>getDisciplinaCategoria(a.disciplina)==='other').length} establec.</span>
+                  </div>
+                  <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(260px,1fr))', gap:'6px' }}>
+                    {sinFecha.filter(a=>getDisciplinaCategoria(a.disciplina)==='other').map((act,i)=>{
+                      const c = NODO_COLORS[act.nodo]||{bg:'#f8f9fa',border:'#dee2e6',text:'#495057'};
+                      return (
+                        <div key={i} style={{ backgroundColor:c.bg, border:`1px solid ${c.border}`, borderRadius:'8px', padding:'10px 14px', display:'flex', justifyContent:'space-between', alignItems:'center', gap:'10px' }}>
+                          <div style={{ flex:1, minWidth:0 }}>
+                            <div style={{ fontWeight:700, color:'var(--secondary)', fontSize:'0.85rem', marginBottom:'2px', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{act.establecimiento}</div>
+                            <div style={{ fontSize:'0.73rem', color:'var(--text-muted)', marginBottom:'4px' }}>{act.auditor||'—'}</div>
+                            <span style={{ fontSize:'0.67rem', color:c.text, fontWeight:600, border:`1px solid ${c.border}`, backgroundColor:'white', borderRadius:'4px', padding:'1px 6px' }}>{act.nodo?.replace('Zona ','').replace('Islas ','')}</span>
+                          </div>
+                          <div style={{ textAlign:'right', flexShrink:0 }}>
+                            <div style={{ fontSize:'1.5rem', fontWeight:800, color:'#64748B', lineHeight:1 }}>{act.muestras_estimadas??'—'}</div>
+                            <div style={{ fontSize:'0.63rem', color:'var(--text-muted)' }}>muestras</div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </div>
