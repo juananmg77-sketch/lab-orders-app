@@ -984,16 +984,20 @@ function ImportModal({ onClose, onImported, savedDB }) {
     if (!rows.length) { setImporting(false); setError('CSV vacío o formato incorrecto.'); return; }
 
     const records = rows.map(r => csvRowToRecord(r, savedDB)).filter(Boolean);
+    if (!records.length) { setImporting(false); setError('No se encontraron actividades válidas. Comprueba el formato del CSV.'); return; }
 
-    // Regla: A01 y A02 siempre implican un D02 el mismo día (si no viene ya explícito)
-    // Deduplicación por (establecimiento + fecha). Si sin fecha, por (establecimiento + mes + año).
+    // Mes y año del CSV (todos los registros deben ser del mismo mes)
+    const importMes = records[0].mes;
+    const importAño = records[0].año;
+
+    // ── D02 auto-generados ────────────────────────────────────────────────────
+    // Regla: A01 y A02 implican un D02 el mismo día (si no viene ya explícito)
     const d02Auto = [];
     const d02Keys = new Set();
     const d02Key = r => r.fecha && r.fecha !== '1/1/70'
       ? `${r.establecimiento}|${r.fecha}`
       : `${r.establecimiento}|${r.mes}|${r.año}`;
 
-    // Marcar D02 explícitos que ya vienen en el CSV
     records.forEach(r => {
       if (getDisciplinaCategoria(r.disciplina) === 'd02') d02Keys.add(d02Key(r));
     });
@@ -1007,9 +1011,6 @@ function ImportModal({ onClose, onImported, savedDB }) {
       if (savedDB[rec.establecimiento]?.solo_auditoria || /iberostar/i.test(rec.establecimiento)) return;
       if (savedDB[rec.establecimiento]?.excluir_d02 || /restaurante|restaurant|\bbar\b/i.test(nomL)) return;
 
-      // A02: siempre implica D02 (cualquier zona y mes)
-      // A01 en Canarias: siempre D02
-      // A01 en Baleares/Península: solo Mayo–Octubre (índices 4–9)
       if (isA01 && rec.nodo !== 'Islas Canarias') {
         const mesIdx = MES_ORDEN.indexOf(rec.mes);
         if (mesIdx < 4 || mesIdx > 9) return;
@@ -1027,7 +1028,7 @@ function ImportModal({ onClose, onImported, savedDB }) {
       });
     });
 
-    // Deduplicar d02Auto por clave Supabase (establecimiento+mes+año+disciplina) — un D02 por mes
+    // Un D02 por establecimiento por mes (deduplicar auto-generados)
     const d02MonthSeen = new Set();
     const d02AutoFinal = d02Auto.filter(r => {
       const k = `${r.establecimiento}|${r.mes}|${r.año}`;
@@ -1037,14 +1038,59 @@ function ImportModal({ onClose, onImported, savedDB }) {
     });
 
     const allRecords = [...records, ...d02AutoFinal];
-    const { data, error: err } = await supabase
+
+    // ── Preservar muestras_reales ya introducidas ─────────────────────────────
+    const { data: existentes } = await supabase
       .from('legionella_actividades')
-      .upsert(allRecords, { onConflict: 'establecimiento,mes,año,disciplina', ignoreDuplicates: false })
-      .select('id');
+      .select('establecimiento, fecha_date, disciplina, muestras_reales, notas')
+      .eq('mes', importMes)
+      .eq('año', importAño)
+      .not('muestras_reales', 'is', null);
+
+    const realesMap = {};
+    (existentes || []).forEach(r => {
+      const k = `${r.establecimiento}|${r.fecha_date}|${r.disciplina}`;
+      realesMap[k] = { muestras_reales: r.muestras_reales, notas: r.notas };
+    });
+
+    // ── Borrar mes actual y reinsertar limpio ─────────────────────────────────
+    const { error: delErr } = await supabase
+      .from('legionella_actividades')
+      .delete()
+      .eq('mes', importMes)
+      .eq('año', importAño);
+
+    if (delErr) { setImporting(false); setError('Error al limpiar datos del mes: ' + delErr.message); return; }
+
+    // Insertar en lotes de 200 para evitar límites de payload
+    const BATCH = 200;
+    let inserted = 0;
+    for (let i = 0; i < allRecords.length; i += BATCH) {
+      const { data: batchData, error: insErr } = await supabase
+        .from('legionella_actividades')
+        .insert(allRecords.slice(i, i + BATCH))
+        .select('id, establecimiento, fecha_date, disciplina');
+
+      if (insErr) { setImporting(false); setError(`Error al insertar (lote ${Math.floor(i/BATCH)+1}): ${insErr.message}`); return; }
+
+      // Restaurar muestras_reales si coincide establecimiento+fecha+disciplina
+      const toRestore = (batchData || []).filter(r => {
+        const k = `${r.establecimiento}|${r.fecha_date}|${r.disciplina}`;
+        return realesMap[k] != null;
+      });
+      if (toRestore.length) {
+        await Promise.all(toRestore.map(r => {
+          const k = `${r.establecimiento}|${r.fecha_date}|${r.disciplina}`;
+          return supabase.from('legionella_actividades')
+            .update(realesMap[k])
+            .eq('id', r.id);
+        }));
+      }
+      inserted += batchData?.length || 0;
+    }
 
     setImporting(false);
-    if (err) { setError(err.message); return; }
-    setResult({ total: records.length, d02Auto: d02Auto.length, upserted: data?.length || allRecords.length });
+    setResult({ total: records.length, d02Auto: d02AutoFinal.length, inserted, mes: importMes, año: importAño });
   };
 
   return (
@@ -1058,18 +1104,21 @@ function ImportModal({ onClose, onImported, savedDB }) {
           <div>
             <div style={{ textAlign:'center',padding:'24px',backgroundColor:'#F0FDF4',borderRadius:'10px',marginBottom:'20px' }}>
               <CheckCircle size={40} color="#16A34A" style={{ marginBottom:'10px' }}/>
-              <div style={{ fontSize:'1rem',fontWeight:700,color:'#15803D' }}>Importación completada</div>
-              <div style={{ fontSize:'0.88rem',color:'#166534',marginTop:'6px' }}>
-                {result.total} actividades procesadas.
+              <div style={{ fontSize:'1rem',fontWeight:700,color:'#15803D' }}>
+                {result.mes.charAt(0).toUpperCase()+result.mes.slice(1)} {result.año} — importado correctamente
+              </div>
+              <div style={{ fontSize:'0.88rem',color:'#166534',marginTop:'8px',display:'flex',flexDirection:'column',gap:'6px' }}>
+                <span>📋 {result.total} actividades del CSV</span>
+                <span>💾 {result.inserted} registros guardados en total</span>
                 {result.d02Auto > 0 && (
-                  <div style={{ marginTop:'8px',padding:'8px 12px',backgroundColor:'#E0F2FE',border:'1px solid #7DD3FC',borderRadius:'8px',color:'#0369A1',fontWeight:600 }}>
-                    + {result.d02Auto} D02 (piscinas) generados automáticamente para A01 en Baleares ≥ Mayo y Canarias
+                  <div style={{ marginTop:'4px',padding:'8px 12px',backgroundColor:'#E0F2FE',border:'1px solid #7DD3FC',borderRadius:'8px',color:'#0369A1',fontWeight:600 }}>
+                    + {result.d02Auto} D02 (piscinas) generados automáticamente
                   </div>
                 )}
               </div>
             </div>
-            <button onClick={()=>{onClose();onImported();}} style={{ width:'100%',padding:'10px',backgroundColor:'var(--primary)',color:'white',border:'none',borderRadius:'8px',cursor:'pointer',fontWeight:700,fontSize:'0.95rem' }}>
-              Ver resultados
+            <button onClick={()=>{onClose();onImported({mes:result.mes,año:result.año});}} style={{ width:'100%',padding:'10px',backgroundColor:'var(--primary)',color:'white',border:'none',borderRadius:'8px',cursor:'pointer',fontWeight:700,fontSize:'0.95rem' }}>
+              Ver {result.mes.charAt(0).toUpperCase()+result.mes.slice(1)} {result.año}
             </button>
           </div>
         ) : (
@@ -1082,14 +1131,14 @@ function ImportModal({ onClose, onImported, savedDB }) {
               style={{ border:`2px dashed ${isDragging?'var(--primary)':'var(--border)'}`,borderRadius:'12px',padding:'40px 24px',textAlign:'center',cursor:'pointer',backgroundColor:isDragging?'#EFF6FF':'#FAFAFA',transition:'all 0.2s' }}
             >
               <Upload size={28} color={isDragging?'var(--primary)':'#94A3B8'} style={{ marginBottom:'10px' }}/>
-              <p style={{ margin:'0 0 6px',fontWeight:600,color:isDragging?'var(--primary)':'var(--text-muted)' }}>Arrastra el CSV aquí</p>
-              <p style={{ margin:0,fontSize:'0.82rem',color:'var(--text-muted)' }}>Solo se importarán actividades nuevas</p>
+              <p style={{ margin:'0 0 6px',fontWeight:600,color:isDragging?'var(--primary)':'var(--text-muted)' }}>Arrastra el CSV aquí o haz clic</p>
+              <p style={{ margin:0,fontSize:'0.82rem',color:'var(--text-muted)' }}>Reimportar un mes sustituye todos sus datos</p>
               <input ref={fileRef} type="file" accept=".csv" onChange={e=>processFile(e.target.files[0])} style={{ display:'none' }}/>
             </div>
-            {importing&&<div style={{ textAlign:'center',marginTop:'16px',color:'var(--primary)',fontWeight:600 }}>Importando…</div>}
+            {importing&&<div style={{ textAlign:'center',marginTop:'16px',color:'var(--primary)',fontWeight:600 }}>Importando… (esto puede tardar unos segundos)</div>}
             {error&&<div style={{ marginTop:'12px',padding:'10px 14px',backgroundColor:'#FEF2F2',border:'1px solid #FCA5A5',borderRadius:'8px',color:'#DC2626',fontSize:'0.85rem' }}>{error}</div>}
             <p style={{ marginTop:'16px',fontSize:'0.78rem',color:'var(--text-muted)',textAlign:'center' }}>
-              La deduplicación se basa en establecimiento + mes + año + disciplina.
+              Reimportar un mes borra y sustituye todos sus registros. Los meses anteriores se conservan.
             </p>
           </>
         )}
@@ -1407,7 +1456,16 @@ export default function LegionellaForecastModule({ onBackToHub, globalLab }) {
         )}
       </main>
 
-      {showImport&&<ImportModal onClose={()=>setShowImport(false)} onImported={loadData} savedDB={savedDB}/>}
+      {showImport&&<ImportModal
+        onClose={()=>setShowImport(false)}
+        onImported={({mes,año})=>{
+          setSelectedMes({mes,año});
+          setActiveCategories(new Set(['d3']));
+          setFilters(DEFAULT_FILTERS);
+          loadData();
+        }}
+        savedDB={savedDB}
+      />}
       {showPendientes&&<PendientesModal actividades={tabActs} savedDB={savedDB} onSave={handleSaveHabitacionesManual} onClose={()=>{ setShowPendientes(false); loadData(); }}/>}
     </div>
   );
