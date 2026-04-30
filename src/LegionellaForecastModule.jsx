@@ -967,6 +967,137 @@ function WeeklyCalendar({ actividades, semana, año, mes }) {
   );
 }
 
+// ─── Histórico de muestras ────────────────────────────────────────────────────
+
+function HistoricoView({ isCanariasMode }) {
+  const [rows, setRows] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const load = async () => {
+      setLoading(true);
+      const { data } = await supabase
+        .from('legionella_actividades')
+        .select('mes, año, nodo, disciplina, muestras_estimadas, muestras_reales')
+        .limit(50000);
+      if (!data) { setLoading(false); return; }
+
+      const src = isCanariasMode ? data.filter(r => r.nodo === 'Islas Canarias') : data;
+
+      // Agregar por (año, mes)
+      const byMes = {};
+      src.forEach(r => {
+        const key = `${r.año}-${r.mes}`;
+        if (!byMes[key]) byMes[key] = { mes: r.mes, año: r.año, estimadas: 0, reales: 0, actTotal: 0, actConReales: 0 };
+        const m = byMes[key];
+        m.estimadas    += r.muestras_estimadas || 0;
+        m.reales       += r.muestras_reales    || 0;
+        m.actTotal     += 1;
+        if (r.muestras_reales != null) m.actConReales += 1;
+      });
+
+      const sorted = Object.values(byMes).sort((a, b) =>
+        a.año !== b.año ? a.año - b.año : MES_ORDEN.indexOf(a.mes) - MES_ORDEN.indexOf(b.mes)
+      );
+      setRows(sorted);
+      setLoading(false);
+    };
+    load();
+  }, [isCanariasMode]);
+
+  const exportExcel = () => {
+    if (!rows) return;
+    const wb = XLSX.utils.book_new();
+    const wsData = [
+      ['Mes', 'Año', 'Muestras estimadas', 'Muestras recogidas', '% Completitud', 'Actividades'],
+      ...rows.map(r => [
+        r.mes.charAt(0).toUpperCase() + r.mes.slice(1),
+        r.año,
+        r.estimadas,
+        r.reales,
+        r.estimadas > 0 ? `${Math.round(r.reales / r.estimadas * 100)}%` : '—',
+        r.actTotal,
+      ]),
+    ];
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(wsData), 'Histórico');
+    XLSX.writeFile(wb, `historico-muestras-${new Date().toISOString().slice(0,10)}.xlsx`);
+  };
+
+  const totalEst   = rows?.reduce((s, r) => s + r.estimadas, 0) ?? 0;
+  const totalReal  = rows?.reduce((s, r) => s + r.reales,    0) ?? 0;
+  const pctGlobal  = totalEst > 0 ? Math.round(totalReal / totalEst * 100) : 0;
+
+  const tdBase = { padding: '10px 14px', fontSize: '0.85rem', borderBottom: '1px solid var(--border)' };
+  const thBase = { padding: '10px 14px', fontSize: '0.74rem', fontWeight: 700, textTransform: 'uppercase',
+                   letterSpacing: '0.05em', color: 'white', backgroundColor: 'var(--secondary)', textAlign: 'left' };
+
+  if (loading) return <div style={{ textAlign: 'center', padding: '60px', color: 'var(--text-muted)' }}>Cargando histórico…</div>;
+  if (!rows?.length) return <div style={{ textAlign: 'center', padding: '60px', color: 'var(--text-muted)' }}>Sin datos históricos todavía.</div>;
+
+  return (
+    <div>
+      {/* Totales globales */}
+      <div style={{ display: 'flex', gap: '16px', marginBottom: '24px', flexWrap: 'wrap' }}>
+        {[
+          { label: 'Total estimadas', value: totalEst.toLocaleString(), color: 'var(--primary)' },
+          { label: 'Total recogidas', value: totalReal.toLocaleString(), color: '#16A34A' },
+          { label: 'Completitud global', value: `${pctGlobal}%`, color: pctGlobal >= 80 ? '#16A34A' : pctGlobal >= 50 ? '#D97706' : '#DC2626' },
+          { label: 'Meses con datos', value: rows.length, color: 'var(--secondary)' },
+        ].map(c => (
+          <div key={c.label} style={{ flex: '1 1 140px', backgroundColor: 'white', border: '1px solid var(--border)', borderRadius: '10px', padding: '16px 20px' }}>
+            <div style={{ fontSize: '0.72rem', fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-muted)', letterSpacing: '0.05em' }}>{c.label}</div>
+            <div style={{ fontSize: '1.6rem', fontWeight: 800, color: c.color, marginTop: '4px' }}>{c.value}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Tabla */}
+      <div style={{ overflowX: 'auto', borderRadius: '10px', border: '1px solid var(--border)', marginBottom: '16px' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+          <thead>
+            <tr>
+              {['Mes', 'Año', 'Estimadas', 'Recogidas', '% Completitud', 'Actividades'].map(h => (
+                <th key={h} style={thBase}>{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((r, i) => {
+              const pct = r.estimadas > 0 ? Math.round(r.reales / r.estimadas * 100) : null;
+              const pctColor = pct == null ? 'var(--text-muted)' : pct >= 80 ? '#16A34A' : pct >= 50 ? '#D97706' : '#DC2626';
+              return (
+                <tr key={`${r.año}-${r.mes}`} style={{ backgroundColor: i % 2 === 0 ? 'white' : '#F8FAFC' }}>
+                  <td style={{ ...tdBase, fontWeight: 600, textTransform: 'capitalize' }}>{r.mes}</td>
+                  <td style={tdBase}>{r.año}</td>
+                  <td style={{ ...tdBase, textAlign: 'right', fontWeight: 600 }}>{r.estimadas.toLocaleString()}</td>
+                  <td style={{ ...tdBase, textAlign: 'right', fontWeight: 700, color: r.reales > 0 ? '#16A34A' : 'var(--text-muted)' }}>
+                    {r.reales > 0 ? r.reales.toLocaleString() : '—'}
+                  </td>
+                  <td style={{ ...tdBase, textAlign: 'center' }}>
+                    {pct != null ? (
+                      <span style={{ fontWeight: 700, color: pctColor, backgroundColor: `${pctColor}18`, borderRadius: '6px', padding: '2px 10px' }}>
+                        {pct}%
+                      </span>
+                    ) : <span style={{ color: 'var(--text-muted)' }}>—</span>}
+                  </td>
+                  <td style={{ ...tdBase, textAlign: 'right', color: 'var(--text-muted)' }}>{r.actTotal}</td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Export */}
+      <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+        <button onClick={exportExcel} style={{ display: 'flex', alignItems: 'center', gap: '7px', padding: '9px 20px', backgroundColor: '#16A34A', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 700, fontSize: '0.88rem' }}>
+          <Download size={15}/> Exportar Excel
+        </button>
+      </div>
+    </div>
+  );
+}
+
 // ─── Import modal ─────────────────────────────────────────────────────────────
 
 function ImportModal({ onClose, onImported, savedDB }) {
@@ -1457,7 +1588,7 @@ export default function LegionellaForecastModule({ onBackToHub, globalLab }) {
                 })}
               </div>
               <div style={{ display:'flex',gap:'4px',backgroundColor:'white',borderRadius:'10px',padding:'4px',border:'1px solid var(--border)',marginLeft:'auto' }}>
-                {[{key:'calendario',icon:<LayoutGrid size={14}/>,label:'Calendario'},{key:'tabla',icon:<List size={14}/>,label:'Tabla'}].map(v=>(
+                {[{key:'calendario',icon:<LayoutGrid size={14}/>,label:'Calendario'},{key:'tabla',icon:<List size={14}/>,label:'Tabla'},{key:'historico',icon:<Download size={14}/>,label:'Histórico'}].map(v=>(
                   <button key={v.key} onClick={()=>setViewMode(v.key)} style={{ display:'flex',alignItems:'center',gap:'5px',padding:'7px 14px',borderRadius:'7px',border:'none',cursor:'pointer',fontWeight:600,fontSize:'0.85rem',backgroundColor:viewMode===v.key?'var(--secondary)':'transparent',color:viewMode===v.key?'white':'var(--text-muted)',transition:'all 0.15s' }}>{v.icon}{v.label}</button>
                 ))}
               </div>
@@ -1475,7 +1606,9 @@ export default function LegionellaForecastModule({ onBackToHub, globalLab }) {
 
             <ResumenNodos actividades={filteredActs} allActs={tabActs} sinFechaData={sinFechaData} filters={filters} onFiltersChange={setFilters} onPendientesClick={() => setShowPendientes(true)} nodosVisibles={isCanariasMode ? ['Islas Canarias'] : NODOS_ORDEN}/>
 
-            {viewMode==='tabla'?(
+            {viewMode==='historico'?(
+              <HistoricoView isCanariasMode={isCanariasMode}/>
+            ):viewMode==='tabla'?(
               <TablaActividades
                 actividades={filteredActs}
                 savedDB={savedDB}
