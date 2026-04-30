@@ -970,12 +970,11 @@ function WeeklyCalendar({ actividades, semana, año, mes }) {
 // ─── Cuadro de mando histórico ────────────────────────────────────────────────
 
 const HIST_CATS = [
-  { key: 'd3',    label: 'D3 Legionella',   color: '#2563EB' },
+  { key: 'd3',    label: 'D3 Legionella',    color: '#2563EB' },
   { key: 'd3bis', label: 'D3bis Remuestreo', color: '#7C3AED' },
   { key: 'd02',   label: 'D02 Piscinas',     color: '#0891B2' },
   { key: 'd01',   label: 'D01 Alimentos',    color: '#D97706' },
   { key: 'd04',   label: 'D04 Agua Potable', color: '#16A34A' },
-  { key: 'otras', label: 'Otras',            color: '#6B7280' },
 ];
 
 function HistoricoView({ isCanariasMode }) {
@@ -1002,7 +1001,8 @@ function HistoricoView({ isCanariasMode }) {
           HIST_CATS.forEach(c => { byMes[key][c.key] = 0; });
         }
         const rawCat = getDisciplinaCategoria(r.disciplina);
-        const cat = HIST_CATS.find(c => c.key === rawCat) ? rawCat : 'otras';
+        const cat = HIST_CATS.find(c => c.key === rawCat) ? rawCat : null;
+        if (!cat) return; // ignorar disciplinas no clasificadas
         const m = r.muestras_estimadas || 0;
         byMes[key][cat]  += m;
         byMes[key].total += m;
