@@ -1374,7 +1374,8 @@ export default function LegionellaForecastModule({ onBackToHub, globalLab }) {
       .select('*')
       .eq('mes', mes)
       .eq('año', año)
-      .order('fecha_date', { ascending: true });
+      .order('fecha_date', { ascending: true })
+      .limit(5000);
     if (acts) setActividades(acts.map(enrichRow));
     setLoading(false);
   }, []);
