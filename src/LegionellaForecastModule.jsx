@@ -1037,7 +1037,17 @@ function ImportModal({ onClose, onImported, savedDB }) {
       return true;
     });
 
-    const allRecords = [...records, ...d02AutoFinal];
+    // ── Deduplicar allRecords en JS antes de insertar ─────────────────────────
+    // Clave: establecimiento+fecha_date+disciplina (con fecha) o +mes+año (sin fecha)
+    const seen = new Set();
+    const allRecords = [...records, ...d02AutoFinal].filter(r => {
+      const k = r.fecha_date
+        ? `${r.establecimiento}|${r.fecha_date}|${r.disciplina}`
+        : `${r.establecimiento}|${r.mes}|${r.año}|${r.disciplina}`;
+      if (seen.has(k)) return false;
+      seen.add(k);
+      return true;
+    });
 
     // ── Preservar muestras_reales ya introducidas ─────────────────────────────
     const { data: existentes } = await supabase
@@ -1049,7 +1059,7 @@ function ImportModal({ onClose, onImported, savedDB }) {
 
     const realesMap = {};
     (existentes || []).forEach(r => {
-      const k = `${r.establecimiento}|${r.fecha_date}|${r.disciplina}`;
+      const k = `${r.establecimiento}|${r.fecha_date ?? ''}|${r.disciplina}`;
       realesMap[k] = { muestras_reales: r.muestras_reales, notas: r.notas };
     });
 
@@ -1062,8 +1072,8 @@ function ImportModal({ onClose, onImported, savedDB }) {
 
     if (delErr) { setImporting(false); setError('Error al limpiar datos del mes: ' + delErr.message); return; }
 
-    // Insertar en lotes de 200 para evitar límites de payload
-    const BATCH = 200;
+    // INSERT en lotes de 500 (Supabase admite hasta ~1000 filas por petición)
+    const BATCH = 500;
     let inserted = 0;
     for (let i = 0; i < allRecords.length; i += BATCH) {
       const { data: batchData, error: insErr } = await supabase
@@ -1071,22 +1081,24 @@ function ImportModal({ onClose, onImported, savedDB }) {
         .insert(allRecords.slice(i, i + BATCH))
         .select('id, establecimiento, fecha_date, disciplina');
 
-      if (insErr) { setImporting(false); setError(`Error al insertar (lote ${Math.floor(i/BATCH)+1}): ${insErr.message}`); return; }
+      if (insErr) {
+        setImporting(false);
+        setError(`Error al insertar registros: ${insErr.message}`);
+        return;
+      }
+      inserted += batchData?.length || 0;
 
       // Restaurar muestras_reales si coincide establecimiento+fecha+disciplina
       const toRestore = (batchData || []).filter(r => {
-        const k = `${r.establecimiento}|${r.fecha_date}|${r.disciplina}`;
+        const k = `${r.establecimiento}|${r.fecha_date ?? ''}|${r.disciplina}`;
         return realesMap[k] != null;
       });
       if (toRestore.length) {
         await Promise.all(toRestore.map(r => {
-          const k = `${r.establecimiento}|${r.fecha_date}|${r.disciplina}`;
-          return supabase.from('legionella_actividades')
-            .update(realesMap[k])
-            .eq('id', r.id);
+          const k = `${r.establecimiento}|${r.fecha_date ?? ''}|${r.disciplina}`;
+          return supabase.from('legionella_actividades').update(realesMap[k]).eq('id', r.id);
         }));
       }
-      inserted += batchData?.length || 0;
     }
 
     setImporting(false);
