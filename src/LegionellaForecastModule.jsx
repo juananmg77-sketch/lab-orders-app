@@ -1163,7 +1163,8 @@ function ImportModal({ onClose, onImported, savedDB }) {
 
 export default function LegionellaForecastModule({ onBackToHub, globalLab }) {
   const isCanariasMode = globalLab === 'HSLAB Canarias';
-  const [actividades, setActividades] = useState([]);
+  const [actividades, setActividades] = useState([]);        // solo el mes activo
+  const [mesesDisponibles, setMesesDisponibles] = useState([]); // lista ligera de períodos
   const [loading, setLoading] = useState(true);
   const [savedDB, setSavedDB] = useState({});
   const [manualInputs, setManualInputs] = useState({});
@@ -1185,29 +1186,65 @@ export default function LegionellaForecastModule({ onBackToHub, globalLab }) {
   const [showPendientes, setShowPendientes] = useState(false);
   const saveTimers = useRef({});
 
+  // ── Carga ligera: lista de meses disponibles ───────────────────────────────
+  const loadMesesDisponibles = useCallback(async () => {
+    const { data } = await supabase
+      .from('legionella_actividades')
+      .select('mes, año')
+      .limit(10000);
+    if (!data) return [];
+    const seen = new Set();
+    const meses = [];
+    data.forEach(r => {
+      const key = `${r.año}-${r.mes}`;
+      if (!seen.has(key)) { seen.add(key); meses.push({ mes: r.mes, año: r.año }); }
+    });
+    meses.sort((a, b) => a.año !== b.año ? a.año - b.año : MES_ORDEN.indexOf(a.mes) - MES_ORDEN.indexOf(b.mes));
+    setMesesDisponibles(meses);
+    return meses;
+  }, []);
+
+  // ── Carga de registros solo del mes seleccionado ───────────────────────────
+  const loadMesData = useCallback(async (mes, año) => {
+    if (!mes || !año) return;
+    setLoading(true);
+    const { data: acts } = await supabase
+      .from('legionella_actividades')
+      .select('*')
+      .eq('mes', mes)
+      .eq('año', año)
+      .order('fecha_date', { ascending: true });
+    if (acts) setActividades(acts.map(enrichRow));
+    setLoading(false);
+  }, []);
+
+  // ── Carga inicial: establecimientos + períodos disponibles ─────────────────
   const loadData = useCallback(async () => {
     setLoading(true);
-    const [{ data: acts }, { data: estabs }] = await Promise.all([
-      supabase.from('legionella_actividades').select('*').order('fecha_date', { ascending: true }).limit(10000),
+    const [meses, { data: estabs }] = await Promise.all([
+      loadMesesDisponibles(),
       supabase.from('legionella_establecimientos').select('nombre, habitaciones, zonas_comunes, piscinas, solo_auditoria, excluir_d02'),
     ]);
-    if (acts) setActividades(acts.map(enrichRow));
     if (estabs) {
       const m = {};
       estabs.forEach(r => { m[r.nombre] = r; });
       setSavedDB(m);
     }
-    setLoading(false);
-  }, []);
+    // Auto-seleccionar el último mes disponible
+    if (meses.length) {
+      const ultimo = meses[meses.length - 1];
+      setSelectedMes(prev => prev ?? ultimo); // no sobreescribir si ya hay uno seleccionado
+    } else {
+      setLoading(false);
+    }
+  }, [loadMesesDisponibles]);
 
   useEffect(() => { loadData(); }, [loadData]);
 
-  // Auto-select latest month when data loads
+  // Cargar datos cada vez que cambia el mes seleccionado
   useEffect(() => {
-    if (!actividades.length) return;
-    const meses = getAvailableMeses(actividades);
-    if (meses.length && !selectedMes) setSelectedMes(meses[meses.length - 1]);
-  }, [actividades]);
+    if (selectedMes) loadMesData(selectedMes.mes, selectedMes.año);
+  }, [selectedMes, loadMesData]);
 
   const handleInputChange = useCallback((establecimiento, field, value) => {
     setManualInputs(prev => {
@@ -1299,39 +1336,25 @@ export default function LegionellaForecastModule({ onBackToHub, globalLab }) {
       .eq('mes', selectedMes.mes)
       .eq('año', selectedMes.año);
     if (error) { alert('Error al borrar: ' + error.message); return; }
-    setSelectedMes(null);
+    setActividades([]);
     setActiveCategories(new Set(['d3']));
     setFilters(DEFAULT_FILTERS);
-    loadData();
-  }, [selectedMes, loadData]);
+    const meses = await loadMesesDisponibles();
+    // Auto-seleccionar el último mes restante
+    setSelectedMes(meses.length ? meses[meses.length - 1] : null);
+  }, [selectedMes, loadMesesDisponibles]);
 
   const handleUpdateReal = useCallback(async (id, value) => {
     await supabase.from('legionella_actividades').update({ muestras_reales: value }).eq('id', id);
     setActividades(prev => prev.map(a => a.id === id ? { ...a, muestras_reales: value } : a));
   }, []);
 
-  // Derive available periods
-  function getAvailableMeses(acts) {
-    const seen = new Set();
-    const meses = [];
-    acts.forEach(a => {
-      const key = `${a.año}-${a.mes}`;
-      if (!seen.has(key)) { seen.add(key); meses.push({ mes: a.mes, año: a.año }); }
-    });
-    return meses.sort((a, b) => {
-      if (a.año !== b.año) return a.año - b.año;
-      return MES_ORDEN.indexOf(a.mes) - MES_ORDEN.indexOf(b.mes);
-    });
-  }
-
-  const mesesDisponibles = useMemo(() => getAvailableMeses(actividades), [actividades]);
-
-  // Filter by selected month first (+ nodo scope for Canarias mode), then by active tab, then by user filters
+  // actividades ya contiene solo el mes seleccionado (cargado por loadMesData)
   const baseActs = useMemo(() => {
     if (!selectedMes) return [];
-    let acts = actividades.filter(a => a.mes === selectedMes.mes && a.año === selectedMes.año);
-    if (isCanariasMode) acts = acts.filter(a => a.nodo === 'Islas Canarias');
-    return acts;
+    return isCanariasMode
+      ? actividades.filter(a => a.nodo === 'Islas Canarias')
+      : actividades;
   }, [actividades, selectedMes, isCanariasMode]);
 
   const tabActs = useMemo(() =>
@@ -1470,11 +1493,11 @@ export default function LegionellaForecastModule({ onBackToHub, globalLab }) {
 
       {showImport&&<ImportModal
         onClose={()=>setShowImport(false)}
-        onImported={({mes,año})=>{
-          setSelectedMes({mes,año});
+        onImported={async ({mes,año})=>{
           setActiveCategories(new Set(['d3']));
           setFilters(DEFAULT_FILTERS);
-          loadData();
+          await loadMesesDisponibles();          // actualiza selector de períodos
+          setSelectedMes({mes,año});             // dispara loadMesData via useEffect
         }}
         savedDB={savedDB}
       />}
