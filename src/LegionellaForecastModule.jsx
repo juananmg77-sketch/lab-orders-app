@@ -1188,7 +1188,7 @@ export default function LegionellaForecastModule({ onBackToHub, globalLab }) {
   const loadData = useCallback(async () => {
     setLoading(true);
     const [{ data: acts }, { data: estabs }] = await Promise.all([
-      supabase.from('legionella_actividades').select('*').order('fecha_date', { ascending: true }),
+      supabase.from('legionella_actividades').select('*').order('fecha_date', { ascending: true }).limit(10000),
       supabase.from('legionella_establecimientos').select('nombre, habitaciones, zonas_comunes, piscinas, solo_auditoria, excluir_d02'),
     ]);
     if (acts) setActividades(acts.map(enrichRow));
