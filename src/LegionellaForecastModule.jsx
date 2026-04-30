@@ -1369,14 +1369,25 @@ export default function LegionellaForecastModule({ onBackToHub, globalLab }) {
   const loadMesData = useCallback(async (mes, año) => {
     if (!mes || !año) return;
     setLoading(true);
-    const { data: acts } = await supabase
-      .from('legionella_actividades')
-      .select('*')
-      .eq('mes', mes)
-      .eq('año', año)
-      .order('fecha_date', { ascending: true })
-      .limit(5000);
-    if (acts) setActividades(acts.map(enrichRow));
+    // Paginación: Supabase/PostgREST tiene cap de 1000 filas por petición.
+    // Pedimos en páginas de 1000 hasta que no haya más datos.
+    const PAGE = 1000;
+    let allActs = [];
+    let from = 0;
+    while (true) {
+      const { data, error } = await supabase
+        .from('legionella_actividades')
+        .select('*')
+        .eq('mes', mes)
+        .eq('año', año)
+        .order('fecha_date', { ascending: true, nullsFirst: false })
+        .range(from, from + PAGE - 1);
+      if (error || !data || data.length === 0) break;
+      allActs = allActs.concat(data);
+      if (data.length < PAGE) break; // última página
+      from += PAGE;
+    }
+    setActividades(allActs.map(enrichRow));
     setLoading(false);
   }, []);
 
