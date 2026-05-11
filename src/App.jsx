@@ -7,6 +7,7 @@ import PurchasingModule from './PurchasingModule';
 import EquipmentModule from './EquipmentModule';
 import UserManagementModule from './UserManagementModule';
 import LegionellaForecastModule from './LegionellaForecastModule';
+import LabelGeneratorModule from './LabelGeneratorModule';
 
 
 export default function App() {
@@ -120,6 +121,14 @@ export default function App() {
       <LegionellaForecastModule
         onBackToHub={() => setActiveModule(null)}
         globalLab={globalLab}
+      />
+    );
+  }
+
+  if (activeModule === 'etiquetas') {
+    return (
+      <LabelGeneratorModule
+        onBackToHub={() => setActiveModule(null)}
       />
     );
   }
