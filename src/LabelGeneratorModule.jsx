@@ -115,15 +115,14 @@ function parseCSV(texto) {
   return registros;
 }
 
-// Convertir fecha dd/mm/yyyy → nº serie Excel
-function fechaExcelSerial(fechaStr) {
+// Normalizar fecha a texto DD/MM/YYYY para P-touch Editor 5.4
+// (el Editor lee el valor de texto directamente; el nº serie de Excel puede mostrarse como 46153)
+function normalizarFecha(fechaStr) {
   if (!fechaStr) return '';
   const parts = fechaStr.split('/');
   if (parts.length !== 3) return fechaStr;
-  const [d, m, y] = parts.map(Number);
-  const date = new Date(y, m - 1, d);
-  // Excel serial: días desde 30/12/1899 (con bug de 1900 como bisiesto)
-  return Math.round((date - new Date(1899, 11, 30)) / 86400000);
+  const [d, m, y] = parts.map(s => s.padStart(2, '0'));
+  return `${d}/${m}/${y}`;
 }
 
 // ── Exportación XLS Resumen ──────────────────────────────────────────────────
@@ -155,29 +154,22 @@ function exportarResumen(registros, fecha) {
 // ── Exportación XLS Etiquetas ────────────────────────────────────────────────
 
 function exportarEtiquetas(registros, fecha) {
-  const header = ['Date', 'Number', 'Region', 'Tipo de análisis'];
-  const serial = fechaExcelSerial(fecha);
-  const filas  = [header];
+  const header  = ['Date', 'Number', 'Region', 'Tipo de análisis'];
+  // P-touch Editor 5.4 lee el texto directamente — guardamos como string DD/MM/YYYY
+  const fechaTxt = normalizarFecha(fecha);
+  const filas   = [header];
 
   for (const r of registros) {
     const tiposCopia = LABEL_TIPOS.map(t =>
       t === null ? `Matriz ${r.matriz}` : t
     );
     for (const tipo of tiposCopia) {
-      filas.push([serial, r.numero, r.region, tipo ?? '']);
+      filas.push([fechaTxt, r.numero, r.region, tipo ?? '']);
     }
   }
 
   const wb = XLSX.utils.book_new();
   const ws = XLSX.utils.aoa_to_sheet(filas);
-
-  // Formato de fecha en columna A (excepto header)
-  const fmtFecha = 'DD/MM/YYYY';
-  for (let i = 1; i < filas.length; i++) {
-    const cell = ws[XLSX.utils.encode_cell({ r: i, c: 0 })];
-    if (cell) { cell.t = 'n'; cell.z = fmtFecha; }
-  }
-
   ws['!cols'] = [{ wch: 14 }, { wch: 14 }, { wch: 20 }, { wch: 18 }];
 
   const ts = fecha.replace(/\//g, '');
@@ -205,6 +197,77 @@ function StatCard({ label, value, color = 'var(--primary)' }) {
     }}>
       <div style={{ fontSize: '2rem', fontWeight: 800, color, lineHeight: 1 }}>{value}</div>
       <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '4px', fontWeight: 600 }}>{label}</div>
+    </div>
+  );
+}
+
+// ── Guía P-touch Editor 5.4 ─────────────────────────────────────────────────
+
+const PTOUCH_STEPS = [
+  {
+    n: 1,
+    title: 'Abrir plantilla en P-touch Editor 5.4',
+    desc: 'Abre la plantilla de etiqueta configurada para la QL-810WC. Los campos de texto deben llamarse exactamente: Date · Number · Region · Tipo de análisis.',
+  },
+  {
+    n: 2,
+    title: 'Conectar base de datos',
+    desc: 'Menú Archivo → Base de datos → Conectar. Selecciona el XLS de etiquetas generado. Marca "La primera fila contiene nombres de campo".',
+  },
+  {
+    n: 3,
+    title: 'Verificar mapeo de campos',
+    desc: 'P-touch Editor detectará automáticamente los 4 campos. Comprueba que Date → Fecha, Number → Número, Region → Región, Tipo de análisis → Tipo.',
+  },
+  {
+    n: 4,
+    title: 'Imprimir todo',
+    desc: 'Archivo → Imprimir → Imprimir todo (o Ctrl+Shift+P). Selecciona Brother QL-810WC y confirma. Se imprimirán 9 etiquetas × N muestras en secuencia.',
+  },
+];
+
+function PtouchGuide() {
+  const [open, setOpen] = useState(false);
+  return (
+    <div style={{ marginBottom: '20px', border: '1px solid #E2E8F0', borderRadius: '12px', overflow: 'hidden', backgroundColor: 'white' }}>
+      <button
+        onClick={() => setOpen(v => !v)}
+        style={{ width: '100%', padding: '12px 18px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left' }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <span style={{ fontSize: '1.1rem' }}>🖨️</span>
+          <span style={{ fontWeight: 700, color: 'var(--secondary)', fontSize: '0.9rem' }}>
+            Guía de uso — Brother QL-810WC · P-touch Editor 5.4
+          </span>
+          <span style={{ fontSize: '0.72rem', backgroundColor: '#F0FDF4', color: '#16A34A', border: '1px solid #BBF7D0', borderRadius: '5px', padding: '1px 8px', fontWeight: 700 }}>
+            Compatible ✓
+          </span>
+        </div>
+        <span style={{ color: '#94A3B8', fontSize: '0.8rem' }}>{open ? '▲' : '▼'}</span>
+      </button>
+      {open && (
+        <div style={{ borderTop: '1px solid #F1F5F9', padding: '16px 20px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: '12px', marginBottom: '16px' }}>
+            {PTOUCH_STEPS.map(s => (
+              <div key={s.n} style={{ display: 'flex', gap: '12px', alignItems: 'flex-start' }}>
+                <div style={{ width: '28px', height: '28px', borderRadius: '50%', backgroundColor: 'var(--primary)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: '0.8rem', flexShrink: 0 }}>{s.n}</div>
+                <div>
+                  <div style={{ fontWeight: 700, color: 'var(--secondary)', fontSize: '0.85rem', marginBottom: '3px' }}>{s.title}</div>
+                  <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', lineHeight: 1.5 }}>{s.desc}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+          <div style={{ backgroundColor: '#FFFBEB', border: '1px solid #FCD34D', borderRadius: '8px', padding: '10px 14px', fontSize: '0.78rem', color: '#92400E' }}>
+            <strong>⚠️ Nombres de campo críticos</strong> — Los objetos de texto en la plantilla de P-touch deben llamarse exactamente igual que las columnas del XLS:
+            {' '}<code style={{ backgroundColor: '#FEF3C7', padding: '1px 5px', borderRadius: '3px', fontFamily: 'monospace' }}>Date</code>,
+            {' '}<code style={{ backgroundColor: '#FEF3C7', padding: '1px 5px', borderRadius: '3px', fontFamily: 'monospace' }}>Number</code>,
+            {' '}<code style={{ backgroundColor: '#FEF3C7', padding: '1px 5px', borderRadius: '3px', fontFamily: 'monospace' }}>Region</code>,
+            {' '}<code style={{ backgroundColor: '#FEF3C7', padding: '1px 5px', borderRadius: '3px', fontFamily: 'monospace' }}>Tipo de análisis</code>.
+            {' '}Si el mapeo falla, renombra los objetos en P-touch Editor haciendo doble clic sobre cada campo de texto.
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -327,6 +390,9 @@ export default function LabelGeneratorModule({ onBackToHub }) {
       </header>
 
       <div style={{ maxWidth: '1300px', margin: '0 auto', padding: '28px 24px' }}>
+
+        {/* ── Guía Brother P-touch ── */}
+        <PtouchGuide />
 
         {/* ── Zona de carga ── */}
         <div
