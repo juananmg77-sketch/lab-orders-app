@@ -1,6 +1,8 @@
 import React, { useState, useCallback, useEffect } from 'react';
-import { Upload, Download, ArrowLeft, FileSpreadsheet, Tag, X, ChevronDown, ChevronUp, Save, Clock, CheckCircle } from 'lucide-react';
+import { Upload, Download, ArrowLeft, FileSpreadsheet, Tag, X, ChevronDown, ChevronUp, Save, Clock, CheckCircle, FileText } from 'lucide-react';
 import * as XLSX from 'xlsx';
+import { jsPDF } from 'jspdf';
+import autoTable from 'jspdf-autotable';
 import { supabase } from './supabaseClient';
 
 // ── Constantes ──────────────────────────────────────────────────────────────
@@ -117,10 +119,53 @@ function formatFechaLabel(isoStr) {
 // ── Exportaciones ─────────────────────────────────────────────────────────────
 
 function exportarResumen(registros, fecha) {
-  const filas = registros.map(r => [r.numero, r.establecimiento, r.region, r.analitica, r.muestra, (r.matriz || 'A').toLowerCase()]);
+  const fechaLabel = normalizarFecha(fecha) || '—';
+  const nA = registros.filter(r => r.matriz === 'A').length;
+  const nB = registros.filter(r => r.matriz === 'B').length;
+
+  // Filas de cabecera
+  const cabecera = [
+    [`HSLAB — Registro de Muestras`, '', '', '', '', ''],
+    [`Fecha de recogida: ${fechaLabel}`, '', `Total muestras: ${registros.length}`, '', `Matriz A: ${nA}   Matriz B: ${nB}`, ''],
+    [],  // Fila vacía separadora
+    ['Número', 'Establecimiento', 'Región', 'Analítica', 'Muestra', 'Matriz'],
+  ];
+
+  // Ordenar por Establecimiento, luego por Número
+  const sorted = [...registros].sort((a, b) =>
+    (a.establecimiento || '').localeCompare(b.establecimiento || '', 'es') ||
+    (a.numero || '').localeCompare(b.numero || '', 'es', { numeric: true })
+  );
+
+  const filasDatos = sorted.map(r => [
+    r.numero,
+    r.establecimiento,
+    r.region,
+    r.analitica,
+    r.muestra,
+    (r.matriz || 'A').toLowerCase() === 'b' ? 'Matriz B' : 'Matriz A',
+  ]);
+
+  const todasLasFilas = [...cabecera, ...filasDatos];
+
   const wb = XLSX.utils.book_new();
-  const ws = XLSX.utils.aoa_to_sheet(filas);
-  ws['!cols'] = [{ wch: 14 }, { wch: 40 }, { wch: 20 }, { wch: 38 }, { wch: 35 }, { wch: 10 }];
+  const ws = XLSX.utils.aoa_to_sheet(todasLasFilas);
+
+  // Anchos de columna
+  ws['!cols'] = [
+    { wch: 14 },  // Número
+    { wch: 42 },  // Establecimiento
+    { wch: 22 },  // Región
+    { wch: 40 },  // Analítica
+    { wch: 38 },  // Muestra
+    { wch: 12 },  // Matriz
+  ];
+
+  // Combinar celdas del título principal
+  ws['!merges'] = [
+    { s: { r: 0, c: 0 }, e: { r: 0, c: 5 } },  // Título
+  ];
+
   XLSX.utils.book_append_sheet(wb, ws, 'Resumen');
   XLSX.writeFile(wb, `resumen_${(fecha || '').replace(/\//g, '')}.xlsx`);
 }
@@ -138,6 +183,195 @@ function exportarEtiquetas(registros, fecha) {
   ws['!cols'] = [{ wch: 14 }, { wch: 14 }, { wch: 20 }, { wch: 18 }];
   XLSX.utils.book_append_sheet(wb, ws, 'Labels');
   XLSX.writeFile(wb, `labels_${(fecha || '').replace(/\//g, '')}.xlsx`);
+}
+
+function exportarPDFLab(registros, fecha) {
+  const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+  const pageW  = 297;
+  const pageH  = 210;
+  const margin = 14;
+
+  const fechaLabel = normalizarFecha(fecha) || '—';
+  const now = new Date();
+  const fechaGen = now.toLocaleDateString('es-ES', {
+    day: '2-digit', month: '2-digit', year: 'numeric',
+  }) + ' ' + now.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+
+  // ─── CABECERA ────────────────────────────────────────────────
+  // Barra azul oscura
+  doc.setFillColor(0, 11, 61);
+  doc.rect(0, 0, pageW, 27, 'F');
+
+  // Franja azul viva de acento
+  doc.setFillColor(0, 118, 206);
+  doc.rect(0, 27, pageW, 2.5, 'F');
+
+  // Título
+  doc.setTextColor(255, 255, 255);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(14);
+  doc.text('HSLAB  ·  Registro de Recepción de Muestras', margin, 11);
+
+  // Subtítulo
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(8.5);
+  doc.setTextColor(180, 200, 230);
+  doc.text(`Fecha de recogida:`, margin, 20);
+  doc.setTextColor(255, 255, 255);
+  doc.setFont('helvetica', 'bold');
+  doc.text(fechaLabel, margin + 31, 20);
+
+  // Derecha: generado
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(7.5);
+  doc.setTextColor(160, 190, 220);
+  doc.text(`Generado: ${fechaGen}`, pageW - margin, 20, { align: 'right' });
+
+  // ─── TARJETAS DE ESTADÍSTICAS ────────────────────────────────
+  const nA = registros.filter(r => r.matriz === 'A').length;
+  const nB = registros.filter(r => r.matriz === 'B').length;
+  const regiones = [...new Set(registros.map(r => r.region).filter(Boolean))];
+  const establecimientos = [...new Set(registros.map(r => r.establecimiento).filter(Boolean))];
+
+  const stats = [
+    { label: 'MUESTRAS',      value: String(registros.length),          rgb: [0, 118, 206] },
+    { label: 'MATRIZ A',      value: String(nA),                         rgb: [22, 163, 74] },
+    { label: 'MATRIZ B',      value: String(nB),                         rgb: [8, 145, 178] },
+    { label: 'ETIQUETAS',     value: String(registros.length * 9),        rgb: [109, 40, 217] },
+    { label: 'REGIONES',      value: String(regiones.length),             rgb: [217, 119, 6] },
+    { label: 'ESTABLEC.',     value: String(establecimientos.length),     rgb: [15, 118, 110] },
+  ];
+
+  const boxW   = 40;
+  const boxH   = 16;
+  const totalBoxW = stats.length * boxW;
+  const totalGap  = (pageW - 2 * margin) - totalBoxW;
+  const gap    = totalGap / (stats.length - 1);
+
+  stats.forEach((s, i) => {
+    const x = margin + i * (boxW + gap);
+    const y = 31.5;
+    doc.setFillColor(...s.rgb);
+    doc.roundedRect(x, y, boxW, boxH, 2, 2, 'F');
+
+    // Valor grande
+    doc.setTextColor(255, 255, 255);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(13);
+    doc.text(s.value, x + boxW / 2, y + 7.5, { align: 'center' });
+
+    // Etiqueta pequeña
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(5.5);
+    doc.setTextColor(220, 235, 255);
+    doc.text(s.label, x + boxW / 2, y + 13.5, { align: 'center' });
+  });
+
+  // ─── TABLA PRINCIPAL ─────────────────────────────────────────
+  const sorted = [...registros].sort((a, b) =>
+    (a.establecimiento || '').localeCompare(b.establecimiento || '', 'es') ||
+    (a.region || '').localeCompare(b.region || '', 'es') ||
+    (a.numero || '').localeCompare(b.numero || '', 'es', { numeric: true })
+  );
+
+  // Construir filas con cabeceras de grupo por Establecimiento
+  const bodyData = [];
+  let lastEstab = null;
+  for (const r of sorted) {
+    if (r.establecimiento !== lastEstab) {
+      bodyData.push([
+        {
+          content: `  ${r.establecimiento || '—'}`,
+          colSpan: 7,
+          styles: {
+            fillColor: [15, 23, 42],
+            textColor: [203, 213, 225],
+            fontStyle: 'bold',
+            fontSize: 7,
+            cellPadding: { top: 3, bottom: 3, left: 8, right: 8 },
+          },
+        },
+      ]);
+      lastEstab = r.establecimiento;
+    }
+    bodyData.push([
+      r.numero        || '',
+      r.region        || '',
+      r.analitica     || '',
+      r.muestra       || '',
+      r.condicion     || '',
+      r.hora          || '',
+      r.matriz === 'B' ? 'Matriz B' : 'Matriz A',
+    ]);
+  }
+
+  autoTable(doc, {
+    startY: 51,
+    head: [['Número', 'Región', 'Analítica', 'Muestra / Punto', 'Condición de recogida', 'Hora', 'Matriz']],
+    body: bodyData,
+    styles: {
+      fontSize: 6.8,
+      cellPadding: { top: 2.5, bottom: 2.5, left: 3.5, right: 3.5 },
+      lineColor: [226, 232, 240],
+      lineWidth: 0.2,
+      overflow: 'linebreak',
+      font: 'helvetica',
+    },
+    headStyles: {
+      fillColor: [0, 118, 206],
+      textColor: [255, 255, 255],
+      fontStyle: 'bold',
+      fontSize: 7,
+      cellPadding: { top: 3.5, bottom: 3.5, left: 3.5, right: 3.5 },
+    },
+    alternateRowStyles: {
+      fillColor: [248, 250, 252],
+    },
+    columnStyles: {
+      0: { cellWidth: 24,  fontStyle: 'bold', textColor: [0, 118, 206] },
+      1: { cellWidth: 28 },
+      2: { cellWidth: 52 },
+      3: { cellWidth: 50 },
+      4: { cellWidth: 50 },
+      5: { cellWidth: 13,  halign: 'center' },
+      6: { cellWidth: 22,  halign: 'center', fontStyle: 'bold' },
+    },
+    didParseCell: (data) => {
+      if (data.section === 'body' && data.column.index === 6) {
+        const v = data.cell.raw;
+        if (v === 'Matriz B') {
+          data.cell.styles.textColor    = [8, 145, 178];
+          data.cell.styles.fillColor    = [236, 254, 255];
+        } else if (v === 'Matriz A') {
+          data.cell.styles.textColor    = [22, 163, 74];
+          data.cell.styles.fillColor    = [240, 253, 244];
+        }
+      }
+    },
+    didDrawPage: (data) => {
+      // Línea divisoria superior al pie
+      doc.setDrawColor(226, 232, 240);
+      doc.setLineWidth(0.3);
+      doc.line(margin, pageH - 9, pageW - margin, pageH - 9);
+
+      // Pie izquierdo
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(6.5);
+      doc.setTextColor(148, 163, 184);
+      doc.text(`HSLAB · Registro de Muestras · ${fechaLabel}`, margin, pageH - 5.5);
+
+      // Pie derecho
+      doc.text(
+        `Pág. ${data.pageNumber}   ·   Generado: ${fechaGen}`,
+        pageW - margin,
+        pageH - 5.5,
+        { align: 'right' }
+      );
+    },
+    margin: { top: 51, left: margin, right: margin, bottom: 13 },
+  });
+
+  doc.save(`lab_registro_${(fecha || '').replace(/\//g, '')}.pdf`);
 }
 
 // ── Supabase helpers ──────────────────────────────────────────────────────────
@@ -332,7 +566,7 @@ export default function LabelGeneratorModule({ onBackToHub }) {
   const [saving, setSaving]               = useState(false);
   const [savedOk, setSavedOk]             = useState(false);
   const [fechasDisp, setFechasDisp]       = useState([]);
-  const [savingCell, setSavingCell]       = useState(null); // id de fila guardándose
+  const [savingCell, setSavingCell]       = useState(null);
 
   // Cargar fechas disponibles al montar
   useEffect(() => {
@@ -346,7 +580,6 @@ export default function LabelGeneratorModule({ onBackToHub }) {
       next[index] = { ...next[index], [campo]: valor };
       return next;
     });
-    // Si el registro viene de DB (tiene id), guardar inmediatamente
     const reg = registros[index];
     if (reg?.id) {
       setSavingCell(reg.id);
@@ -370,17 +603,14 @@ export default function LabelGeneratorModule({ onBackToHub }) {
         setFechaActivaISO('');
         setExpandedRow(null); setFilterRegion(''); setFilterMatriz('');
 
-        // Guardar en Supabase
         setSaving(true); setSavedOk(false);
         const res = await guardarImport(parsed, primerFecha, file.name);
         setSaving(false);
         if (!res.error) {
           setSavedOk(true);
           setTimeout(() => setSavedOk(false), 3000);
-          // Actualizar lista de fechas y asignar ids a los registros
           const fechas = await cargarFechasDisponibles();
           setFechasDisp(fechas);
-          // Recargar registros para tener los ids de DB
           if (primerFecha) {
             const parts = primerFecha.split('/');
             const iso = `${parts[2]}-${parts[1].padStart(2,'0')}-${parts[0].padStart(2,'0')}`;
@@ -431,12 +661,15 @@ export default function LabelGeneratorModule({ onBackToHub }) {
           {savedOk && <span style={{ fontSize: '0.78rem', color: '#86EFAC', display: 'flex', alignItems: 'center', gap: '4px' }}><CheckCircle size={13} /> Guardado</span>}
         </div>
         {registros.length > 0 && (
-          <div style={{ display: 'flex', gap: '10px' }}>
-            <button onClick={() => exportarResumen(registros, fechaCSV)} style={{ display: 'flex', alignItems: 'center', gap: '7px', padding: '7px 16px', borderRadius: '8px', border: 'none', cursor: 'pointer', backgroundColor: '#0891B2', color: 'white', fontWeight: 700, fontSize: '0.82rem' }}>
-              <FileSpreadsheet size={15} /> Exportar Resumen
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <button onClick={() => exportarPDFLab(registros, fechaCSV)} style={{ display: 'flex', alignItems: 'center', gap: '7px', padding: '7px 14px', borderRadius: '8px', border: 'none', cursor: 'pointer', backgroundColor: '#DC2626', color: 'white', fontWeight: 700, fontSize: '0.82rem' }}>
+              <FileText size={15} /> PDF LAB
             </button>
-            <button onClick={() => exportarEtiquetas(registros, fechaCSV)} style={{ display: 'flex', alignItems: 'center', gap: '7px', padding: '7px 16px', borderRadius: '8px', border: 'none', cursor: 'pointer', backgroundColor: '#16A34A', color: 'white', fontWeight: 700, fontSize: '0.82rem' }}>
-              <Download size={15} /> Exportar Etiquetas
+            <button onClick={() => exportarResumen(registros, fechaCSV)} style={{ display: 'flex', alignItems: 'center', gap: '7px', padding: '7px 14px', borderRadius: '8px', border: 'none', cursor: 'pointer', backgroundColor: '#0891B2', color: 'white', fontWeight: 700, fontSize: '0.82rem' }}>
+              <FileSpreadsheet size={15} /> XLS Resumen
+            </button>
+            <button onClick={() => exportarEtiquetas(registros, fechaCSV)} style={{ display: 'flex', alignItems: 'center', gap: '7px', padding: '7px 14px', borderRadius: '8px', border: 'none', cursor: 'pointer', backgroundColor: '#16A34A', color: 'white', fontWeight: 700, fontSize: '0.82rem' }}>
+              <Download size={15} /> XLS Etiquetas
             </button>
           </div>
         )}
@@ -516,7 +749,6 @@ export default function LabelGeneratorModule({ onBackToHub }) {
                 </thead>
                 <tbody>
                   {filtrados.map((r, idx) => {
-                    // Buscar índice real en registros (los filtrados pueden ser un subconjunto)
                     const realIdx = registros.findIndex(x => x === r || (x.id && x.id === r.id) || (!x.id && x.numero === r.numero && x.muestra === r.muestra));
                     const isExp    = expandedRow === idx;
                     const rowBg    = idx % 2 === 0 ? 'white' : '#F8FAFC';
@@ -528,23 +760,18 @@ export default function LabelGeneratorModule({ onBackToHub }) {
                     return (
                       <React.Fragment key={r.id || idx}>
                         <tr style={{ backgroundColor: isExp ? '#EFF6FF' : rowBg, borderBottom: '1px solid #F1F5F9' }}>
-                          {/* Número */}
                           <td style={{ padding: '10px 14px', fontWeight: 700, color: 'var(--primary)', fontFamily: 'monospace', fontSize: '0.85rem', cursor: 'pointer' }} onClick={() => setExpandedRow(isExp ? null : idx)}>
                             {r.numero}
                           </td>
-                          {/* Establecimiento */}
                           <td style={{ padding: '10px 14px', fontWeight: 600, color: 'var(--secondary)', maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', cursor: 'pointer' }} onClick={() => setExpandedRow(isExp ? null : idx)}>
                             {r.establecimiento}
                           </td>
-                          {/* Región */}
                           <td style={{ padding: '10px 14px', color: 'var(--text-muted)', cursor: 'pointer' }} onClick={() => setExpandedRow(isExp ? null : idx)}>
                             {r.region}
                           </td>
-                          {/* Analítica */}
                           <td style={{ padding: '10px 14px', color: 'var(--text-muted)', maxWidth: '180px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', cursor: 'pointer' }} onClick={() => setExpandedRow(isExp ? null : idx)}>
                             {r.analitica}
                           </td>
-                          {/* Muestra — editable inline */}
                           <td style={{ padding: '6px 10px', maxWidth: '200px' }}>
                             <EditableText
                               value={r.muestra}
@@ -552,7 +779,6 @@ export default function LabelGeneratorModule({ onBackToHub }) {
                               saving={isSavingThis}
                             />
                           </td>
-                          {/* Matriz — editable toggle */}
                           <td style={{ padding: '10px 14px' }}>
                             <MatrizToggle
                               value={r.matriz}
@@ -560,7 +786,6 @@ export default function LabelGeneratorModule({ onBackToHub }) {
                               saving={isSavingThis}
                             />
                           </td>
-                          {/* Expand */}
                           <td style={{ padding: '10px 14px', textAlign: 'center', color: '#94A3B8', cursor: 'pointer' }} onClick={() => setExpandedRow(isExp ? null : idx)}>
                             {isExp ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
                           </td>
@@ -577,7 +802,6 @@ export default function LabelGeneratorModule({ onBackToHub }) {
                                   </div>
                                 ))}
                               </div>
-                              {/* Preview 9 etiquetas */}
                               <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 700, marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Preview 9 etiquetas</div>
                               <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
                                 {LABEL_TIPOS.map((t, li) => {
@@ -605,12 +829,24 @@ export default function LabelGeneratorModule({ onBackToHub }) {
             </div>
 
             {/* ── Botones exportar abajo ── */}
-            <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end', marginTop: '20px' }}>
-              <button onClick={() => exportarResumen(registros, fechaCSV)} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '11px 22px', borderRadius: '10px', border: 'none', cursor: 'pointer', backgroundColor: '#0891B2', color: 'white', fontWeight: 700, fontSize: '0.9rem', boxShadow: '0 2px 8px rgba(8,145,178,0.3)' }}>
+            <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end', marginTop: '20px', flexWrap: 'wrap' }}>
+              <button
+                onClick={() => exportarPDFLab(registros, fechaCSV)}
+                style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '11px 22px', borderRadius: '10px', border: 'none', cursor: 'pointer', backgroundColor: '#DC2626', color: 'white', fontWeight: 700, fontSize: '0.9rem', boxShadow: '0 2px 8px rgba(220,38,38,0.3)' }}
+              >
+                <FileText size={17} /> Generar PDF LAB
+              </button>
+              <button
+                onClick={() => exportarResumen(registros, fechaCSV)}
+                style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '11px 22px', borderRadius: '10px', border: 'none', cursor: 'pointer', backgroundColor: '#0891B2', color: 'white', fontWeight: 700, fontSize: '0.9rem', boxShadow: '0 2px 8px rgba(8,145,178,0.3)' }}
+              >
                 <FileSpreadsheet size={17} /> Exportar XLS Resumen
               </button>
-              <button onClick={() => exportarEtiquetas(registros, fechaCSV)} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '11px 22px', borderRadius: '10px', border: 'none', cursor: 'pointer', backgroundColor: '#16A34A', color: 'white', fontWeight: 700, fontSize: '0.9rem', boxShadow: '0 2px 8px rgba(22,163,74,0.3)' }}>
-                <Download size={17} /> Exportar XLS Etiquetas ({registros.length * 9} filas)
+              <button
+                onClick={() => exportarEtiquetas(registros, fechaCSV)}
+                style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '11px 22px', borderRadius: '10px', border: 'none', cursor: 'pointer', backgroundColor: '#16A34A', color: 'white', fontWeight: 700, fontSize: '0.9rem', boxShadow: '0 2px 8px rgba(22,163,74,0.3)' }}
+              >
+                <Download size={17} /> XLS Etiquetas ({registros.length * 9} filas)
               </button>
             </div>
           </>
