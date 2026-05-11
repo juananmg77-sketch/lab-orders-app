@@ -1,13 +1,13 @@
-import React, { useState, useCallback } from 'react';
-import { Upload, Download, ArrowLeft, FileSpreadsheet, Tag, X, ChevronDown, ChevronUp } from 'lucide-react';
+import React, { useState, useCallback, useEffect } from 'react';
+import { Upload, Download, ArrowLeft, FileSpreadsheet, Tag, X, ChevronDown, ChevronUp, Save, Clock, CheckCircle } from 'lucide-react';
 import * as XLSX from 'xlsx';
+import { supabase } from './supabaseClient';
 
 // ── Constantes ──────────────────────────────────────────────────────────────
 
 const LABEL_TIPOS = ['TAB', 'TAG', 'TTB', 'TTG', 'STB', 'STG', null, '-', '-'];
 // null en posición 6 → se reemplaza por "Matriz A" o "Matriz B"
 
-// Keywords que determinan Matriz B (en Muestra o Analítica)
 const MATRIZ_B_KEYWORDS = [
   'piscina', 'spa', 'jacuzzi', 'hidromasaje',
   'torre', 'refrigeración', 'refrigeracion', 'condensador',
@@ -15,44 +15,34 @@ const MATRIZ_B_KEYWORDS = [
   'ornamental', 'fuente ornamental', 'humidificador',
 ];
 
+const MES_NOMBRES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+
 // ── Lógica de negocio ────────────────────────────────────────────────────────
 
 function determinarMatriz(muestra = '', analitica = '') {
   const texto = (muestra + ' ' + analitica).toLowerCase();
-  // Por código analítica: 2.2.x Piscinas, 2.3.x Hidromasaje
   if (/^2\.[23]\./.test(analitica.trim())) return 'B';
   if (MATRIZ_B_KEYWORDS.some(kw => texto.includes(kw))) return 'B';
-  // 3.1.1 Legionella y similares → A por defecto
-  if (/3\.1\./.test(analitica)) return 'A';
-  return 'A'; // default
+  return 'A';
 }
 
-// Parsear CSV con separador ; y comillas dobles, tolerante a saltos de línea dentro de campos
 function parsearCSVRobusto(texto) {
   const sep = ';';
   const rows = [];
-  let fila = [];
-  let campo = '';
-  let enComillas = false;
-
+  let fila = [], campo = '', enComillas = false;
   for (let i = 0; i < texto.length; i++) {
-    const ch = texto[i];
-    const sig = texto[i + 1];
-
+    const ch = texto[i], sig = texto[i + 1];
     if (ch === '"') {
-      if (enComillas && sig === '"') { campo += '"'; i++; } // escape ""
+      if (enComillas && sig === '"') { campo += '"'; i++; }
       else enComillas = !enComillas;
     } else if (ch === sep && !enComillas) {
-      fila.push(campo.trim());
-      campo = '';
+      fila.push(campo.trim()); campo = '';
     } else if ((ch === '\n' || ch === '\r') && !enComillas) {
       if (ch === '\r' && sig === '\n') i++;
       fila.push(campo.trim());
       if (fila.some(f => f !== '')) rows.push(fila);
       fila = []; campo = '';
-    } else {
-      campo += ch;
-    }
+    } else { campo += ch; }
   }
   if (campo || fila.length) { fila.push(campo.trim()); if (fila.some(f => f !== '')) rows.push(fila); }
   return rows;
@@ -61,22 +51,8 @@ function parsearCSVRobusto(texto) {
 function parseCSV(texto) {
   const rows = parsearCSVRobusto(texto);
   if (rows.length < 2) return [];
-
-  // Normalizar cabeceras
-  const headers = rows[0].map(h => h.toLowerCase()
-    .normalize('NFD').replace(/[̀-ͯ]/g, '') // quitar tildes
-    .replace(/[^a-z0-9 ]/g, '').trim()
-  );
-
-  const idx = (names) => {
-    for (const n of names) {
-      const i = headers.findIndex(h => h.includes(n));
-      if (i >= 0) return i;
-    }
-    return -1;
-  };
-
-  const iId        = idx(['id de analitica', 'id analitica']);
+  const headers = rows[0].map(h => h.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9 ]/g, '').trim());
+  const idx = (names) => { for (const n of names) { const i = headers.findIndex(h => h.includes(n)); if (i >= 0) return i; } return -1; };
   const iNum       = idx(['numero', 'number']);
   const iEstab     = idx(['establecimiento']);
   const iRegion    = idx(['region']);
@@ -92,31 +68,28 @@ function parseCSV(texto) {
   for (let r = 1; r < rows.length; r++) {
     const row = rows[r];
     const get = (i) => (i >= 0 && i < row.length ? row[i] : '').trim();
-
-    const numero    = get(iNum);
-    const muestra   = get(iMuestra);
-    const estado    = get(iEstado);
-
-    // Filtrar: sin número, marcadas ELIMINAR, o sin estado de recogida
+    const numero  = get(iNum);
+    const muestra = get(iMuestra);
     if (!numero) continue;
     if (muestra.toUpperCase().includes('ELIMINAR')) continue;
-
     const analitica = get(iAnalitica);
-    const region    = get(iRegion);
-    const estab     = get(iEstab);
-    const condicion = get(iCondicion);
-    const fecha     = get(iFecha);
-    const hora      = get(iHora);
-    const grupo     = get(iGrupo);
-    const matriz    = determinarMatriz(muestra, analitica);
-
-    registros.push({ numero, establecimiento: estab, grupo, region, analitica, muestra, condicion, fecha, hora, estado, matriz });
+    registros.push({
+      numero,
+      establecimiento: get(iEstab),
+      grupo:           get(iGrupo),
+      region:          get(iRegion),
+      analitica,
+      muestra,
+      condicion:       get(iCondicion),
+      fecha:           get(iFecha),
+      hora:            get(iHora),
+      estado:          get(iEstado),
+      matriz:          determinarMatriz(muestra, analitica),
+    });
   }
   return registros;
 }
 
-// Normalizar fecha a texto DD/MM/YYYY para P-touch Editor 5.4
-// (el Editor lee el valor de texto directamente; el nº serie de Excel puede mostrarse como 46153)
 function normalizarFecha(fechaStr) {
   if (!fechaStr) return '';
   const parts = fechaStr.split('/');
@@ -125,129 +98,164 @@ function normalizarFecha(fechaStr) {
   return `${d}/${m}/${y}`;
 }
 
-// ── Exportación XLS Resumen ──────────────────────────────────────────────────
-
-function exportarResumen(registros, fecha) {
-  const filas = registros.map(r => [
-    r.numero,
-    r.establecimiento,
-    r.region,
-    r.analitica,
-    r.muestra,
-    r.matriz.toLowerCase(), // 'a' o 'b'
-  ]);
-
-  const wb = XLSX.utils.book_new();
-  const ws = XLSX.utils.aoa_to_sheet(filas);
-
-  // Anchos de columna aproximados
-  ws['!cols'] = [
-    { wch: 14 }, { wch: 40 }, { wch: 20 },
-    { wch: 38 }, { wch: 35 }, { wch: 10 },
-  ];
-
-  XLSX.utils.book_append_sheet(wb, ws, 'Resumen');
-  const fechaStr = fecha.replace(/\//g, '');
-  XLSX.writeFile(wb, `resumen_${fechaStr}.xlsx`);
+// Convierte "11/05/2026" → objeto Date local (medianoche)
+function fechaStrToDate(fechaStr) {
+  if (!fechaStr) return null;
+  const parts = fechaStr.split('/');
+  if (parts.length !== 3) return null;
+  const [d, m, y] = parts.map(Number);
+  return new Date(y, m - 1, d);
 }
 
-// ── Exportación XLS Etiquetas ────────────────────────────────────────────────
+// Formatea fecha de DB (ISO) para mostrar
+function formatFechaLabel(isoStr) {
+  if (!isoStr) return '';
+  const d = new Date(isoStr + 'T12:00:00');
+  return `${d.getDate()} ${MES_NOMBRES[d.getMonth()]} ${d.getFullYear()}`;
+}
+
+// ── Exportaciones ─────────────────────────────────────────────────────────────
+
+function exportarResumen(registros, fecha) {
+  const filas = registros.map(r => [r.numero, r.establecimiento, r.region, r.analitica, r.muestra, (r.matriz || 'A').toLowerCase()]);
+  const wb = XLSX.utils.book_new();
+  const ws = XLSX.utils.aoa_to_sheet(filas);
+  ws['!cols'] = [{ wch: 14 }, { wch: 40 }, { wch: 20 }, { wch: 38 }, { wch: 35 }, { wch: 10 }];
+  XLSX.utils.book_append_sheet(wb, ws, 'Resumen');
+  XLSX.writeFile(wb, `resumen_${(fecha || '').replace(/\//g, '')}.xlsx`);
+}
 
 function exportarEtiquetas(registros, fecha) {
   const header  = ['Date', 'Number', 'Region', 'Tipo de análisis'];
-  // P-touch Editor 5.4 lee el texto directamente — guardamos como string DD/MM/YYYY
   const fechaTxt = normalizarFecha(fecha);
   const filas   = [header];
-
   for (const r of registros) {
-    const tiposCopia = LABEL_TIPOS.map(t =>
-      t === null ? `Matriz ${r.matriz}` : t
-    );
-    for (const tipo of tiposCopia) {
-      filas.push([fechaTxt, r.numero, r.region, tipo ?? '']);
-    }
+    const tiposCopia = LABEL_TIPOS.map(t => t === null ? `Matriz ${r.matriz || 'A'}` : t);
+    for (const tipo of tiposCopia) filas.push([fechaTxt, r.numero, r.region, tipo ?? '']);
   }
-
   const wb = XLSX.utils.book_new();
   const ws = XLSX.utils.aoa_to_sheet(filas);
   ws['!cols'] = [{ wch: 14 }, { wch: 14 }, { wch: 20 }, { wch: 18 }];
-
-  const ts = fecha.replace(/\//g, '');
   XLSX.utils.book_append_sheet(wb, ws, 'Labels');
-  XLSX.writeFile(wb, `labels_${ts}.xlsx`);
+  XLSX.writeFile(wb, `labels_${(fecha || '').replace(/\//g, '')}.xlsx`);
 }
 
-// ── Componentes UI ───────────────────────────────────────────────────────────
+// ── Supabase helpers ──────────────────────────────────────────────────────────
+
+async function guardarImport(registros, fecha, filename) {
+  if (!registros.length || !fecha) return { error: 'Sin datos' };
+
+  // Convertir fecha DD/MM/YYYY → YYYY-MM-DD para Postgres
+  const parts = fecha.split('/');
+  const fechaISO = `${parts[2]}-${parts[1].padStart(2,'0')}-${parts[0].padStart(2,'0')}`;
+
+  // Borrar registros existentes para esa fecha
+  await supabase.from('label_muestras').delete().eq('fecha', fechaISO);
+
+  // Insertar nuevos
+  const rows = registros.map(r => ({
+    fecha:           fechaISO,
+    filename:        filename || '',
+    numero:          r.numero,
+    establecimiento: r.establecimiento,
+    grupo:           r.grupo,
+    region:          r.region,
+    analitica:       r.analitica,
+    muestra:         r.muestra,
+    condicion:       r.condicion,
+    hora:            r.hora,
+    estado:          r.estado,
+    matriz:          r.matriz || 'A',
+  }));
+
+  const BATCH = 500;
+  for (let i = 0; i < rows.length; i += BATCH) {
+    const { error } = await supabase.from('label_muestras').insert(rows.slice(i, i + BATCH));
+    if (error) return { error: error.message };
+  }
+  return { ok: true };
+}
+
+async function cargarFechasDisponibles() {
+  const { data } = await supabase
+    .from('label_muestras')
+    .select('fecha, filename')
+    .order('fecha', { ascending: false })
+    .limit(5000);
+  if (!data) return [];
+  // Deduplicar por fecha
+  const seen = new Set();
+  return data.filter(r => { if (seen.has(r.fecha)) return false; seen.add(r.fecha); return true; });
+}
+
+async function cargarRegistrosDeFecha(fechaISO) {
+  const { data } = await supabase
+    .from('label_muestras')
+    .select('*')
+    .eq('fecha', fechaISO)
+    .order('created_at', { ascending: true })
+    .limit(5000);
+  return (data || []).map(r => ({
+    id:              r.id,
+    numero:          r.numero,
+    establecimiento: r.establecimiento,
+    grupo:           r.grupo,
+    region:          r.region,
+    analitica:       r.analitica,
+    muestra:         r.muestra,
+    condicion:       r.condicion,
+    hora:            r.hora,
+    estado:          r.estado,
+    fecha:           r.fecha.split('-').reverse().join('/'), // YYYY-MM-DD → DD/MM/YYYY
+    matriz:          r.matriz || 'A',
+  }));
+}
+
+async function actualizarRegistro(id, campo, valor) {
+  return supabase.from('label_muestras').update({ [campo]: valor }).eq('id', id);
+}
+
+// ── Componentes UI ────────────────────────────────────────────────────────────
 
 function Badge({ color, bg, border, children }) {
   return (
-    <span style={{
-      fontSize: '0.7rem', fontWeight: 700, color,
-      backgroundColor: bg, border: `1px solid ${border}`,
-      borderRadius: '5px', padding: '2px 8px', whiteSpace: 'nowrap',
-    }}>{children}</span>
+    <span style={{ fontSize: '0.7rem', fontWeight: 700, color, backgroundColor: bg, border: `1px solid ${border}`, borderRadius: '5px', padding: '2px 8px', whiteSpace: 'nowrap' }}>
+      {children}
+    </span>
   );
 }
 
 function StatCard({ label, value, color = 'var(--primary)' }) {
   return (
-    <div style={{
-      backgroundColor: 'white', borderRadius: '12px', padding: '16px 24px',
-      boxShadow: '0 2px 8px rgba(0,0,0,0.06)', textAlign: 'center', minWidth: '110px',
-    }}>
+    <div style={{ backgroundColor: 'white', borderRadius: '12px', padding: '16px 24px', boxShadow: '0 2px 8px rgba(0,0,0,0.06)', textAlign: 'center', minWidth: '110px' }}>
       <div style={{ fontSize: '2rem', fontWeight: 800, color, lineHeight: 1 }}>{value}</div>
       <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '4px', fontWeight: 600 }}>{label}</div>
     </div>
   );
 }
 
-// ── Guía P-touch Editor 5.4 ─────────────────────────────────────────────────
-
 const PTOUCH_STEPS = [
-  {
-    n: 1,
-    title: 'Abrir plantilla en P-touch Editor 5.4',
-    desc: 'Abre la plantilla de etiqueta configurada para la QL-810WC. Los campos de texto deben llamarse exactamente: Date · Number · Region · Tipo de análisis.',
-  },
-  {
-    n: 2,
-    title: 'Conectar base de datos',
-    desc: 'Menú Archivo → Base de datos → Conectar. Selecciona el XLS de etiquetas generado. Marca "La primera fila contiene nombres de campo".',
-  },
-  {
-    n: 3,
-    title: 'Verificar mapeo de campos',
-    desc: 'P-touch Editor detectará automáticamente los 4 campos. Comprueba que Date → Fecha, Number → Número, Region → Región, Tipo de análisis → Tipo.',
-  },
-  {
-    n: 4,
-    title: 'Imprimir todo',
-    desc: 'Archivo → Imprimir → Imprimir todo (o Ctrl+Shift+P). Selecciona Brother QL-810WC y confirma. Se imprimirán 9 etiquetas × N muestras en secuencia.',
-  },
+  { n: 1, title: 'Abrir plantilla en P-touch Editor 5.4', desc: 'Abre la plantilla configurada para la QL-810WC. Los campos de texto deben llamarse: Date · Number · Region · Tipo de análisis.' },
+  { n: 2, title: 'Conectar base de datos', desc: 'Menú Archivo → Base de datos → Conectar. Selecciona el XLS de etiquetas. Marca "La primera fila contiene nombres de campo".' },
+  { n: 3, title: 'Verificar mapeo de campos', desc: 'P-touch Editor detectará los 4 campos automáticamente. Comprueba que Date→Fecha, Number→Número, Region→Región, Tipo de análisis→Tipo.' },
+  { n: 4, title: 'Imprimir todo', desc: 'Archivo → Imprimir → Imprimir todo (Ctrl+Shift+P). Selecciona QL-810WC. Se imprimen 9 etiquetas × N muestras en secuencia.' },
 ];
 
 function PtouchGuide() {
   const [open, setOpen] = useState(false);
   return (
     <div style={{ marginBottom: '20px', border: '1px solid #E2E8F0', borderRadius: '12px', overflow: 'hidden', backgroundColor: 'white' }}>
-      <button
-        onClick={() => setOpen(v => !v)}
-        style={{ width: '100%', padding: '12px 18px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left' }}
-      >
+      <button onClick={() => setOpen(v => !v)} style={{ width: '100%', padding: '12px 18px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
           <span style={{ fontSize: '1.1rem' }}>🖨️</span>
-          <span style={{ fontWeight: 700, color: 'var(--secondary)', fontSize: '0.9rem' }}>
-            Guía de uso — Brother QL-810WC · P-touch Editor 5.4
-          </span>
-          <span style={{ fontSize: '0.72rem', backgroundColor: '#F0FDF4', color: '#16A34A', border: '1px solid #BBF7D0', borderRadius: '5px', padding: '1px 8px', fontWeight: 700 }}>
-            Compatible ✓
-          </span>
+          <span style={{ fontWeight: 700, color: 'var(--secondary)', fontSize: '0.9rem' }}>Guía de uso — Brother QL-810WC · P-touch Editor 5.4</span>
+          <span style={{ fontSize: '0.72rem', backgroundColor: '#F0FDF4', color: '#16A34A', border: '1px solid #BBF7D0', borderRadius: '5px', padding: '1px 8px', fontWeight: 700 }}>Compatible ✓</span>
         </div>
         <span style={{ color: '#94A3B8', fontSize: '0.8rem' }}>{open ? '▲' : '▼'}</span>
       </button>
       {open && (
         <div style={{ borderTop: '1px solid #F1F5F9', padding: '16px 20px' }}>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: '12px', marginBottom: '16px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: '12px', marginBottom: '14px' }}>
             {PTOUCH_STEPS.map(s => (
               <div key={s.n} style={{ display: 'flex', gap: '12px', alignItems: 'flex-start' }}>
                 <div style={{ width: '28px', height: '28px', borderRadius: '50%', backgroundColor: 'var(--primary)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: '0.8rem', flexShrink: 0 }}>{s.n}</div>
@@ -259,12 +267,8 @@ function PtouchGuide() {
             ))}
           </div>
           <div style={{ backgroundColor: '#FFFBEB', border: '1px solid #FCD34D', borderRadius: '8px', padding: '10px 14px', fontSize: '0.78rem', color: '#92400E' }}>
-            <strong>⚠️ Nombres de campo críticos</strong> — Los objetos de texto en la plantilla de P-touch deben llamarse exactamente igual que las columnas del XLS:
-            {' '}<code style={{ backgroundColor: '#FEF3C7', padding: '1px 5px', borderRadius: '3px', fontFamily: 'monospace' }}>Date</code>,
-            {' '}<code style={{ backgroundColor: '#FEF3C7', padding: '1px 5px', borderRadius: '3px', fontFamily: 'monospace' }}>Number</code>,
-            {' '}<code style={{ backgroundColor: '#FEF3C7', padding: '1px 5px', borderRadius: '3px', fontFamily: 'monospace' }}>Region</code>,
-            {' '}<code style={{ backgroundColor: '#FEF3C7', padding: '1px 5px', borderRadius: '3px', fontFamily: 'monospace' }}>Tipo de análisis</code>.
-            {' '}Si el mapeo falla, renombra los objetos en P-touch Editor haciendo doble clic sobre cada campo de texto.
+            <strong>⚠️ Nombres de campo críticos</strong> — Los objetos en la plantilla deben llamarse exactamente:{' '}
+            {['Date','Number','Region','Tipo de análisis'].map(f => <code key={f} style={{ backgroundColor: '#FEF3C7', padding: '1px 5px', borderRadius: '3px', fontFamily: 'monospace', marginRight: '4px' }}>{f}</code>)}
           </div>
         </div>
       )}
@@ -272,117 +276,166 @@ function PtouchGuide() {
   );
 }
 
-// ── Módulo principal ─────────────────────────────────────────────────────────
+// ── Selector de imports históricos ────────────────────────────────────────────
+
+function HistoricoPanel({ fechas, fechaActiva, onSelect }) {
+  const [open, setOpen] = useState(false);
+  if (!fechas.length) return null;
+  return (
+    <div style={{ marginBottom: '20px', border: '1px solid #E2E8F0', borderRadius: '12px', overflow: 'hidden', backgroundColor: 'white' }}>
+      <button onClick={() => setOpen(v => !v)} style={{ width: '100%', padding: '12px 18px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <Clock size={16} color="#7C3AED" />
+          <span style={{ fontWeight: 700, color: 'var(--secondary)', fontSize: '0.9rem' }}>Imports anteriores guardados</span>
+          <span style={{ fontSize: '0.72rem', backgroundColor: '#F5F3FF', color: '#7C3AED', border: '1px solid #DDD6FE', borderRadius: '5px', padding: '1px 8px', fontWeight: 700 }}>{fechas.length} día{fechas.length !== 1 ? 's' : ''}</span>
+        </div>
+        <span style={{ color: '#94A3B8', fontSize: '0.8rem' }}>{open ? '▲' : '▼'}</span>
+      </button>
+      {open && (
+        <div style={{ borderTop: '1px solid #F1F5F9', padding: '10px 14px', display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+          {fechas.map(f => {
+            const isActive = f.fecha === fechaActiva;
+            return (
+              <button
+                key={f.fecha}
+                onClick={() => onSelect(f.fecha)}
+                style={{
+                  padding: '6px 14px', borderRadius: '8px', fontSize: '0.82rem', fontWeight: 700, cursor: 'pointer',
+                  border: isActive ? '2px solid #7C3AED' : '1px solid #E2E8F0',
+                  backgroundColor: isActive ? '#F5F3FF' : 'white',
+                  color: isActive ? '#7C3AED' : 'var(--secondary)',
+                }}
+              >
+                {formatFechaLabel(f.fecha)}
+                {f.filename && <span style={{ fontWeight: 400, fontSize: '0.73rem', color: '#94A3B8', marginLeft: '6px' }}>{f.filename}</span>}
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Módulo principal ──────────────────────────────────────────────────────────
 
 export default function LabelGeneratorModule({ onBackToHub }) {
-  const [registros, setRegistros]       = useState([]);
-  const [fileName, setFileName]         = useState('');
-  const [fechaCSV, setFechaCSV]         = useState('');
-  const [error, setError]               = useState('');
-  const [isDragging, setIsDragging]     = useState(false);
-  const [expandedRow, setExpandedRow]   = useState(null);
-  const [filterRegion, setFilterRegion] = useState('');
-  const [filterMatriz, setFilterMatriz] = useState('');
+  const [registros, setRegistros]         = useState([]);
+  const [fileName, setFileName]           = useState('');
+  const [fechaCSV, setFechaCSV]           = useState('');
+  const [fechaActivaISO, setFechaActivaISO] = useState('');
+  const [error, setError]                 = useState('');
+  const [isDragging, setIsDragging]       = useState(false);
+  const [expandedRow, setExpandedRow]     = useState(null);
+  const [filterRegion, setFilterRegion]   = useState('');
+  const [filterMatriz, setFilterMatriz]   = useState('');
+  const [saving, setSaving]               = useState(false);
+  const [savedOk, setSavedOk]             = useState(false);
+  const [fechasDisp, setFechasDisp]       = useState([]);
+  const [savingCell, setSavingCell]       = useState(null); // id de fila guardándose
+
+  // Cargar fechas disponibles al montar
+  useEffect(() => {
+    cargarFechasDisponibles().then(setFechasDisp);
+  }, []);
+
+  // Actualizar un campo de un registro (local + DB si tiene id)
+  const updateField = useCallback(async (index, campo, valor) => {
+    setRegistros(prev => {
+      const next = [...prev];
+      next[index] = { ...next[index], [campo]: valor };
+      return next;
+    });
+    // Si el registro viene de DB (tiene id), guardar inmediatamente
+    const reg = registros[index];
+    if (reg?.id) {
+      setSavingCell(reg.id);
+      await actualizarRegistro(reg.id, campo, valor);
+      setSavingCell(null);
+    }
+  }, [registros]);
 
   const procesarArchivo = useCallback((file) => {
     if (!file) return;
-    if (!file.name.endsWith('.csv')) {
-      setError('El archivo debe ser un CSV (.csv)');
-      return;
-    }
-    setError('');
-    setFileName(file.name);
-
+    if (!file.name.endsWith('.csv')) { setError('El archivo debe ser un CSV (.csv)'); return; }
+    setError(''); setFileName(file.name);
     const reader = new FileReader();
-    reader.onload = (e) => {
+    reader.onload = async (e) => {
       try {
-        const texto = e.target.result;
-        const parsed = parseCSV(texto);
-        if (!parsed.length) {
-          setError('No se encontraron registros válidos en el CSV.');
-          return;
-        }
+        const parsed = parseCSV(e.target.result);
+        if (!parsed.length) { setError('No se encontraron registros válidos en el CSV.'); return; }
+        const primerFecha = parsed.find(r => r.fecha)?.fecha || '';
         setRegistros(parsed);
-        // Detectar fecha del primer registro con fecha
-        const primero = parsed.find(r => r.fecha);
-        setFechaCSV(primero?.fecha || '');
-        setExpandedRow(null);
-        setFilterRegion('');
-        setFilterMatriz('');
-      } catch (err) {
-        setError('Error al parsear el CSV: ' + err.message);
-      }
+        setFechaCSV(primerFecha);
+        setFechaActivaISO('');
+        setExpandedRow(null); setFilterRegion(''); setFilterMatriz('');
+
+        // Guardar en Supabase
+        setSaving(true); setSavedOk(false);
+        const res = await guardarImport(parsed, primerFecha, file.name);
+        setSaving(false);
+        if (!res.error) {
+          setSavedOk(true);
+          setTimeout(() => setSavedOk(false), 3000);
+          // Actualizar lista de fechas y asignar ids a los registros
+          const fechas = await cargarFechasDisponibles();
+          setFechasDisp(fechas);
+          // Recargar registros para tener los ids de DB
+          if (primerFecha) {
+            const parts = primerFecha.split('/');
+            const iso = `${parts[2]}-${parts[1].padStart(2,'0')}-${parts[0].padStart(2,'0')}`;
+            const cargados = await cargarRegistrosDeFecha(iso);
+            setRegistros(cargados);
+            setFechaActivaISO(iso);
+          }
+        } else { setError('Error al guardar: ' + res.error); }
+      } catch (err) { setError('Error al parsear el CSV: ' + err.message); }
     };
     reader.readAsText(file, 'UTF-8');
   }, []);
 
+  const cargarHistorico = useCallback(async (fechaISO) => {
+    setError(''); setExpandedRow(null); setFilterRegion(''); setFilterMatriz('');
+    const recs = await cargarRegistrosDeFecha(fechaISO);
+    if (!recs.length) { setError('No se encontraron registros para esa fecha.'); return; }
+    setRegistros(recs);
+    setFechaCSV(recs[0]?.fecha || '');
+    setFechaActivaISO(fechaISO);
+    setFileName('');
+  }, []);
+
   const onFileInput = (e) => procesarArchivo(e.target.files[0]);
-  const onDrop = (e) => {
-    e.preventDefault(); setIsDragging(false);
-    procesarArchivo(e.dataTransfer.files[0]);
-  };
+  const onDrop = (e) => { e.preventDefault(); setIsDragging(false); procesarArchivo(e.dataTransfer.files[0]); };
 
   // Stats
   const nA = registros.filter(r => r.matriz === 'A').length;
   const nB = registros.filter(r => r.matriz === 'B').length;
   const regiones = [...new Set(registros.map(r => r.region).filter(Boolean))].sort();
-
-  // Filtros
-  const filtrados = registros.filter(r =>
-    (!filterRegion || r.region === filterRegion) &&
-    (!filterMatriz || r.matriz === filterMatriz)
-  );
-
-  const fechaLabel = fechaCSV
-    ? `${fechaCSV.split('/')[0]}/${fechaCSV.split('/')[1]}/${fechaCSV.split('/')[2]}`
-    : '';
+  const filtrados = registros.filter(r => (!filterRegion || r.region === filterRegion) && (!filterMatriz || r.matriz === filterMatriz));
+  const fechaLabel = fechaCSV ? normalizarFecha(fechaCSV) : '';
 
   return (
     <div style={{ minHeight: '100vh', backgroundColor: 'var(--background)', fontFamily: 'system-ui, sans-serif' }}>
 
       {/* ── Header ── */}
-      <header style={{
-        backgroundColor: 'var(--secondary)', color: 'white',
-        padding: '0 32px', height: '60px',
-        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        boxShadow: '0 2px 12px rgba(0,0,0,0.15)',
-      }}>
+      <header style={{ backgroundColor: 'var(--secondary)', color: 'white', padding: '0 32px', height: '60px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', boxShadow: '0 2px 12px rgba(0,0,0,0.15)' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-          <button
-            onClick={onBackToHub}
-            style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.7)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem', fontWeight: 600 }}
-          >
+          <button onClick={onBackToHub} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.7)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem', fontWeight: 600 }}>
             <ArrowLeft size={16} /> Hub
           </button>
           <span style={{ color: 'rgba(255,255,255,0.3)' }}>|</span>
           <Tag size={18} style={{ color: '#7DD3FC' }} />
           <span style={{ fontWeight: 700, fontSize: '1rem' }}>Generador de Etiquetas</span>
-          {fechaCSV && (
-            <span style={{ fontSize: '0.78rem', backgroundColor: 'rgba(255,255,255,0.12)', borderRadius: '6px', padding: '2px 10px', color: 'rgba(255,255,255,0.8)' }}>
-              {fechaLabel}
-            </span>
-          )}
+          {fechaLabel && <span style={{ fontSize: '0.78rem', backgroundColor: 'rgba(255,255,255,0.12)', borderRadius: '6px', padding: '2px 10px', color: 'rgba(255,255,255,0.8)' }}>{fechaLabel}</span>}
+          {saving && <span style={{ fontSize: '0.78rem', color: '#7DD3FC', display: 'flex', alignItems: 'center', gap: '4px' }}><Save size={13} /> Guardando…</span>}
+          {savedOk && <span style={{ fontSize: '0.78rem', color: '#86EFAC', display: 'flex', alignItems: 'center', gap: '4px' }}><CheckCircle size={13} /> Guardado</span>}
         </div>
         {registros.length > 0 && (
           <div style={{ display: 'flex', gap: '10px' }}>
-            <button
-              onClick={() => exportarResumen(registros, fechaCSV)}
-              style={{
-                display: 'flex', alignItems: 'center', gap: '7px',
-                padding: '7px 16px', borderRadius: '8px', border: 'none', cursor: 'pointer',
-                backgroundColor: '#0891B2', color: 'white', fontWeight: 700, fontSize: '0.82rem',
-              }}
-            >
+            <button onClick={() => exportarResumen(registros, fechaCSV)} style={{ display: 'flex', alignItems: 'center', gap: '7px', padding: '7px 16px', borderRadius: '8px', border: 'none', cursor: 'pointer', backgroundColor: '#0891B2', color: 'white', fontWeight: 700, fontSize: '0.82rem' }}>
               <FileSpreadsheet size={15} /> Exportar Resumen
             </button>
-            <button
-              onClick={() => exportarEtiquetas(registros, fechaCSV)}
-              style={{
-                display: 'flex', alignItems: 'center', gap: '7px',
-                padding: '7px 16px', borderRadius: '8px', border: 'none', cursor: 'pointer',
-                backgroundColor: '#16A34A', color: 'white', fontWeight: 700, fontSize: '0.82rem',
-              }}
-            >
+            <button onClick={() => exportarEtiquetas(registros, fechaCSV)} style={{ display: 'flex', alignItems: 'center', gap: '7px', padding: '7px 16px', borderRadius: '8px', border: 'none', cursor: 'pointer', backgroundColor: '#16A34A', color: 'white', fontWeight: 700, fontSize: '0.82rem' }}>
               <Download size={15} /> Exportar Etiquetas
             </button>
           </div>
@@ -391,42 +444,23 @@ export default function LabelGeneratorModule({ onBackToHub }) {
 
       <div style={{ maxWidth: '1300px', margin: '0 auto', padding: '28px 24px' }}>
 
-        {/* ── Guía Brother P-touch ── */}
         <PtouchGuide />
+        <HistoricoPanel fechas={fechasDisp} fechaActiva={fechaActivaISO} onSelect={cargarHistorico} />
 
         {/* ── Zona de carga ── */}
         <div
           onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
           onDragLeave={() => setIsDragging(false)}
           onDrop={onDrop}
-          style={{
-            border: `2px dashed ${isDragging ? 'var(--primary)' : '#CBD5E1'}`,
-            borderRadius: '14px', padding: '36px',
-            backgroundColor: isDragging ? 'var(--primary-light)' : 'white',
-            textAlign: 'center', transition: 'all 0.15s',
-            marginBottom: '24px', cursor: 'pointer',
-          }}
+          style={{ border: `2px dashed ${isDragging ? 'var(--primary)' : '#CBD5E1'}`, borderRadius: '14px', padding: '32px', backgroundColor: isDragging ? 'var(--primary-light)' : 'white', textAlign: 'center', transition: 'all 0.15s', marginBottom: '24px', cursor: 'pointer' }}
           onClick={() => document.getElementById('csv-input').click()}
         >
           <input id="csv-input" type="file" accept=".csv" style={{ display: 'none' }} onChange={onFileInput} />
-          <Upload size={36} color={isDragging ? 'var(--primary)' : '#94A3B8'} style={{ marginBottom: '10px' }} />
-          {fileName ? (
-            <div>
-              <div style={{ fontWeight: 700, color: 'var(--secondary)', fontSize: '1rem' }}>{fileName}</div>
-              <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '4px' }}>
-                Haz clic o arrastra un nuevo CSV para reemplazar
-              </div>
-            </div>
-          ) : (
-            <div>
-              <div style={{ fontWeight: 700, color: 'var(--secondary)', fontSize: '1rem' }}>
-                Arrastra el CSV de HS Manager aquí
-              </div>
-              <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '4px' }}>
-                o haz clic para seleccionar el archivo
-              </div>
-            </div>
-          )}
+          <Upload size={32} color={isDragging ? 'var(--primary)' : '#94A3B8'} style={{ marginBottom: '8px' }} />
+          {fileName
+            ? <div><div style={{ fontWeight: 700, color: 'var(--secondary)', fontSize: '1rem' }}>{fileName}</div><div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '4px' }}>Haz clic o arrastra un nuevo CSV para reemplazar</div></div>
+            : <div><div style={{ fontWeight: 700, color: 'var(--secondary)', fontSize: '1rem' }}>Arrastra el CSV de HS Manager aquí</div><div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '4px' }}>o haz clic para seleccionar · Se guardará automáticamente</div></div>
+          }
         </div>
 
         {error && (
@@ -444,38 +478,29 @@ export default function LabelGeneratorModule({ onBackToHub }) {
               <StatCard label="Matriz B" value={nB} color="#0891B2" />
               <StatCard label="Etiquetas" value={registros.length * 9} color="#7C3AED" />
               <StatCard label="Regiones" value={regiones.length} color="#D97706" />
+              <div style={{ marginLeft: 'auto', fontSize: '0.78rem', color: 'var(--text-muted)', lineHeight: 1.6, textAlign: 'right' }}>
+                <div>✏️ <strong>Haz clic en A/B</strong> para cambiar la Matriz</div>
+                <div>✏️ <strong>Haz clic en la muestra</strong> para editar la descripción</div>
+              </div>
             </div>
 
             {/* ── Filtros ── */}
             <div style={{ display: 'flex', gap: '10px', marginBottom: '16px', alignItems: 'center' }}>
-              <select
-                value={filterRegion}
-                onChange={e => setFilterRegion(e.target.value)}
-                style={{ padding: '7px 12px', borderRadius: '8px', border: '1px solid var(--border)', fontSize: '0.85rem', color: 'var(--secondary)', backgroundColor: 'white' }}
-              >
+              <select value={filterRegion} onChange={e => setFilterRegion(e.target.value)} style={{ padding: '7px 12px', borderRadius: '8px', border: '1px solid var(--border)', fontSize: '0.85rem', color: 'var(--secondary)', backgroundColor: 'white' }}>
                 <option value="">Todas las regiones</option>
                 {regiones.map(r => <option key={r} value={r}>{r}</option>)}
               </select>
-              <select
-                value={filterMatriz}
-                onChange={e => setFilterMatriz(e.target.value)}
-                style={{ padding: '7px 12px', borderRadius: '8px', border: '1px solid var(--border)', fontSize: '0.85rem', color: 'var(--secondary)', backgroundColor: 'white' }}
-              >
+              <select value={filterMatriz} onChange={e => setFilterMatriz(e.target.value)} style={{ padding: '7px 12px', borderRadius: '8px', border: '1px solid var(--border)', fontSize: '0.85rem', color: 'var(--secondary)', backgroundColor: 'white' }}>
                 <option value="">Todas las matrices</option>
                 <option value="A">Matriz A</option>
                 <option value="B">Matriz B</option>
               </select>
               {(filterRegion || filterMatriz) && (
-                <button
-                  onClick={() => { setFilterRegion(''); setFilterMatriz(''); }}
-                  style={{ padding: '7px 12px', borderRadius: '8px', border: '1px solid var(--border)', fontSize: '0.82rem', backgroundColor: 'white', cursor: 'pointer', color: 'var(--text-muted)', fontWeight: 600 }}
-                >
+                <button onClick={() => { setFilterRegion(''); setFilterMatriz(''); }} style={{ padding: '7px 12px', borderRadius: '8px', border: '1px solid var(--border)', fontSize: '0.82rem', backgroundColor: 'white', cursor: 'pointer', color: 'var(--text-muted)', fontWeight: 600 }}>
                   <X size={13} style={{ verticalAlign: 'middle' }} /> Limpiar
                 </button>
               )}
-              <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginLeft: 'auto' }}>
-                {filtrados.length} registros mostrados
-              </span>
+              <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginLeft: 'auto' }}>{filtrados.length} registros</span>
             </div>
 
             {/* ── Tabla ── */}
@@ -490,57 +515,76 @@ export default function LabelGeneratorModule({ onBackToHub }) {
                   </tr>
                 </thead>
                 <tbody>
-                  {filtrados.map((r, i) => {
-                    const isExp = expandedRow === i;
-                    const rowBg = i % 2 === 0 ? 'white' : '#F8FAFC';
-                    const mColor = r.matriz === 'B' ? '#0891B2' : '#16A34A';
-                    const mBg    = r.matriz === 'B' ? '#ECFEFF' : '#F0FDF4';
-                    const mBorder= r.matriz === 'B' ? '#A5F3FC' : '#BBF7D0';
+                  {filtrados.map((r, idx) => {
+                    // Buscar índice real en registros (los filtrados pueden ser un subconjunto)
+                    const realIdx = registros.findIndex(x => x === r || (x.id && x.id === r.id) || (!x.id && x.numero === r.numero && x.muestra === r.muestra));
+                    const isExp    = expandedRow === idx;
+                    const rowBg    = idx % 2 === 0 ? 'white' : '#F8FAFC';
+                    const mColor   = r.matriz === 'B' ? '#0891B2' : '#16A34A';
+                    const mBg      = r.matriz === 'B' ? '#ECFEFF' : '#F0FDF4';
+                    const mBorder  = r.matriz === 'B' ? '#A5F3FC' : '#BBF7D0';
+                    const isSavingThis = savingCell === r.id;
+
                     return (
-                      <React.Fragment key={i}>
-                        <tr
-                          style={{ backgroundColor: isExp ? '#EFF6FF' : rowBg, borderBottom: '1px solid #F1F5F9', cursor: 'pointer', transition: 'background 0.1s' }}
-                          onClick={() => setExpandedRow(isExp ? null : i)}
-                        >
-                          <td style={{ padding: '10px 14px', fontWeight: 700, color: 'var(--primary)', fontFamily: 'monospace', fontSize: '0.85rem' }}>{r.numero}</td>
-                          <td style={{ padding: '10px 14px', fontWeight: 600, color: 'var(--secondary)', maxWidth: '220px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.establecimiento}</td>
-                          <td style={{ padding: '10px 14px', color: 'var(--text-muted)' }}>{r.region}</td>
-                          <td style={{ padding: '10px 14px', color: 'var(--text-muted)', maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.analitica}</td>
-                          <td style={{ padding: '10px 14px', color: 'var(--secondary)', maxWidth: '180px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.muestra}</td>
-                          <td style={{ padding: '10px 14px' }}>
-                            <Badge color={mColor} bg={mBg} border={mBorder}>Matriz {r.matriz}</Badge>
+                      <React.Fragment key={r.id || idx}>
+                        <tr style={{ backgroundColor: isExp ? '#EFF6FF' : rowBg, borderBottom: '1px solid #F1F5F9' }}>
+                          {/* Número */}
+                          <td style={{ padding: '10px 14px', fontWeight: 700, color: 'var(--primary)', fontFamily: 'monospace', fontSize: '0.85rem', cursor: 'pointer' }} onClick={() => setExpandedRow(isExp ? null : idx)}>
+                            {r.numero}
                           </td>
-                          <td style={{ padding: '10px 14px', textAlign: 'center', color: '#94A3B8' }}>
+                          {/* Establecimiento */}
+                          <td style={{ padding: '10px 14px', fontWeight: 600, color: 'var(--secondary)', maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', cursor: 'pointer' }} onClick={() => setExpandedRow(isExp ? null : idx)}>
+                            {r.establecimiento}
+                          </td>
+                          {/* Región */}
+                          <td style={{ padding: '10px 14px', color: 'var(--text-muted)', cursor: 'pointer' }} onClick={() => setExpandedRow(isExp ? null : idx)}>
+                            {r.region}
+                          </td>
+                          {/* Analítica */}
+                          <td style={{ padding: '10px 14px', color: 'var(--text-muted)', maxWidth: '180px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', cursor: 'pointer' }} onClick={() => setExpandedRow(isExp ? null : idx)}>
+                            {r.analitica}
+                          </td>
+                          {/* Muestra — editable inline */}
+                          <td style={{ padding: '6px 10px', maxWidth: '200px' }}>
+                            <EditableText
+                              value={r.muestra}
+                              onChange={val => updateField(realIdx, 'muestra', val)}
+                              saving={isSavingThis}
+                            />
+                          </td>
+                          {/* Matriz — editable toggle */}
+                          <td style={{ padding: '10px 14px' }}>
+                            <MatrizToggle
+                              value={r.matriz}
+                              onChange={val => updateField(realIdx, 'matriz', val)}
+                              saving={isSavingThis}
+                            />
+                          </td>
+                          {/* Expand */}
+                          <td style={{ padding: '10px 14px', textAlign: 'center', color: '#94A3B8', cursor: 'pointer' }} onClick={() => setExpandedRow(isExp ? null : idx)}>
                             {isExp ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
                           </td>
                         </tr>
+
                         {isExp && (
                           <tr style={{ backgroundColor: '#F0F9FF', borderBottom: '2px solid var(--primary)' }}>
                             <td colSpan={7} style={{ padding: '14px 20px' }}>
                               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '10px', marginBottom: '14px' }}>
-                                <div><span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase' }}>Grupo</span><div style={{ fontWeight: 600, color: 'var(--secondary)', fontSize: '0.85rem' }}>{r.grupo || '—'}</div></div>
-                                <div><span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase' }}>Condiciones</span><div style={{ fontWeight: 600, color: 'var(--secondary)', fontSize: '0.85rem' }}>{r.condicion || '—'}</div></div>
-                                <div><span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase' }}>Fecha recogida</span><div style={{ fontWeight: 600, color: 'var(--secondary)', fontSize: '0.85rem' }}>{r.fecha || '—'}</div></div>
-                                <div><span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase' }}>Hora</span><div style={{ fontWeight: 600, color: 'var(--secondary)', fontSize: '0.85rem' }}>{r.hora || '—'}</div></div>
-                                <div><span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase' }}>Estado</span><div style={{ fontWeight: 600, color: 'var(--secondary)', fontSize: '0.85rem' }}>{r.estado || '—'}</div></div>
+                                {[['Grupo', r.grupo], ['Condiciones', r.condicion], ['Fecha recogida', r.fecha], ['Hora', r.hora], ['Estado', r.estado]].map(([lbl, val]) => (
+                                  <div key={lbl}>
+                                    <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase' }}>{lbl}</span>
+                                    <div style={{ fontWeight: 600, color: 'var(--secondary)', fontSize: '0.85rem' }}>{val || '—'}</div>
+                                  </div>
+                                ))}
                               </div>
-                              {/* Preview etiquetas */}
-                              <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 700, marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                                Preview 9 etiquetas
-                              </div>
+                              {/* Preview 9 etiquetas */}
+                              <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 700, marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Preview 9 etiquetas</div>
                               <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
                                 {LABEL_TIPOS.map((t, li) => {
                                   const tipo = t === null ? `Matriz ${r.matriz}` : (t || '—');
                                   const isMatriz = t === null;
                                   return (
-                                    <div key={li} style={{
-                                      backgroundColor: isMatriz ? (r.matriz === 'B' ? '#ECFEFF' : '#F0FDF4') : '#F8FAFC',
-                                      border: `1px solid ${isMatriz ? (r.matriz === 'B' ? '#A5F3FC' : '#BBF7D0') : '#E2E8F0'}`,
-                                      borderRadius: '6px', padding: '5px 10px', fontSize: '0.75rem',
-                                      fontWeight: isMatriz ? 800 : 600,
-                                      color: isMatriz ? (r.matriz === 'B' ? '#0891B2' : '#16A34A') : '#475569',
-                                      minWidth: '52px', textAlign: 'center',
-                                    }}>
+                                    <div key={li} style={{ backgroundColor: isMatriz ? mBg : '#F8FAFC', border: `1px solid ${isMatriz ? mBorder : '#E2E8F0'}`, borderRadius: '6px', padding: '5px 10px', fontSize: '0.75rem', fontWeight: isMatriz ? 800 : 600, color: isMatriz ? mColor : '#475569', minWidth: '52px', textAlign: 'center' }}>
                                       <div style={{ fontSize: '0.6rem', color: '#94A3B8', marginBottom: '1px' }}>{li + 1}</div>
                                       {tipo}
                                     </div>
@@ -555,36 +599,17 @@ export default function LabelGeneratorModule({ onBackToHub }) {
                   })}
                 </tbody>
               </table>
-
               {filtrados.length === 0 && (
-                <div style={{ padding: '40px', textAlign: 'center', color: 'var(--text-muted)', fontWeight: 600 }}>
-                  No hay registros con los filtros seleccionados.
-                </div>
+                <div style={{ padding: '40px', textAlign: 'center', color: 'var(--text-muted)', fontWeight: 600 }}>No hay registros con los filtros seleccionados.</div>
               )}
             </div>
 
             {/* ── Botones exportar abajo ── */}
             <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end', marginTop: '20px' }}>
-              <button
-                onClick={() => exportarResumen(registros, fechaCSV)}
-                style={{
-                  display: 'flex', alignItems: 'center', gap: '8px',
-                  padding: '11px 22px', borderRadius: '10px', border: 'none', cursor: 'pointer',
-                  backgroundColor: '#0891B2', color: 'white', fontWeight: 700, fontSize: '0.9rem',
-                  boxShadow: '0 2px 8px rgba(8,145,178,0.3)',
-                }}
-              >
+              <button onClick={() => exportarResumen(registros, fechaCSV)} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '11px 22px', borderRadius: '10px', border: 'none', cursor: 'pointer', backgroundColor: '#0891B2', color: 'white', fontWeight: 700, fontSize: '0.9rem', boxShadow: '0 2px 8px rgba(8,145,178,0.3)' }}>
                 <FileSpreadsheet size={17} /> Exportar XLS Resumen
               </button>
-              <button
-                onClick={() => exportarEtiquetas(registros, fechaCSV)}
-                style={{
-                  display: 'flex', alignItems: 'center', gap: '8px',
-                  padding: '11px 22px', borderRadius: '10px', border: 'none', cursor: 'pointer',
-                  backgroundColor: '#16A34A', color: 'white', fontWeight: 700, fontSize: '0.9rem',
-                  boxShadow: '0 2px 8px rgba(22,163,74,0.3)',
-                }}
-              >
+              <button onClick={() => exportarEtiquetas(registros, fechaCSV)} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '11px 22px', borderRadius: '10px', border: 'none', cursor: 'pointer', backgroundColor: '#16A34A', color: 'white', fontWeight: 700, fontSize: '0.9rem', boxShadow: '0 2px 8px rgba(22,163,74,0.3)' }}>
                 <Download size={17} /> Exportar XLS Etiquetas ({registros.length * 9} filas)
               </button>
             </div>
@@ -600,5 +625,70 @@ export default function LabelGeneratorModule({ onBackToHub }) {
         )}
       </div>
     </div>
+  );
+}
+
+// ── Celda editable: Muestra (texto) ──────────────────────────────────────────
+
+function EditableText({ value, onChange, saving }) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft]     = useState(value);
+
+  useEffect(() => { setDraft(value); }, [value]);
+
+  const commit = () => {
+    setEditing(false);
+    if (draft !== value) onChange(draft);
+  };
+
+  if (editing) {
+    return (
+      <input
+        autoFocus
+        value={draft}
+        onChange={e => setDraft(e.target.value)}
+        onBlur={commit}
+        onKeyDown={e => { if (e.key === 'Enter') commit(); if (e.key === 'Escape') { setDraft(value); setEditing(false); } }}
+        style={{ width: '100%', padding: '4px 8px', border: '1.5px solid var(--primary)', borderRadius: '6px', fontSize: '0.82rem', outline: 'none', fontFamily: 'inherit' }}
+      />
+    );
+  }
+
+  return (
+    <div
+      onClick={() => setEditing(true)}
+      title="Clic para editar la descripción"
+      style={{ padding: '4px 8px', borderRadius: '6px', border: '1px dashed transparent', cursor: 'text', color: saving ? '#94A3B8' : 'var(--secondary)', fontSize: '0.82rem', maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', transition: 'border-color 0.15s' }}
+      onMouseEnter={e => e.currentTarget.style.borderColor = '#CBD5E1'}
+      onMouseLeave={e => e.currentTarget.style.borderColor = 'transparent'}
+    >
+      {value || <span style={{ color: '#CBD5E1', fontStyle: 'italic' }}>—</span>}
+    </div>
+  );
+}
+
+// ── Celda editable: Matriz (toggle A/B) ──────────────────────────────────────
+
+function MatrizToggle({ value, onChange, saving }) {
+  const isB   = value === 'B';
+  const color  = isB ? '#0891B2' : '#16A34A';
+  const bg     = isB ? '#ECFEFF' : '#F0FDF4';
+  const border = isB ? '#A5F3FC' : '#BBF7D0';
+
+  return (
+    <button
+      onClick={() => onChange(isB ? 'A' : 'B')}
+      title={`Clic para cambiar a Matriz ${isB ? 'A' : 'B'}`}
+      disabled={saving}
+      style={{
+        fontSize: '0.72rem', fontWeight: 800, color, backgroundColor: bg,
+        border: `1.5px solid ${border}`, borderRadius: '6px', padding: '3px 10px',
+        cursor: saving ? 'wait' : 'pointer', transition: 'all 0.15s',
+        display: 'flex', alignItems: 'center', gap: '5px',
+      }}
+    >
+      Matriz {value}
+      <span style={{ fontSize: '0.65rem', opacity: 0.6 }}>⇄</span>
+    </button>
   );
 }
