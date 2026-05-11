@@ -198,21 +198,17 @@ function exportarPDFLab(registros, fecha) {
   }) + ' ' + now.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
 
   // ─── CABECERA ────────────────────────────────────────────────
-  // Barra azul oscura
   doc.setFillColor(0, 11, 61);
   doc.rect(0, 0, pageW, 27, 'F');
 
-  // Franja azul viva de acento
   doc.setFillColor(0, 118, 206);
   doc.rect(0, 27, pageW, 2.5, 'F');
 
-  // Título
   doc.setTextColor(255, 255, 255);
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(14);
   doc.text('HSLAB  ·  Registro de Recepción de Muestras', margin, 11);
 
-  // Subtítulo
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(8.5);
   doc.setTextColor(180, 200, 230);
@@ -221,96 +217,32 @@ function exportarPDFLab(registros, fecha) {
   doc.setFont('helvetica', 'bold');
   doc.text(fechaLabel, margin + 31, 20);
 
-  // Derecha: generado
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(7.5);
   doc.setTextColor(160, 190, 220);
   doc.text(`Generado: ${fechaGen}`, pageW - margin, 20, { align: 'right' });
 
-  // ─── TARJETAS DE ESTADÍSTICAS ────────────────────────────────
-  const nA = registros.filter(r => r.matriz === 'A').length;
-  const nB = registros.filter(r => r.matriz === 'B').length;
-  const regiones = [...new Set(registros.map(r => r.region).filter(Boolean))];
-  const establecimientos = [...new Set(registros.map(r => r.establecimiento).filter(Boolean))];
-
-  const stats = [
-    { label: 'MUESTRAS',      value: String(registros.length),          rgb: [0, 118, 206] },
-    { label: 'MATRIZ A',      value: String(nA),                         rgb: [22, 163, 74] },
-    { label: 'MATRIZ B',      value: String(nB),                         rgb: [8, 145, 178] },
-    { label: 'ETIQUETAS',     value: String(registros.length * 9),        rgb: [109, 40, 217] },
-    { label: 'REGIONES',      value: String(regiones.length),             rgb: [217, 119, 6] },
-    { label: 'ESTABLEC.',     value: String(establecimientos.length),     rgb: [15, 118, 110] },
-  ];
-
-  const boxW   = 40;
-  const boxH   = 16;
-  const totalBoxW = stats.length * boxW;
-  const totalGap  = (pageW - 2 * margin) - totalBoxW;
-  const gap    = totalGap / (stats.length - 1);
-
-  stats.forEach((s, i) => {
-    const x = margin + i * (boxW + gap);
-    const y = 31.5;
-    doc.setFillColor(...s.rgb);
-    doc.roundedRect(x, y, boxW, boxH, 2, 2, 'F');
-
-    // Valor grande
-    doc.setTextColor(255, 255, 255);
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(13);
-    doc.text(s.value, x + boxW / 2, y + 7.5, { align: 'center' });
-
-    // Etiqueta pequeña
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(5.5);
-    doc.setTextColor(220, 235, 255);
-    doc.text(s.label, x + boxW / 2, y + 13.5, { align: 'center' });
-  });
-
   // ─── TABLA PRINCIPAL ─────────────────────────────────────────
+  // Ordenar por número de muestra (ES + número numérico)
   const sorted = [...registros].sort((a, b) =>
-    (a.establecimiento || '').localeCompare(b.establecimiento || '', 'es') ||
-    (a.region || '').localeCompare(b.region || '', 'es') ||
     (a.numero || '').localeCompare(b.numero || '', 'es', { numeric: true })
   );
 
-  // Construir filas con cabeceras de grupo por Establecimiento
-  const bodyData = [];
-  let lastEstab = null;
-  for (const r of sorted) {
-    if (r.establecimiento !== lastEstab) {
-      bodyData.push([
-        {
-          content: `  ${r.establecimiento || '—'}`,
-          colSpan: 7,
-          styles: {
-            fillColor: [15, 23, 42],
-            textColor: [203, 213, 225],
-            fontStyle: 'bold',
-            fontSize: 7,
-            cellPadding: { top: 3, bottom: 3, left: 8, right: 8 },
-          },
-        },
-      ]);
-      lastEstab = r.establecimiento;
-    }
-    bodyData.push([
-      r.numero        || '',
-      r.region        || '',
-      r.analitica     || '',
-      r.muestra       || '',
-      r.condicion     || '',
-      r.hora          || '',
-      r.matriz === 'B' ? 'Matriz B' : 'Matriz A',
-    ]);
-  }
+  const bodyData = sorted.map(r => [
+    r.numero        || '',
+    r.establecimiento || '',
+    r.region        || '',
+    r.muestra       || '',
+    r.hora          || '',
+    r.matriz === 'B' ? 'Matriz B' : 'Matriz A',
+  ]);
 
   autoTable(doc, {
-    startY: 51,
-    head: [['Número', 'Región', 'Analítica', 'Muestra / Punto', 'Condición de recogida', 'Hora', 'Matriz']],
+    startY: 33,
+    head: [['Número', 'Establecimiento', 'Región', 'Muestra / Punto', 'Hora', 'Matriz']],
     body: bodyData,
     styles: {
-      fontSize: 6.8,
+      fontSize: 7,
       cellPadding: { top: 2.5, bottom: 2.5, left: 3.5, right: 3.5 },
       lineColor: [226, 232, 240],
       lineWidth: 0.2,
@@ -321,54 +253,47 @@ function exportarPDFLab(registros, fecha) {
       fillColor: [0, 118, 206],
       textColor: [255, 255, 255],
       fontStyle: 'bold',
-      fontSize: 7,
+      fontSize: 7.5,
       cellPadding: { top: 3.5, bottom: 3.5, left: 3.5, right: 3.5 },
     },
     alternateRowStyles: {
       fillColor: [248, 250, 252],
     },
     columnStyles: {
-      0: { cellWidth: 24,  fontStyle: 'bold', textColor: [0, 118, 206] },
-      1: { cellWidth: 28 },
-      2: { cellWidth: 52 },
-      3: { cellWidth: 50 },
-      4: { cellWidth: 50 },
-      5: { cellWidth: 13,  halign: 'center' },
-      6: { cellWidth: 22,  halign: 'center', fontStyle: 'bold' },
+      0: { cellWidth: 26,  fontStyle: 'bold', textColor: [0, 118, 206] },
+      1: { cellWidth: 70 },
+      2: { cellWidth: 32 },
+      3: { cellWidth: 100 },
+      4: { cellWidth: 15,  halign: 'center' },
+      5: { cellWidth: 22,  halign: 'center', fontStyle: 'bold' },
     },
     didParseCell: (data) => {
-      if (data.section === 'body' && data.column.index === 6) {
+      if (data.section === 'body' && data.column.index === 5) {
         const v = data.cell.raw;
         if (v === 'Matriz B') {
-          data.cell.styles.textColor    = [8, 145, 178];
-          data.cell.styles.fillColor    = [236, 254, 255];
+          data.cell.styles.textColor = [8, 145, 178];
+          data.cell.styles.fillColor = [236, 254, 255];
         } else if (v === 'Matriz A') {
-          data.cell.styles.textColor    = [22, 163, 74];
-          data.cell.styles.fillColor    = [240, 253, 244];
+          data.cell.styles.textColor = [22, 163, 74];
+          data.cell.styles.fillColor = [240, 253, 244];
         }
       }
     },
     didDrawPage: (data) => {
-      // Línea divisoria superior al pie
       doc.setDrawColor(226, 232, 240);
       doc.setLineWidth(0.3);
       doc.line(margin, pageH - 9, pageW - margin, pageH - 9);
 
-      // Pie izquierdo
       doc.setFont('helvetica', 'normal');
       doc.setFontSize(6.5);
       doc.setTextColor(148, 163, 184);
       doc.text(`HSLAB · Registro de Muestras · ${fechaLabel}`, margin, pageH - 5.5);
-
-      // Pie derecho
       doc.text(
         `Pág. ${data.pageNumber}   ·   Generado: ${fechaGen}`,
-        pageW - margin,
-        pageH - 5.5,
-        { align: 'right' }
+        pageW - margin, pageH - 5.5, { align: 'right' }
       );
     },
-    margin: { top: 51, left: margin, right: margin, bottom: 13 },
+    margin: { top: 33, left: margin, right: margin, bottom: 13 },
   });
 
   doc.save(`lab_registro_${(fecha || '').replace(/\//g, '')}.pdf`);
