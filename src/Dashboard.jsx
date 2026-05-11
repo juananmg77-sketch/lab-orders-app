@@ -25,7 +25,9 @@ import {
   ThumbsUp,
   ThumbsDown,
   AlertCircle,
-  ShoppingCart
+  ShoppingCart,
+  FlaskConical,
+  Wrench
 } from 'lucide-react';
 
 const COLORS = ['#0076CE', '#34D399', '#FBBF24', '#F87171', '#818CF8', '#A78BFA'];
@@ -131,6 +133,9 @@ export default function Dashboard({ orders, articles, onTabChange, onNavigateToP
     return map;
   }, [baseFiltered]);
 
+  // Regex para detectar categorías de equipos/equipamiento
+  const EQUIPO_RE = /equipo|equipamiento|instrument|aparato|maquina|maquinaria/i;
+
   // Aggregate Stats (for charts and KPIs)
   const stats = useMemo(() => {
     let totalSpent = 0;
@@ -138,6 +143,7 @@ export default function Dashboard({ orders, articles, onTabChange, onNavigateToP
     const refMap = new Map();
     const supplierSpending = {};
     const monthlySpending = {};
+    const categorySpending = {};
 
     filteredData.forEach(order => {
       totalSpent += order.total || 0;
@@ -159,8 +165,12 @@ export default function Dashboard({ orders, articles, onTabChange, onNavigateToP
           const subtotal = price * qty;
           totalItemsPurchased += qty;
 
+          // Acumular gasto por categoría
+          const cat = (item.article.category || 'Sin categoría').trim();
+          categorySpending[cat] = (categorySpending[cat] || 0) + subtotal;
+
           if (!refMap.has(ref)) {
-            refMap.set(ref, { id: ref, name: item.article.name, supplier: item.article.supplierName, totalQty: 0, totalCost: 0, count: 0 });
+            refMap.set(ref, { id: ref, name: item.article.name, category: item.article.category || '', supplier: item.article.supplierName, totalQty: 0, totalCost: 0, count: 0 });
           }
           const cur = refMap.get(ref);
           cur.totalQty  += qty;
@@ -188,6 +198,18 @@ export default function Dashboard({ orders, articles, onTabChange, onNavigateToP
       })
       .sort((a, b) => a.month.localeCompare(b.month));
 
+    // Desglose por categoría: separar equipos del resto
+    let spentEquipos = 0;
+    let spentConsumo = 0;
+    const categoryChartData = Object.entries(categorySpending)
+      .map(([name, value]) => {
+        const isEquipo = EQUIPO_RE.test(name);
+        if (isEquipo) spentEquipos += value;
+        else spentConsumo += value;
+        return { name, value, isEquipo };
+      })
+      .sort((a, b) => b.value - a.value);
+
     const currentStockValuation = articles
       .filter(art => stockSupplier === 'Todos' || art.supplierName === stockSupplier)
       .reduce((sum, art) => {
@@ -195,7 +217,7 @@ export default function Dashboard({ orders, articles, onTabChange, onNavigateToP
         return sum + (parseFloat(priceStr) || 0) * (art.stock || 0);
       }, 0);
 
-    return { totalSpent, totalOrders: filteredData.length, totalItemsPurchased, refStats, supplierChartData, monthlyChartData, currentStockValuation, monthlySpendingMap: monthlySpending };
+    return { totalSpent, totalOrders: filteredData.length, totalItemsPurchased, refStats, supplierChartData, monthlyChartData, currentStockValuation, monthlySpendingMap: monthlySpending, categoryChartData, spentEquipos, spentConsumo };
   }, [filteredData, searchRef, articles, stockSupplier]);
 
   const uniqueSuppliers = useMemo(() => {
@@ -452,6 +474,55 @@ export default function Dashboard({ orders, articles, onTabChange, onNavigateToP
         </div>
       </div>
 
+      {/* Desglose Consumibles vs Equipos */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '24px' }}>
+        {/* Consumibles / Reactivos */}
+        <div className="card" style={{ padding: '20px', display: 'flex', alignItems: 'center', gap: '16px', borderTop: '3px solid #0891B2' }}>
+          <div style={{ width: '48px', height: '48px', borderRadius: '12px', backgroundColor: 'rgba(8,145,178,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#0891B2', flexShrink: 0 }}>
+            <FlaskConical size={24} />
+          </div>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 500, marginBottom: '2px' }}>Gasto Consumibles / Reactivos</div>
+            <div style={{ fontSize: '1.5rem', fontWeight: 700, color: '#0891B2' }}>
+              {stats.spentConsumo.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
+            </div>
+            {stats.totalSpent > 0 && (
+              <div style={{ marginTop: '6px' }}>
+                <div style={{ height: '5px', backgroundColor: '#E2E8F0', borderRadius: '3px' }}>
+                  <div style={{ height: '5px', width: `${Math.min(100, (stats.spentConsumo / stats.totalSpent) * 100).toFixed(1)}%`, backgroundColor: '#0891B2', borderRadius: '3px', transition: 'width 0.4s' }} />
+                </div>
+                <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '3px' }}>
+                  {((stats.spentConsumo / stats.totalSpent) * 100).toFixed(1)}% del gasto total
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Equipos / Equipamiento */}
+        <div className="card" style={{ padding: '20px', display: 'flex', alignItems: 'center', gap: '16px', borderTop: '3px solid #D97706' }}>
+          <div style={{ width: '48px', height: '48px', borderRadius: '12px', backgroundColor: 'rgba(217,119,6,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#D97706', flexShrink: 0 }}>
+            <Wrench size={24} />
+          </div>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 500, marginBottom: '2px' }}>Gasto Equipos / Equipamiento</div>
+            <div style={{ fontSize: '1.5rem', fontWeight: 700, color: '#D97706' }}>
+              {stats.spentEquipos.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
+            </div>
+            {stats.totalSpent > 0 && (
+              <div style={{ marginTop: '6px' }}>
+                <div style={{ height: '5px', backgroundColor: '#E2E8F0', borderRadius: '3px' }}>
+                  <div style={{ height: '5px', width: `${Math.min(100, (stats.spentEquipos / stats.totalSpent) * 100).toFixed(1)}%`, backgroundColor: '#D97706', borderRadius: '3px', transition: 'width 0.4s' }} />
+                </div>
+                <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '3px' }}>
+                  {((stats.spentEquipos / stats.totalSpent) * 100).toFixed(1)}% del gasto total
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
       {/* Charts Row */}
       <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr', gap: '20px', marginBottom: '24px' }}>
         <div className="card" style={{ padding: '24px' }}>
@@ -489,6 +560,59 @@ export default function Dashboard({ orders, articles, onTabChange, onNavigateToP
           </div>
         </div>
       </div>
+
+      {/* Gasto por Categoría */}
+      {stats.categoryChartData.length > 0 && (
+        <div className="card" style={{ padding: '24px', marginBottom: '24px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
+            <h3 style={{ margin: 0, fontSize: '1.1rem' }}>Gasto por Categoría</h3>
+            <div style={{ display: 'flex', gap: '16px', fontSize: '0.78rem', color: 'var(--text-muted)', alignItems: 'center' }}>
+              <span style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                <span style={{ width: '10px', height: '10px', borderRadius: '2px', backgroundColor: '#D97706', display: 'inline-block' }} />
+                Equipos / Equipamiento
+              </span>
+              <span style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                <span style={{ width: '10px', height: '10px', borderRadius: '2px', backgroundColor: 'var(--primary)', display: 'inline-block' }} />
+                Consumibles / Reactivos
+              </span>
+            </div>
+          </div>
+          <div style={{ width: '100%', height: `${Math.max(200, stats.categoryChartData.length * 44)}px` }}>
+            <ResponsiveContainer>
+              <BarChart data={stats.categoryChartData} layout="vertical" margin={{ left: 8, right: 60, top: 4, bottom: 4 }}>
+                <CartesianGrid horizontal={false} strokeDasharray="3 3" stroke="#E2E8F0" />
+                <XAxis
+                  type="number"
+                  axisLine={false}
+                  tickLine={false}
+                  tick={{ fontSize: 11, fill: '#64748B' }}
+                  tickFormatter={v => `${v.toLocaleString('es-ES', { maximumFractionDigits: 0 })} €`}
+                />
+                <YAxis
+                  type="category"
+                  dataKey="name"
+                  axisLine={false}
+                  tickLine={false}
+                  tick={{ fontSize: 11, fill: '#334155' }}
+                  width={160}
+                />
+                <Tooltip
+                  contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)' }}
+                  formatter={(value, name, props) => [
+                    `${value.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`,
+                    props.payload.isEquipo ? 'Equipos / Equipamiento' : 'Consumibles / Reactivos'
+                  ]}
+                />
+                <Bar dataKey="value" radius={[0, 4, 4, 0]} barSize={22} label={{ position: 'right', fontSize: 10, fill: '#64748B', formatter: v => `${v.toLocaleString('es-ES', { maximumFractionDigits: 0 })} €` }}>
+                  {stats.categoryChartData.map((entry, index) => (
+                    <Cell key={`cat-${index}`} fill={entry.isEquipo ? '#D97706' : 'var(--primary)'} />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+      )}
 
       {/* Admin Budget Analysis Table */}
       {role === 'admin' && (
@@ -594,6 +718,7 @@ export default function Dashboard({ orders, articles, onTabChange, onNavigateToP
               <tr>
                 <th>Referencia</th>
                 <th>Nombre Artículo</th>
+                <th>Categoría</th>
                 <th>Proveedor</th>
                 <th style={{ textAlign: 'center' }}>Cant. Total</th>
                 <th style={{ textAlign: 'right' }}>Precio Medio</th>
@@ -601,23 +726,38 @@ export default function Dashboard({ orders, articles, onTabChange, onNavigateToP
               </tr>
             </thead>
             <tbody>
-              {stats.refStats.map(ref => (
-                <tr key={ref.id}>
-                  <td style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>{ref.id}</td>
-                  <td style={{ fontWeight: 600 }}>{ref.name}</td>
-                  <td style={{ fontSize: '0.85rem' }}>{ref.supplier}</td>
-                  <td style={{ textAlign: 'center' }}>
-                    <span className="badge badge-info" style={{ minWidth: '40px' }}>{ref.totalQty}</span>
-                  </td>
-                  <td style={{ textAlign: 'right' }}>{ref.avgPrice.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €</td>
-                  <td style={{ textAlign: 'right', fontWeight: 600, color: 'var(--primary)' }}>
-                    {ref.totalCost.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
-                  </td>
-                </tr>
-              ))}
+              {stats.refStats.map(ref => {
+                const isEquipo = EQUIPO_RE.test(ref.category || '');
+                return (
+                  <tr key={ref.id}>
+                    <td style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>{ref.id}</td>
+                    <td style={{ fontWeight: 600 }}>{ref.name}</td>
+                    <td>
+                      {ref.category ? (
+                        <span style={{ fontSize: '0.75rem', fontWeight: 700, padding: '2px 8px', borderRadius: '5px',
+                          backgroundColor: isEquipo ? 'rgba(217,119,6,0.1)' : 'rgba(8,145,178,0.08)',
+                          color: isEquipo ? '#D97706' : '#0891B2',
+                          border: `1px solid ${isEquipo ? '#FCD34D' : '#BAE6FD'}`,
+                          whiteSpace: 'nowrap'
+                        }}>
+                          {isEquipo ? '⚙️ ' : '🧪 '}{ref.category}
+                        </span>
+                      ) : <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>—</span>}
+                    </td>
+                    <td style={{ fontSize: '0.85rem' }}>{ref.supplier}</td>
+                    <td style={{ textAlign: 'center' }}>
+                      <span className="badge badge-info" style={{ minWidth: '40px' }}>{ref.totalQty}</span>
+                    </td>
+                    <td style={{ textAlign: 'right' }}>{ref.avgPrice.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €</td>
+                    <td style={{ textAlign: 'right', fontWeight: 600, color: 'var(--primary)' }}>
+                      {ref.totalCost.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
+                    </td>
+                  </tr>
+                );
+              })}
               {stats.refStats.length === 0 && (
                 <tr>
-                  <td colSpan="6" style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>
+                  <td colSpan="7" style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>
                     No hay datos disponibles para los filtros seleccionados.
                   </td>
                 </tr>
