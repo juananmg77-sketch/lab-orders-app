@@ -561,16 +561,35 @@ export default function EquipmentModule({ session, onLogout, globalLab, onBackTo
                       {selectedCategory === 'Equipos Consultores Externos' && <th style={{ width: '130px' }}>Delegación</th>}
                       {selectedCategory === 'Equipos Consultores Externos' && <th style={{ width: '140px' }}>Laboratorio</th>}
                       <th style={{ width: '100px' }}>Estado</th>
-                      <th style={{ width: '140px' }}>Próx. Calibración</th>
+                      <th style={{ width: '130px' }}>Calibración</th>
+                      <th style={{ width: '130px' }}>Verificación</th>
                       <th style={{ width: '80px', textAlign: 'center' }}>Acciones</th>
                     </tr>
                   </thead>
                   <tbody>
                     {tableEquipments.map(eq => {
                       const isBaja = eq.status === 'BAJA';
-                      const calExpired = eq.cal_valid_until && new Date(eq.cal_valid_until) < new Date();
+                      const today = new Date(); today.setHours(0,0,0,0);
+                      const in30 = new Date(today); in30.setDate(in30.getDate() + 30);
+
+                      // ¿Tiene calibración activada?
+                      const hasCal = !!(eq.calibration_freq || eq.cal_valid_until || eq.calibration_type);
+                      // ¿Tiene verificación activada?
+                      const hasVer = !!(eq.verification_freq || eq.ver_valid_until);
+
+                      const calDate = eq.cal_valid_until ? new Date(eq.cal_valid_until) : null;
+                      const verDate = eq.ver_valid_until ? new Date(eq.ver_valid_until) : null;
+
+                      const calExpired  = calDate && calDate < today;
+                      const calSoon     = calDate && !calExpired && calDate <= in30;
+                      const verExpired  = verDate && verDate < today;
+                      const verSoon     = verDate && !verExpired && verDate <= in30;
+
+                      const rowAlert = calExpired || verExpired;
+                      const rowWarn  = !rowAlert && (calSoon || verSoon);
+
                       return (
-                        <tr key={eq.id} style={{ opacity: isBaja ? 0.6 : 1, backgroundColor: selectedEquipments.includes(eq.id) ? 'var(--primary-light)' : calExpired ? '#fff5f5' : 'transparent' }}>
+                        <tr key={eq.id} style={{ opacity: isBaja ? 0.6 : 1, backgroundColor: selectedEquipments.includes(eq.id) ? 'var(--primary-light)' : rowAlert ? '#fff5f5' : rowWarn ? '#fffbeb' : 'transparent' }}>
                           <td style={{ textAlign: 'center' }}>
                             <input 
                               type="checkbox" 
@@ -615,13 +634,46 @@ export default function EquipmentModule({ session, onLogout, globalLab, onBackTo
                               {eq.status}
                             </span>
                           </td>
-                          <td style={{ fontWeight: 600, fontSize: '0.9rem', color: calExpired ? '#dc2626' : 'inherit' }}>
-                            {eq.cal_valid_until ? (
-                              <span style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-                                {calExpired && <span style={{ fontSize: '0.7rem', backgroundColor: '#dc2626', color: 'white', borderRadius: '4px', padding: '1px 5px', fontWeight: 700 }}>VENCIDA</span>}
-                                {new Date(eq.cal_valid_until).toLocaleDateString()}
+                          {/* ── Columna Calibración ── */}
+                          <td style={{ fontSize: '0.85rem', fontWeight: 600 }}>
+                            {!hasCal ? (
+                              <span style={{ color: '#94A3B8', fontStyle: 'italic', fontWeight: 400 }}>N/A</span>
+                            ) : calDate ? (
+                              <span style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                                {calExpired && (
+                                  <span style={{ fontSize: '0.68rem', backgroundColor: '#dc2626', color: 'white', borderRadius: '4px', padding: '1px 6px', fontWeight: 700, alignSelf: 'flex-start' }}>VENCIDA</span>
+                                )}
+                                {calSoon && !calExpired && (
+                                  <span style={{ fontSize: '0.68rem', backgroundColor: '#F59E0B', color: 'white', borderRadius: '4px', padding: '1px 6px', fontWeight: 700, alignSelf: 'flex-start' }}>PRÓXIMA</span>
+                                )}
+                                <span style={{ color: calExpired ? '#dc2626' : calSoon ? '#D97706' : 'inherit' }}>
+                                  {calDate.toLocaleDateString('es-ES')}
+                                </span>
                               </span>
-                            ) : 'N/A'}
+                            ) : (
+                              <span style={{ color: '#94A3B8', fontStyle: 'italic', fontWeight: 400 }}>Sin fecha</span>
+                            )}
+                          </td>
+
+                          {/* ── Columna Verificación ── */}
+                          <td style={{ fontSize: '0.85rem', fontWeight: 600 }}>
+                            {!hasVer ? (
+                              <span style={{ color: '#94A3B8', fontStyle: 'italic', fontWeight: 400 }}>N/A</span>
+                            ) : verDate ? (
+                              <span style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                                {verExpired && (
+                                  <span style={{ fontSize: '0.68rem', backgroundColor: '#dc2626', color: 'white', borderRadius: '4px', padding: '1px 6px', fontWeight: 700, alignSelf: 'flex-start' }}>VENCIDA</span>
+                                )}
+                                {verSoon && !verExpired && (
+                                  <span style={{ fontSize: '0.68rem', backgroundColor: '#F59E0B', color: 'white', borderRadius: '4px', padding: '1px 6px', fontWeight: 700, alignSelf: 'flex-start' }}>PRÓXIMA</span>
+                                )}
+                                <span style={{ color: verExpired ? '#dc2626' : verSoon ? '#D97706' : 'inherit' }}>
+                                  {verDate.toLocaleDateString('es-ES')}
+                                </span>
+                              </span>
+                            ) : (
+                              <span style={{ color: '#94A3B8', fontStyle: 'italic', fontWeight: 400 }}>Sin fecha</span>
+                            )}
                           </td>
                           <td style={{ textAlign: 'center' }}>
                             <div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
