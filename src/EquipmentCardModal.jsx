@@ -245,6 +245,34 @@ const inferCategory = (eq) => {
     }
   }, [formData.macro_category, formData.equipment_type]);
 
+  // ── Defaults EBRO: termómetros de consultores ────────────────────────────
+  useEffect(() => {
+    if (!isOpen) return;
+    const nameModel = ((formData.name || '') + ' ' + (formData.model || '')).toLowerCase();
+    const isEbro = nameModel.includes('ebro');
+    const isConsultorEq = (formData.lab || '').includes('Consultores');
+    if (!isEbro || !isConsultorEq) return;
+
+    // Rango por defecto solo si no hay valor guardado aún
+    if (!equipment?.measuring_range && !rangeVal) {
+      setRangeVal('-30 a 220');
+      setRangeUnit('°C');
+      setRangeDiff('1');
+    }
+    // Tolerancia por defecto solo si no hay valor guardado
+    if (!equipment?.tolerance && !tolVal) {
+      setTolVal('1');
+      setTolUnit('°C');
+    }
+    // Calibración interna anual por defecto
+    if (!requiresCalibration) setRequiresCalibration(true);
+    setFormData(prev => ({
+      ...prev,
+      calibration_type: prev.calibration_type || 'Interna',
+      calibration_freq: prev.calibration_freq || 'Anual',
+    }));
+  }, [formData.name, formData.model, formData.lab, isOpen]);
+
   if (!isOpen || !equipment) return null;
 
   const handleChange = (e) => {
@@ -591,34 +619,30 @@ const inferCategory = (eq) => {
                 <Calendar size={18} /> 2. Control Metrológico
               </h3>
 
-              {!isConsultor && (
-                <>
-                  <div className="input-group">
-                    <label className="input-label">Uso previsto en el Laboratorio</label>
-                    <input type="text" className="input-field" name="intended_use" value={formData.intended_use || ''} onChange={handleChange} placeholder="Ej. Medición temperatura estufas" />
-                  </div>
+              <div className="input-group">
+                <label className="input-label">Uso previsto en el Laboratorio</label>
+                <input type="text" className="input-field" name="intended_use" value={formData.intended_use || ''} onChange={handleChange} placeholder="Ej. Medición temperatura estufas" />
+              </div>
 
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '12px', marginBottom: '16px' }}>
-                    <div>
-                      <label className="input-label" style={{ fontSize: '0.85rem' }}>Rango de Medición / Uso</label>
-                      <div style={{ display: 'flex', gap: '8px' }}>
-                        <input type="text" className="input-field" placeholder="Valor (ej. 0-100)" value={rangeVal} onChange={e => setRangeVal(e.target.value)} style={{ flex: 2, margin: 0 }} />
-                        <input type="text" className="input-field" placeholder="Unidad (ej. °C)" value={rangeUnit} onChange={e => setRangeUnit(e.target.value)} style={{ flex: 1, margin: 0 }} />
-                        <div style={{ display: 'flex', alignItems: 'center', fontWeight: 'bold', color: 'var(--text-muted)' }}>+/-</div>
-                        <input type="text" className="input-field" placeholder="Dif. (ej. 2)" value={rangeDiff} onChange={e => setRangeDiff(e.target.value)} style={{ flex: 1, margin: 0 }} />
-                      </div>
-                    </div>
-
-                    <div>
-                      <label className="input-label" style={{ fontSize: '0.85rem' }}>Tolerancia Permitida HSLAB (Valor Absoluto)</label>
-                      <div style={{ display: 'flex', gap: '8px' }}>
-                        <input type="text" className="input-field" placeholder="Valor (ej. 0.5)" value={tolVal} onChange={e => setTolVal(e.target.value)} style={{ flex: 2, margin: 0 }} />
-                        <input type="text" className="input-field" placeholder="Unidad (ej. °C)" value={tolUnit} onChange={e => setTolUnit(e.target.value)} style={{ flex: 1, margin: 0 }} />
-                      </div>
-                    </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '12px', marginBottom: '16px' }}>
+                <div>
+                  <label className="input-label" style={{ fontSize: '0.85rem' }}>Rango de Medición / Uso</label>
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    <input type="text" className="input-field" placeholder="Valor (ej. 0-100)" value={rangeVal} onChange={e => setRangeVal(e.target.value)} style={{ flex: 2, margin: 0 }} />
+                    <input type="text" className="input-field" placeholder="Unidad (ej. °C)" value={rangeUnit} onChange={e => setRangeUnit(e.target.value)} style={{ flex: 1, margin: 0 }} />
+                    <div style={{ display: 'flex', alignItems: 'center', fontWeight: 'bold', color: 'var(--text-muted)' }}>+/-</div>
+                    <input type="text" className="input-field" placeholder="Dif. (ej. 2)" value={rangeDiff} onChange={e => setRangeDiff(e.target.value)} style={{ flex: 1, margin: 0 }} />
                   </div>
-                </>
-              )}
+                </div>
+
+                <div>
+                  <label className="input-label" style={{ fontSize: '0.85rem' }}>Tolerancia Permitida HSLAB (Valor Absoluto)</label>
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    <input type="text" className="input-field" placeholder="Valor (ej. 0.5)" value={tolVal} onChange={e => setTolVal(e.target.value)} style={{ flex: 2, margin: 0 }} />
+                    <input type="text" className="input-field" placeholder="Unidad (ej. °C)" value={tolUnit} onChange={e => setTolUnit(e.target.value)} style={{ flex: 1, margin: 0 }} />
+                  </div>
+                </div>
+              </div>
 
               {/* CALIBRACIÓN */}
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '24px', marginBottom: '8px' }}>
