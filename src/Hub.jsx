@@ -1,5 +1,5 @@
 import React from 'react';
-import { ShoppingCart, LogOut, Settings, Bell, Microscope, Users, FlaskConical, Tag } from 'lucide-react';
+import { ShoppingCart, LogOut, Settings, Bell, Microscope, Users, FlaskConical, Tag, GraduationCap, UserCog } from 'lucide-react';
 import logo from './assets/logo.png';
 
 export default function Hub({ session, globalLab, setGlobalLab, onSelectModule, onLogout, role = 'operations' }) {
@@ -156,34 +156,64 @@ export default function Hub({ session, globalLab, setGlobalLab, onSelectModule, 
             </p>
           </div>
 
-          {/* Module 3: RRHH (Coming Soon) */}
+          {/* Module RRHH */}
           {showRRHH && (
-            <div 
-              style={{ 
-                width: '320px', 
-                backgroundColor: '#f8f9fa', 
-                borderRadius: '20px', 
-                padding: '40px 30px', 
-                boxShadow: '0 4px 15px rgba(0,0,0,0.03)',
-                cursor: 'not-allowed',
+            <div
+              onClick={() => onSelectModule('rrhh')}
+              style={{
+                width: '320px',
+                backgroundColor: 'white',
+                borderRadius: '20px',
+                padding: '40px 30px',
+                boxShadow: '0 10px 30px rgba(0,0,0,0.08)',
+                cursor: 'pointer',
                 display: 'flex',
                 flexDirection: 'column',
                 alignItems: 'center',
                 textAlign: 'center',
-                borderTop: '6px solid #cbd5e1',
-                position: 'relative',
-                opacity: 0.8
-               }}
+                borderTop: '6px solid #7C3AED',
+                transition: 'transform 0.3s ease, box-shadow 0.3s ease'
+              }}
+              onMouseOver={e => e.currentTarget.style.transform = 'translateY(-10px)'}
+              onMouseOut={e => e.currentTarget.style.transform = 'translateY(0)'}
             >
-              <div style={{ position: 'absolute', top: '16px', right: '16px', backgroundColor: 'var(--warning)', color: '#856404', padding: '4px 12px', borderRadius: '12px', fontSize: '0.75rem', fontWeight: 700 }}>
-                EN DESARROLLO
+              <div style={{ width: '80px', height: '80px', borderRadius: '40px', backgroundColor: '#f5f3ff', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '24px' }}>
+                <UserCog size={40} color="#7C3AED" />
               </div>
-              <div style={{ width: '80px', height: '80px', borderRadius: '40px', backgroundColor: '#e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '24px' }}>
-                <Users size={40} color="#64748b" />
+              <h2 style={{ fontSize: '1.5rem', color: 'var(--secondary)', margin: '0 0 12px 0' }}>Recursos Humanos</h2>
+              <p style={{ color: 'var(--text-muted)', margin: 0, lineHeight: 1.5 }}>
+                Gestión de plantilla, vacaciones, documentación y certificados por empleado.
+              </p>
+            </div>
+          )}
+
+          {/* Module 3: Certificados de Formación */}
+          {showRRHH && (
+            <div
+              onClick={() => onSelectModule('certificados')}
+              style={{
+                width: '320px',
+                backgroundColor: 'white',
+                borderRadius: '20px',
+                padding: '40px 30px',
+                boxShadow: '0 10px 30px rgba(0,0,0,0.08)',
+                cursor: 'pointer',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                textAlign: 'center',
+                borderTop: '6px solid #6366f1',
+                transition: 'transform 0.3s ease, box-shadow 0.3s ease'
+              }}
+              onMouseOver={e => e.currentTarget.style.transform = 'translateY(-10px)'}
+              onMouseOut={e => e.currentTarget.style.transform = 'translateY(0)'}
+            >
+              <div style={{ width: '80px', height: '80px', borderRadius: '40px', backgroundColor: '#eef2ff', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '24px' }}>
+                <GraduationCap size={40} color="#6366f1" />
               </div>
-              <h2 style={{ fontSize: '1.5rem', color: '#475569', margin: '0 0 12px 0' }}>Gestión de RRHH</h2>
-              <p style={{ color: '#94a3b8', margin: 0, lineHeight: 1.5 }}>
-                Control de turnos, vacaciones, formación técnica y prevención de riesgos.
+              <h2 style={{ fontSize: '1.5rem', color: 'var(--secondary)', margin: '0 0 12px 0' }}>Certificados de Formación</h2>
+              <p style={{ color: 'var(--text-muted)', margin: 0, lineHeight: 1.5 }}>
+                Genera diplomas acreditativos de formación desde Excel. Plantillas editables por tipología de curso.
               </p>
             </div>
           )}

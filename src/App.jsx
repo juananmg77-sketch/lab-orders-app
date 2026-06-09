@@ -8,6 +8,8 @@ import EquipmentModule from './EquipmentModule';
 import UserManagementModule from './UserManagementModule';
 import LegionellaForecastModule from './LegionellaForecastModule';
 import LabelGeneratorModule from './LabelGeneratorModule';
+import TrainingCertificateModule from './TrainingCertificateModule';
+import RRHHModule from './RRHHModule';
 
 
 export default function App() {
@@ -17,6 +19,7 @@ export default function App() {
   const [activeModule, setActiveModule] = useState(null);
 
   const [role, setRole] = useState('operations');
+  const [pendingEquipmentData, setPendingEquipmentData] = useState(null);
 
   const labFromDelegacion = (d) => d === 'Canarias' ? 'HSLAB Canarias' : 'HSLAB Baleares';
 
@@ -61,9 +64,13 @@ export default function App() {
       fetchUserRole(session?.user);
     });
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       setSession(session);
-      fetchUserRole(session?.user);
+      // Solo cargar rol/lab en inicio de sesión real, no en TOKEN_REFRESHED
+      // (evita resetear globalLab si el usuario cambió de Baleares a Canarias)
+      if (event === 'SIGNED_IN' || event === 'INITIAL_SESSION' || event === 'USER_UPDATED') {
+        fetchUserRole(session?.user);
+      }
     });
 
     return () => subscription.unsubscribe();
@@ -92,26 +99,32 @@ export default function App() {
 
   if (activeModule === 'compras') {
     return (
-      <PurchasingModule 
+      <PurchasingModule
         session={session}
         globalLab={globalLab}
         onLogout={handleLogout}
         onBackToHub={() => setActiveModule(null)}
         role={role}
         onSelectModule={setActiveModule}
+        onRegisterEquipment={(equipData) => {
+          setPendingEquipmentData(equipData);
+          setActiveModule('equipos');
+        }}
       />
     );
   }
 
   if (activeModule === 'equipos') {
     return (
-      <EquipmentModule 
+      <EquipmentModule
         session={session}
         globalLab={globalLab}
         role={role}
         onLogout={handleLogout}
         onBackToHub={() => setActiveModule(null)}
         onSelectModule={setActiveModule}
+        pendingEquipmentData={pendingEquipmentData}
+        onPendingEquipmentConsumed={() => setPendingEquipmentData(null)}
       />
     );
   }
@@ -128,6 +141,22 @@ export default function App() {
   if (activeModule === 'etiquetas') {
     return (
       <LabelGeneratorModule
+        onBackToHub={() => setActiveModule(null)}
+      />
+    );
+  }
+
+  if (activeModule === 'certificados' && ['admin', 'lab'].includes(role)) {
+    return (
+      <TrainingCertificateModule
+        onBackToHub={() => setActiveModule(null)}
+      />
+    );
+  }
+
+  if (activeModule === 'rrhh' && role === 'admin') {
+    return (
+      <RRHHModule
         onBackToHub={() => setActiveModule(null)}
       />
     );
