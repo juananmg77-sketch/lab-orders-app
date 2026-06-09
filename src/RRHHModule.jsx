@@ -645,7 +645,7 @@ export default function RRHHModule({ onBackToHub }) {
       </aside>
 
       {/* Main */}
-      <main className="main-content" style={{ padding: '32px', overflowY: 'auto', height: '100vh' }}>
+      <main className="main-content" style={{ padding: '32px' }}>
         {/* Header */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '28px' }}>
           <div>
