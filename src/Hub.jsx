@@ -70,8 +70,15 @@ export default function Hub({ session, globalLab, setGlobalLab, onSelectModule, 
           
           {/* Action icons */}
           <div style={{ display: 'flex', gap: '16px', color: 'var(--text-muted)' }}>
-            <Bell size={20} style={{ cursor: 'pointer' }} />
-            <Settings size={20} style={{ cursor: 'pointer' }} />
+            <Bell size={20} style={{ cursor: 'pointer', opacity: 0.4 }} title="Notificaciones (próximamente)" />
+            {showUsers && (
+              <Settings
+                size={20}
+                style={{ cursor: 'pointer', color: 'var(--primary)' }}
+                title="Gestión de accesos y roles"
+                onClick={() => onSelectModule('usuarios')}
+              />
+            )}
           </div>
           <button 
             onClick={onLogout}
