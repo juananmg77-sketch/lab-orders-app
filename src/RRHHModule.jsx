@@ -11,7 +11,7 @@ import {
 import logo from './assets/logo.png';
 
 // ── Constantes ───────────────────────────────────────────────────────────────
-const DELEGACIONES = ['Baleares', 'Canarias', 'Ambas'];
+const DELEGACIONES = ['Baleares', 'Canarias (Tenerife)', 'Canarias (Gran Canaria)', 'Madrid', 'Barcelona', 'Andalucía', 'Valencia'];
 const CONTRACT_TYPES = ['Indefinido', 'Temporal', 'Prácticas', 'Obra y servicio', 'Otro'];
 const STATUSES = ['Activo', 'Baja', 'Excedencia', 'Pendiente'];
 const ABSENCE_TYPES = ['Vacaciones', 'Baja médica', 'Permiso', 'Asuntos propios', 'Otro'];
