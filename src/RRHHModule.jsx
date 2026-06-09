@@ -329,7 +329,7 @@ export default function RRHHModule({ onBackToHub }) {
                 key={t.key}
                 className={`nav-item ${fichaTab === t.key ? 'active' : ''}`}
                 onClick={() => setFichaTab(t.key)}
-                style={{ color: fichaTab === t.key ? 'white' : 'var(--text-muted)' }}
+                style={{ color: fichaTab === t.key ? 'var(--primary)' : 'var(--text-muted)', backgroundColor: fichaTab === t.key ? 'var(--primary-light)' : '' }}
               >
                 {t.icon}<span>{t.label}</span>
               </div>
@@ -623,7 +623,7 @@ export default function RRHHModule({ onBackToHub }) {
           </button>
         </div>
         <nav className="nav-links" style={{ marginTop: '12px' }}>
-          <div className="nav-item active" style={{ color: 'white' }}>
+          <div className="nav-item active" style={{ color: 'var(--primary)', backgroundColor: 'var(--primary-light)' }}>
             <Users size={18} /><span>Plantilla</span>
           </div>
         </nav>
@@ -645,7 +645,7 @@ export default function RRHHModule({ onBackToHub }) {
       </aside>
 
       {/* Main */}
-      <main className="main-content" style={{ padding: '32px', overflowY: 'auto' }}>
+      <main className="main-content" style={{ padding: '32px', overflowY: 'auto', height: '100vh' }}>
         {/* Header */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '28px' }}>
           <div>
