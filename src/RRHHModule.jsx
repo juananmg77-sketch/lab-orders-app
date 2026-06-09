@@ -55,7 +55,8 @@ const emptyEmployee = () => ({
   full_name: '', dni: '', email: '', phone: '', address: '', birth_date: '',
   employee_number: '', position: '', department: '', delegacion: 'Baleares',
   hire_date: '', contract_type: 'Indefinido', work_schedule: '', status: 'Activo',
-  salary_gross: '', salary_net: '', irpf_pct: '', ss_number: '', bank_iban: '', notes: '',
+  salary_gross: '', salary_net: '', irpf_pct: '', ss_number: '', bank_iban: '',
+  titulacion: '', notes: '',
 });
 
 const emptyAbsence = (employeeId = '') => ({
@@ -381,7 +382,8 @@ export default function RRHHModule({ onBackToHub }) {
                 <InfoRow icon={<Mail size={14} />}       label="Email"        value={selectedEmployee.email} />
                 <InfoRow icon={<Phone size={14} />}      label="Teléfono"     value={selectedEmployee.phone} />
                 <InfoRow icon={<MapPin size={14} />}     label="Dirección"    value={selectedEmployee.address} />
-                <InfoRow icon={<Calendar size={14} />}   label="F. nacimiento" value={fmtDate(selectedEmployee.birth_date)} />
+                <InfoRow icon={<Calendar size={14} />}   label="F. nacimiento"  value={fmtDate(selectedEmployee.birth_date)} />
+                <InfoRow icon={<GraduationCap size={14} />} label="Titulación"  value={selectedEmployee.titulacion} />
               </SectionCard>
 
               {/* Datos laborales */}
@@ -855,6 +857,9 @@ function EmployeeFormModal({ open, onClose, formData, setFormData, saving, onSav
         </Field>
         <Field label="Fecha nacimiento" half>
           <input type="date" value={formData.birth_date} onChange={set('birth_date')} style={inputStyle} />
+        </Field>
+        <Field label="Titulación">
+          <input value={formData.titulacion} onChange={set('titulacion')} style={inputStyle} placeholder="Ej: Grado en Biología, FP Técnico en Laboratorio..." />
         </Field>
       </div>
 
