@@ -5,6 +5,7 @@ import * as XLSX from 'xlsx';
 import logo from './assets/logo.png';
 import EquipmentExcelImporter from './EquipmentExcelImporter';
 import EquipmentCardModal from './EquipmentCardModal';
+import ExportWordModal from './ExportWordModal';
 
 const CATEGORY_DETAILS = {
   'Patrones Metrológicos': 'Pesas, masas y otros ítems de referencia física no térmica utilizados exclusivamente para calibraciones internas.',
@@ -95,21 +96,24 @@ const getSubtypeIcon = (sub) => {
 const DELEGACIONES = ['Baleares', 'Cataluña', 'Madrid', 'Valencia', 'Andalucía', 'Canarias'];
 const labFromDelegacion = (d) => d === 'Canarias' ? 'HSLAB Canarias' : 'HSLAB Baleares';
 
-export default function EquipmentModule({ session, onLogout, globalLab, onBackToHub, onSelectModule, role = 'operations' }) {
+export default function EquipmentModule({ session, onLogout, globalLab, onBackToHub, onSelectModule, role = 'operations', pendingEquipmentData, onPendingEquipmentConsumed }) {
   const [activeTab, setActiveTab] = useState('inventario');
   const [equipments, setEquipments] = useState([]);
+  const [suppliers, setSuppliers] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState(null);
   const [selectedSubtype, setSelectedSubtype] = useState('Todos');
   const [isImporterOpen, setIsImporterOpen] = useState(false);
   const [editingEquipment, setEditingEquipment] = useState(null);
   const [isCreating, setIsCreating] = useState(false);
-  
+
   // Bulk Edit States
   const [selectedEquipments, setSelectedEquipments] = useState([]);
   const [bulkEditMode, setBulkEditMode] = useState(false);
   const [bulkFormData, setBulkFormData] = useState({ equipment_type: '', macro_category: '', status: '' });
   const [consultorFilter, setConsultorFilter] = useState('Todos');
+  const [showBaja, setShowBaja] = useState(false);
+  const [showExportModal, setShowExportModal] = useState(false);
 
   const handleUpdateDelegacion = async (equipmentId, newDelegacion) => {
     const newLab = `${globalLab} - Consultores`;
@@ -131,6 +135,11 @@ export default function EquipmentModule({ session, onLogout, globalLab, onBackTo
     } else {
        setEquipments(data || []);
     }
+  };
+
+  const fetchSuppliers = async () => {
+    const { data } = await supabase.from('suppliers').select('id, name').order('name');
+    setSuppliers(data || []);
   };
 
   const exportToExcel = () => {
@@ -159,7 +168,21 @@ export default function EquipmentModule({ session, onLogout, globalLab, onBackTo
 
   useEffect(() => {
     fetchEquipments();
+    fetchSuppliers();
   }, [globalLab]);
+
+  // Auto-open new equipment modal pre-filled from Compras reception
+  useEffect(() => {
+    if (pendingEquipmentData) {
+      setEditingEquipment({
+        new: true,
+        lab: globalLab,
+        status: 'ALTA',
+        ...pendingEquipmentData,
+      });
+      if (onPendingEquipmentConsumed) onPendingEquipmentConsumed();
+    }
+  }, [pendingEquipmentData]);
 
   useEffect(() => {
     if (role === 'operations') {
@@ -193,9 +216,10 @@ export default function EquipmentModule({ session, onLogout, globalLab, onBackTo
       const macroCategory = categorizeEquipment(eq);
       if (role === 'operations' && macroCategory !== 'Equipos Consultores Externos') return;
       
-      if (!stats[macroCategory]) stats[macroCategory] = { total: 0, altas: 0, bajas: 0 };
+      if (!stats[macroCategory]) stats[macroCategory] = { total: 0, altas: 0, preAltas: 0, bajas: 0 };
       stats[macroCategory].total += 1;
       if (eq.status === 'BAJA') stats[macroCategory].bajas += 1;
+      else if (eq.status === 'PRE-ALTA') stats[macroCategory].preAltas += 1;
       else stats[macroCategory].altas += 1;
     });
     // Sort descending by total items, but keeping the predefined ones on top isn't strictly necessary if sorting by count.
@@ -230,9 +254,12 @@ export default function EquipmentModule({ session, onLogout, globalLab, onBackTo
   ).filter(eq => {
     if (selectedCategory !== 'Equipos Consultores Externos' || consultorFilter === 'Todos') return true;
     return (eq.assigned_to || '') === consultorFilter;
-  }).sort((a, b) => {
-    if (a.status === 'BAJA' && b.status !== 'BAJA') return 1;
-    if (a.status !== 'BAJA' && b.status === 'BAJA') return -1;
+  }).filter(eq => showBaja || eq.status !== 'BAJA')
+  .sort((a, b) => {
+    const statusOrder = { 'ALTA': 0, 'PRE-ALTA': 1, 'BAJA': 2 };
+    const sa = statusOrder[a.status] ?? 1;
+    const sb = statusOrder[b.status] ?? 1;
+    if (sa !== sb) return sa - sb;
     return 0;
   });
 
@@ -315,24 +342,25 @@ export default function EquipmentModule({ session, onLogout, globalLab, onBackTo
               <span>Carga Masiva (XLS)</span>
             </button>
             
-            <button 
-              className="btn btn-secondary" 
-              onClick={exportToExcel} 
-              style={{ 
-                display: 'flex', 
-                alignItems: 'center', 
-                gap: '12px', 
-                width: '100%', 
+            <button
+              className="btn btn-secondary"
+              onClick={() => setShowExportModal(true)}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '12px',
+                width: '100%',
                 justifyContent: 'flex-start',
                 padding: '12px',
                 fontSize: '0.9rem',
-                backgroundColor: '#f0fdf4',
-                borderColor: '#86efac',
-                color: '#166534'
+                backgroundColor: '#eff6ff',
+                borderColor: '#93c5fd',
+                color: '#1d4ed8',
+                fontWeight: 700,
               }}
             >
-              <Download size={18} /> 
-              <span>Exportar Equipos</span>
+              <Download size={18} />
+              <span>Exportar listado{selectedEquipments.length > 0 ? ` (${selectedEquipments.length} selec.)` : ''}</span>
             </button>
           </div>
         )}
@@ -348,7 +376,7 @@ export default function EquipmentModule({ session, onLogout, globalLab, onBackTo
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                   {selectedCategory && (
                     <button 
-                      onClick={() => { setSelectedCategory(null); setSelectedSubtype('Todos'); setSelectedEquipments([]); setConsultorFilter('Todos'); }}
+                      onClick={() => { setSelectedCategory(null); setSelectedSubtype('Todos'); setSelectedEquipments([]); setConsultorFilter('Todos'); setShowBaja(false); }}
                       style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', color: 'var(--primary)', fontWeight: 'bold' }}
                     >
                       <ChevronLeft size={24} />
@@ -456,6 +484,11 @@ export default function EquipmentModule({ session, onLogout, globalLab, onBackTo
                       <span className="badge badge-success" style={{ flex: 1, textAlign: 'center' }}>
                         {stats.altas} Operativos
                       </span>
+                      {stats.preAltas > 0 && (
+                        <span className="badge" style={{ flex: 1, textAlign: 'center', backgroundColor: '#FEF3C7', color: '#92400E' }}>
+                          {stats.preAltas} Pre-Alta
+                        </span>
+                      )}
                       {stats.bajas > 0 && (
                         <span className="badge badge-danger" style={{ flex: 1, textAlign: 'center' }}>
                           {stats.bajas} Bajas
@@ -485,7 +518,7 @@ export default function EquipmentModule({ session, onLogout, globalLab, onBackTo
                     return (
                       <div 
                         key={sub}
-                        onClick={() => setSelectedSubtype(sub)}
+                        onClick={() => { setSelectedSubtype(sub); setShowBaja(false); }}
                         style={{ 
                           padding: '12px 16px', 
                           borderRadius: '12px', 
@@ -540,6 +573,39 @@ export default function EquipmentModule({ session, onLogout, globalLab, onBackTo
                    <h3 style={{ margin: 0, fontSize: '1.1rem' }}>Listado de Equipos: {selectedSubtype}</h3>
                 </div>
 
+                {(() => {
+                  const bajaCount = (selectedSubtype === 'Todos'
+                    ? familyEquips
+                    : familyEquips.filter(eq => (eq.equipment_type || 'Resto de familia / Sin asignar') === selectedSubtype)
+                  ).filter(eq => {
+                    if (selectedCategory !== 'Equipos Consultores Externos' || consultorFilter === 'Todos') return true;
+                    return (eq.assigned_to || '') === consultorFilter;
+                  }).filter(eq => eq.status === 'BAJA').length;
+                  return bajaCount > 0 ? (
+                    <div style={{ marginBottom: '12px' }}>
+                      <button
+                        onClick={() => setShowBaja(v => !v)}
+                        style={{
+                          background: showBaja ? '#fee2e2' : 'white',
+                          border: `1px solid ${showBaja ? '#fca5a5' : 'var(--border)'}`,
+                          borderRadius: '8px',
+                          padding: '6px 14px',
+                          cursor: 'pointer',
+                          fontSize: '0.85rem',
+                          fontWeight: 600,
+                          color: showBaja ? '#dc2626' : 'var(--text-muted)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '8px'
+                        }}
+                      >
+                        <span style={{ fontSize: '1rem' }}>{showBaja ? '✕' : '+'}</span>
+                        {showBaja ? `Ocultar equipos de baja (${bajaCount})` : `Mostrar equipos de baja (${bajaCount})`}
+                      </button>
+                    </div>
+                  ) : null;
+                })()}
+
                 <div className="card table-wrapper">
                   <table>
                     <thead>
@@ -557,10 +623,10 @@ export default function EquipmentModule({ session, onLogout, globalLab, onBackTo
                       <th style={{ width: '130px' }}>Cód. Interno</th>
                       <th>Descripción / Modelo</th>
                       <th style={{ width: '150px' }}>S/N</th>
-                      <th style={{ width: '150px' }}>Asignado A</th>
                       {selectedCategory === 'Equipos Consultores Externos' && <th style={{ width: '130px' }}>Delegación</th>}
                       {selectedCategory === 'Equipos Consultores Externos' && <th style={{ width: '140px' }}>Laboratorio</th>}
                       <th style={{ width: '100px' }}>Estado</th>
+                      <th style={{ width: '90px', textAlign: 'center' }}>ISO 17025</th>
                       <th style={{ width: '130px' }}>Calibración</th>
                       <th style={{ width: '130px' }}>Verificación</th>
                       <th style={{ width: '80px', textAlign: 'center' }}>Acciones</th>
@@ -568,7 +634,8 @@ export default function EquipmentModule({ session, onLogout, globalLab, onBackTo
                   </thead>
                   <tbody>
                     {tableEquipments.map(eq => {
-                      const isBaja = eq.status === 'BAJA';
+                      const isBaja    = eq.status === 'BAJA';
+                      const isPreAlta = eq.status === 'PRE-ALTA';
                       const today = new Date(); today.setHours(0,0,0,0);
                       const in30 = new Date(today); in30.setDate(in30.getDate() + 30);
 
@@ -589,7 +656,7 @@ export default function EquipmentModule({ session, onLogout, globalLab, onBackTo
                       const rowWarn  = !rowAlert && (calSoon || verSoon);
 
                       return (
-                        <tr key={eq.id} style={{ opacity: isBaja ? 0.6 : 1, backgroundColor: selectedEquipments.includes(eq.id) ? 'var(--primary-light)' : rowAlert ? '#fff5f5' : rowWarn ? '#fffbeb' : 'transparent' }}>
+                        <tr key={eq.id} style={{ opacity: isBaja ? 0.6 : 1, backgroundColor: selectedEquipments.includes(eq.id) ? 'var(--primary-light)' : rowAlert ? '#fff5f5' : rowWarn ? '#fffbeb' : isPreAlta ? '#fffbeb' : 'transparent' }}>
                           <td style={{ textAlign: 'center' }}>
                             <input 
                               type="checkbox" 
@@ -606,7 +673,6 @@ export default function EquipmentModule({ session, onLogout, globalLab, onBackTo
                             <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{eq.model || 'Sin especificar'}</div>
                           </td>
                           <td style={{ fontSize: '0.9rem' }}>{eq.serial_number || '-'}</td>
-                          <td style={{ fontSize: '0.9rem' }}>{eq.assigned_to || '-'}</td>
                           {selectedCategory === 'Equipos Consultores Externos' && (
                             <td>
                               <select
@@ -630,9 +696,32 @@ export default function EquipmentModule({ session, onLogout, globalLab, onBackTo
                             </td>
                           )}
                           <td>
-                            <span className={`badge ${isBaja ? 'badge-danger' : 'badge-success'}`}>
+                            <span className="badge" style={
+                              isBaja    ? { backgroundColor: '#FEE2E2', color: '#991B1B' } :
+                              isPreAlta ? { backgroundColor: '#FEF3C7', color: '#92400E' } :
+                                          { backgroundColor: '#D1FAE5', color: '#065F46' }
+                            }>
                               {eq.status}
                             </span>
+                          </td>
+                          {/* ── Columna ISO 17025 ── */}
+                          <td style={{ textAlign: 'center' }}>
+                            <button
+                              title={eq.iso_17025 ? 'Implicado en ISO 17025 — clic para quitar' : 'No implicado en ISO 17025 — clic para marcar'}
+                              onClick={async () => {
+                                await supabase.from('equipments').update({ iso_17025: !eq.iso_17025 }).eq('id', eq.id);
+                                fetchEquipments();
+                              }}
+                              style={{
+                                border: 'none', cursor: 'pointer', borderRadius: '20px',
+                                padding: '3px 10px', fontSize: '0.72rem', fontWeight: 700,
+                                backgroundColor: eq.iso_17025 ? '#dcfce7' : '#f1f5f9',
+                                color: eq.iso_17025 ? '#166534' : '#94a3b8',
+                                transition: 'all 0.15s',
+                              }}
+                            >
+                              {eq.iso_17025 ? '✓ SÍ' : '— NO'}
+                            </button>
                           </td>
                           {/* ── Columna Calibración ── */}
                           <td style={{ fontSize: '0.85rem', fontWeight: 600 }}>
@@ -739,6 +828,7 @@ export default function EquipmentModule({ session, onLogout, globalLab, onBackTo
           equipment={editingEquipment}
           onSave={fetchEquipments}
           existingEquipments={equipments}
+          suppliers={suppliers}
         />
 
         {/* Floating Bulk Action Bar */}
@@ -750,10 +840,38 @@ export default function EquipmentModule({ session, onLogout, globalLab, onBackTo
             alignItems: 'center', zIndex: 1000, border: '2px solid var(--primary)' 
           }}>
              <span style={{ fontWeight: 'bold', fontSize: '1.1rem', color: 'var(--secondary)' }}>
-                {selectedEquipments.length} equipos seleccionados
+                {selectedEquipments.length} equipo{selectedEquipments.length !== 1 ? 's' : ''} seleccionado{selectedEquipments.length !== 1 ? 's' : ''}
              </span>
+             <button
+               style={{ padding: '8px 18px', borderRadius: '20px', border: 'none', cursor: 'pointer', fontWeight: 700, fontSize: '0.9rem', backgroundColor: '#dcfce7', color: '#166534' }}
+               title="Marcar todos los seleccionados como implicados en ISO 17025"
+               onClick={async () => {
+                 await supabase.from('equipments').update({ iso_17025: true }).in('id', selectedEquipments);
+                 await fetchEquipments();
+                 setSelectedEquipments([]);
+               }}
+             >
+               ✓ ISO 17025: SÍ
+             </button>
+             <button
+               style={{ padding: '8px 18px', borderRadius: '20px', border: 'none', cursor: 'pointer', fontWeight: 700, fontSize: '0.9rem', backgroundColor: '#fee2e2', color: '#991b1b' }}
+               title="Quitar implicación ISO 17025 de los seleccionados"
+               onClick={async () => {
+                 await supabase.from('equipments').update({ iso_17025: false }).in('id', selectedEquipments);
+                 await fetchEquipments();
+                 setSelectedEquipments([]);
+               }}
+             >
+               ✗ ISO 17025: NO
+             </button>
+             <button
+               style={{ padding: '8px 18px', borderRadius: '20px', border: 'none', cursor: 'pointer', fontWeight: 700, fontSize: '0.9rem', backgroundColor: '#eff6ff', color: '#1d4ed8' }}
+               onClick={() => setShowExportModal(true)}
+             >
+               📄 Exportar listado
+             </button>
              <button className="btn btn-primary" onClick={() => setBulkEditMode(true)}>
-                Modificar en Lote
+                Edición masiva
              </button>
              <button className="btn btn-secondary" onClick={() => setSelectedEquipments([])}>
                 Desmarcar todos
@@ -788,6 +906,7 @@ export default function EquipmentModule({ session, onLogout, globalLab, onBackTo
               <select className="input-field" value={bulkFormData.status} onChange={(e) => setBulkFormData({...bulkFormData, status: e.target.value})}>
                 <option value="">-- No modificar --</option>
                 <option value="ALTA">ALTA</option>
+                <option value="PRE-ALTA">PRE-ALTA</option>
                 <option value="BAJA">BAJA</option>
               </select>
 
@@ -814,6 +933,15 @@ export default function EquipmentModule({ session, onLogout, globalLab, onBackTo
         )}
 
       </main>
+
+      {showExportModal && (
+        <ExportWordModal
+          equipments={equipments}
+          globalLab={globalLab}
+          preSelected={selectedEquipments}
+          onClose={() => setShowExportModal(false)}
+        />
+      )}
     </div>
   );
 }

@@ -44,7 +44,8 @@ export default function UserManagementModule({ onBackToHub }) {
       email: newUser.email,
       password: newUser.password,
       options: {
-        data: { role: newUser.role, delegacion: newUser.delegacion }
+        data: { role: newUser.role, delegacion: newUser.delegacion },
+        emailRedirectTo: null,
       }
     });
 

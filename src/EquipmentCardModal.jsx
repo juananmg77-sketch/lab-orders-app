@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { X, Save, Edit3, Microscope, Calendar, CheckCircle, AlertCircle, Link, FileText, ExternalLink, Trash2 } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { X, Save, Edit3, Microscope, Calendar, CheckCircle, AlertCircle, Link, FileText, ExternalLink, Trash2, ShoppingCart, Upload, Eye, Package, Wrench, Plus, ChevronDown, ChevronUp } from 'lucide-react';
 import { supabase } from './supabaseClient';
 
 const MACRO_CATEGORIES = [
@@ -107,11 +107,44 @@ const parseTol = (t = '') => {
   return { tolVal: parts.join(' '), tolUnit: unit };
 };
 
-export default function EquipmentCardModal({ isOpen, onClose, equipment, onSave, existingEquipments = [] }) {
+const emptyIncident = () => ({ incident_date: '', description: '', corrective_action: '', resolved_date: '', attachment_url: '', attachment_name: '' });
+
+const getIncidentMode = (eq) => {
+  const cat = eq?.macro_category || '';
+  const type = (eq?.equipment_type || '').toLowerCase();
+  const FULL = [
+    'Medios Isotermos (Neveras - Estufas y Baños)',
+    'Instrumentación Analítica y Fisicoquímica',
+    'Equipos Auxiliares y de Preparación',
+  ];
+  const OPTIONAL = [
+    'Sondas de Medición de Temperatura - Humedad',
+    'Equipos Consultores Externos',
+  ];
+  if (FULL.includes(cat)) return 'full';
+  if (cat === 'Pipetas y Balanzas') return (type.includes('balanza') || type.includes('báscula') || type.includes('bascula')) ? 'full' : 'optional';
+  if (OPTIONAL.includes(cat)) return 'optional';
+  return 'none';
+};
+
+export default function EquipmentCardModal({ isOpen, onClose, equipment, onSave, existingEquipments = [], suppliers = [] }) {
   const [formData, setFormData] = useState({});
   const [isSaving, setIsSaving] = useState(false);
   const [requiresCalibration, setRequiresCalibration] = useState(false);
   const [requiresVerification, setRequiresVerification] = useState(false);
+  const [isUploadingPdf, setIsUploadingPdf] = useState(false);
+  const pdfInputRef = useRef(null);
+
+  // Averías
+  const [incidents, setIncidents] = useState([]);
+  const [showIncidentForm, setShowIncidentForm] = useState(false);
+  const [editingIncident, setEditingIncident] = useState(null);
+  const [incidentForm, setIncidentForm] = useState(emptyIncident());
+  const [savingIncident, setSavingIncident] = useState(false);
+  const [incidentFile, setIncidentFile] = useState(null);
+  const incidentFileRef = useRef(null);
+  const [incidentSectionOpen, setIncidentSectionOpen] = useState(false);
+  const [incidentOptionalOpen, setIncidentOptionalOpen] = useState(false);
 
   // Helper functions to manage combined string fields for Rango and Tolerancia
   const [rangeVal, setRangeVal] = useState('');
@@ -141,12 +174,84 @@ const inferCategory = (eq) => {
 };
 
   useEffect(() => {
+    if (equipment?.id && isOpen) {
+      supabase.from('equipment_incidents').select('*').eq('equipment_id', equipment.id).order('incident_date', { ascending: false }).then(({ data }) => setIncidents(data || []));
+      const mode = getIncidentMode(equipment);
+      setIncidentSectionOpen(mode === 'full');
+      setIncidentOptionalOpen(false);
+    } else {
+      setIncidents([]);
+      setIncidentSectionOpen(false);
+      setIncidentOptionalOpen(false);
+    }
+    setShowIncidentForm(false);
+    setEditingIncident(null);
+    setIncidentForm(emptyIncident());
+    setIncidentFile(null);
+  }, [equipment?.id, isOpen]);
+
+  const saveIncident = async () => {
+    if (!incidentForm.incident_date) { alert('La fecha es obligatoria.'); return; }
+    setSavingIncident(true);
+    let att_url = incidentForm.attachment_url || null;
+    let att_name = incidentForm.attachment_name || null;
+    if (incidentFile) {
+      const path = `equipment-incidents/${equipment.id}/${Date.now()}_${incidentFile.name.replace(/\s+/g, '_')}`;
+      const { error: upErr } = await supabase.storage.from('employee-documents').upload(path, incidentFile, { upsert: true, contentType: incidentFile.type || 'application/pdf' });
+      if (upErr) { alert('Error subiendo archivo: ' + upErr.message); setSavingIncident(false); return; }
+      att_url = supabase.storage.from('employee-documents').getPublicUrl(path).data.publicUrl;
+      att_name = incidentFile.name;
+    }
+    const payload = {
+      equipment_id: equipment.id,
+      incident_date: incidentForm.incident_date,
+      description: incidentForm.description || null,
+      corrective_action: incidentForm.corrective_action || null,
+      resolved_date: incidentForm.resolved_date || null,
+      attachment_url: att_url,
+      attachment_name: att_name,
+    };
+    let error;
+    if (editingIncident) {
+      ({ error } = await supabase.from('equipment_incidents').update(payload).eq('id', editingIncident.id));
+    } else {
+      ({ error } = await supabase.from('equipment_incidents').insert([payload]));
+    }
+    setSavingIncident(false);
+    if (error) { alert('Error: ' + error.message); return; }
+    const { data } = await supabase.from('equipment_incidents').select('*').eq('equipment_id', equipment.id).order('incident_date', { ascending: false });
+    setIncidents(data || []);
+    setShowIncidentForm(false);
+    setEditingIncident(null);
+    setIncidentForm(emptyIncident());
+    setIncidentFile(null);
+    if (incidentFileRef.current) incidentFileRef.current.value = '';
+  };
+
+  const deleteIncident = async (id) => {
+    if (!confirm('¿Eliminar esta avería?')) return;
+    await supabase.from('equipment_incidents').delete().eq('id', id);
+    setIncidents(prev => prev.filter(i => i.id !== id));
+  };
+
+  const openEditIncident = (inc) => {
+    setEditingIncident(inc);
+    setIncidentForm({ incident_date: inc.incident_date || '', description: inc.description || '', corrective_action: inc.corrective_action || '', resolved_date: inc.resolved_date || '', attachment_url: inc.attachment_url || '', attachment_name: inc.attachment_name || '' });
+    setIncidentFile(null);
+    setShowIncidentForm(true);
+  };
+
+  useEffect(() => {
     if (equipment && isOpen) {
       setFormData({
         ...equipment,
         macro_category: inferCategory(equipment),
         lab: equipment.lab || 'HSLAB Baleares',
-        status: equipment.status || 'ALTA'
+        status: equipment.status || 'ALTA',
+        purchase_supplier: equipment.purchase_supplier || '',
+        invoice_number:    equipment.invoice_number    || '',
+        purchase_amount:   equipment.purchase_amount   || '',
+        invoice_pdf_url:   equipment.invoice_pdf_url   || '',
       });
       
       const requiresCal = !!(equipment.calibration_freq || equipment.cal_valid_until || equipment.calibration_type);
@@ -292,7 +397,7 @@ const inferCategory = (eq) => {
     const finalTol = `${tolVal} ${tolUnit}`.trim();
 
     const payload = {
-      name: formData.name,
+      name: (formData.name || '').toUpperCase(),
       equipment_code: formData.equipment_code,
       equipment_type: formData.equipment_type,
       status: formData.status,
@@ -312,13 +417,20 @@ const inferCategory = (eq) => {
       calibration_type: requiresCalibration ? formData.calibration_type : null,
       cal_report_ref: requiresCalibration ? formData.cal_report_ref : null,
       standard_complies: requiresCalibration ? formData.standard_complies : null,
+      standard_complies_note: requiresCalibration && formData.standard_complies === 'Limitado' ? formData.standard_complies_note || null : null,
       cal_valid_until: requiresCalibration ? formData.cal_valid_until || null : null,
       
       verification_freq: requiresVerification ? formData.verification_freq : null,
       ver_report_ref: requiresVerification ? formData.ver_report_ref : null,
       ver_valid_until: requiresVerification ? formData.ver_valid_until || null : null,
       lab: formData.lab || 'HSLAB Baleares',
-      delegacion: formData.macro_category === 'Equipos Consultores Externos' ? (formData.delegacion || 'Baleares') : null
+      delegacion: formData.macro_category === 'Equipos Consultores Externos' ? (formData.delegacion || 'Baleares') : null,
+
+      // Adquisición
+      purchase_supplier: formData.purchase_supplier || null,
+      invoice_number:    formData.invoice_number    || null,
+      purchase_amount:   formData.purchase_amount   ? parseFloat(formData.purchase_amount) : null,
+      invoice_pdf_url:   formData.invoice_pdf_url   || null,
     };
 
     let result;
@@ -345,7 +457,47 @@ const inferCategory = (eq) => {
     }
   };
 
-  const isBaja = formData.status === 'BAJA';
+  const handlePdfUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.type !== 'application/pdf' && !file.type.startsWith('image/')) {
+      alert('Solo se aceptan archivos PDF o imagen.');
+      return;
+    }
+    setIsUploadingPdf(true);
+    const eqCode = formData.equipment_code || `eq_${Date.now()}`;
+    const fileName = `${eqCode}_${Date.now()}_${file.name.replace(/\s+/g, '_')}`;
+    const { data, error } = await supabase.storage
+      .from('invoices')
+      .upload(fileName, file, { upsert: true });
+    if (error) {
+      alert('Error subiendo el archivo: ' + error.message);
+    } else {
+      const { data: urlData } = supabase.storage.from('invoices').getPublicUrl(data.path);
+      // If bucket is private, use signed URL approach; store the path and generate signed URL on view
+      setFormData(prev => ({ ...prev, invoice_pdf_url: data.path }));
+    }
+    setIsUploadingPdf(false);
+    e.target.value = '';
+  };
+
+  const handleViewInvoicePdf = async () => {
+    if (!formData.invoice_pdf_url) return;
+    // If it's already a full URL, open directly
+    if (formData.invoice_pdf_url.startsWith('http')) {
+      window.open(formData.invoice_pdf_url, '_blank');
+      return;
+    }
+    // Otherwise generate a signed URL (bucket is private)
+    const { data, error } = await supabase.storage
+      .from('invoices')
+      .createSignedUrl(formData.invoice_pdf_url, 3600);
+    if (error) { alert('Error generando enlace: ' + error.message); return; }
+    window.open(data.signedUrl, '_blank');
+  };
+
+  const isBaja    = formData.status === 'BAJA';
+  const isPreAlta = formData.status === 'PRE-ALTA';
   const isConsultor = (formData.lab || '').includes('Consultores');
 
   const isCalExpired = formData.cal_valid_until && new Date(formData.cal_valid_until) < new Date().setHours(0,0,0,0);
@@ -391,7 +543,7 @@ const inferCategory = (eq) => {
         }}>
           <div>
             <h2 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '12px' }}>
-              <Microscope size={28} /> {equipment.id ? 'FICHA DEL EQUIPO' : 'ALTA DE NUEVO EQUIPO'} {isBaja && '(DADO DE BAJA)'}
+              <Microscope size={28} /> {equipment.id ? 'FICHA DEL EQUIPO' : 'ALTA DE NUEVO EQUIPO'} {isBaja && '(DADO DE BAJA)'}{isPreAlta && '(PRE-ALTA · EN TRÁMITE)'}
             </h2>
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px', margin: '8px 0 0 0' }}>
               <span style={{ fontSize: '1.15rem', fontWeight: 500, textShadow: '0 1px 2px rgba(0,0,0,0.1)' }}>
@@ -470,6 +622,7 @@ const inferCategory = (eq) => {
                     }}
                   >
                     <option value="ALTA">ALTA</option>
+                    <option value="PRE-ALTA">PRE-ALTA</option>
                     <option value="BAJA">BAJA</option>
                   </select>
                 </div>
@@ -705,6 +858,22 @@ const inferCategory = (eq) => {
                         </select>
                       </div>
                     )}
+                    {!isConsultor && formData.standard_complies === 'Limitado' && (
+                      <div className="input-group" style={{ marginBottom: 0, gridColumn: '1 / -1' }}>
+                        <label className="input-label" style={{ color: '#d97706', fontWeight: 600 }}>
+                          ⚠ Limitaciones de uso (obligatorio)
+                        </label>
+                        <textarea
+                          className="input-field"
+                          name="standard_complies_note"
+                          value={formData.standard_complies_note || ''}
+                          onChange={handleChange}
+                          rows={3}
+                          placeholder="Especifica las limitaciones de uso de este equipo patrón..."
+                          style={{ resize: 'vertical', borderColor: '#f59e0b', backgroundColor: '#fffbeb' }}
+                        />
+                      </div>
+                    )}
                   </div>
 
                   <div className="input-group" style={{ marginBottom: 0 }}>
@@ -774,6 +943,230 @@ const inferCategory = (eq) => {
 
             </div>
           </div>
+
+          {/* ── Sección 3: Adquisición ─────────────────────────────── */}
+          <div style={{ marginTop: '32px', borderTop: '2px solid var(--border)', paddingTop: '24px' }}>
+            <h3 style={{ paddingBottom: '8px', color: 'var(--secondary)', display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '20px' }}>
+              <Package size={18} /> 3. Adquisición
+            </h3>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr', gap: '16px', marginBottom: '16px' }}>
+              {/* Proveedor */}
+              <div className="input-group" style={{ marginBottom: 0 }}>
+                <label className="input-label">Proveedor de Compra</label>
+                <input
+                  type="text"
+                  className="input-field"
+                  name="purchase_supplier"
+                  value={formData.purchase_supplier || ''}
+                  onChange={handleChange}
+                  list="acq-suppliers-list"
+                  placeholder="Selecciona o escribe el proveedor..."
+                  style={{ margin: 0 }}
+                />
+                <datalist id="acq-suppliers-list">
+                  {suppliers.map(s => <option key={s.id} value={s.name} />)}
+                </datalist>
+              </div>
+
+              {/* Nº Factura */}
+              <div className="input-group" style={{ marginBottom: 0 }}>
+                <label className="input-label">Nº Factura</label>
+                <input
+                  type="text"
+                  className="input-field"
+                  name="invoice_number"
+                  value={formData.invoice_number || ''}
+                  onChange={handleChange}
+                  placeholder="Ej: F-2025/0123"
+                  style={{ margin: 0 }}
+                />
+              </div>
+
+              {/* Importe */}
+              <div className="input-group" style={{ marginBottom: 0 }}>
+                <label className="input-label">Importe (€ sin IVA)</label>
+                <input
+                  type="number"
+                  className="input-field"
+                  name="purchase_amount"
+                  value={formData.purchase_amount || ''}
+                  onChange={handleChange}
+                  placeholder="0.00"
+                  min="0"
+                  step="0.01"
+                  style={{ margin: 0 }}
+                />
+              </div>
+            </div>
+
+            {/* PDF de factura */}
+            <div>
+              <label className="input-label">Factura PDF</label>
+              <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                {formData.invoice_pdf_url ? (
+                  <>
+                    <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 14px', backgroundColor: '#f0fdf4', border: '1px solid #86efac', borderRadius: '8px' }}>
+                      <FileText size={16} color="#16a34a" />
+                      <span style={{ fontSize: '0.875rem', color: '#15803d', fontWeight: 600 }}>
+                        {formData.invoice_pdf_url.split('/').pop()?.split('_').slice(2).join('_') || 'Factura adjunta'}
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      className="btn btn-secondary"
+                      style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 14px', color: 'var(--primary)' }}
+                      onClick={handleViewInvoicePdf}
+                      title="Ver factura"
+                    >
+                      <Eye size={16} /> Ver
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn-secondary"
+                      style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 14px', color: 'var(--danger)', border: 'none' }}
+                      onClick={() => setFormData(prev => ({ ...prev, invoice_pdf_url: '' }))}
+                      title="Quitar factura"
+                    >
+                      <X size={16} />
+                    </button>
+                  </>
+                ) : (
+                  <button
+                    type="button"
+                    className="btn btn-secondary"
+                    style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 20px' }}
+                    onClick={() => pdfInputRef.current?.click()}
+                    disabled={isUploadingPdf}
+                  >
+                    <Upload size={16} />
+                    {isUploadingPdf ? 'Subiendo...' : 'Adjuntar Factura PDF'}
+                  </button>
+                )}
+                <input
+                  ref={pdfInputRef}
+                  type="file"
+                  accept="application/pdf,image/*"
+                  style={{ display: 'none' }}
+                  onChange={handlePdfUpload}
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* ── Historial de Averías y Reparaciones ── */}
+          {equipment?.id && (() => {
+            const incidentMode = getIncidentMode(formData);
+            if (incidentMode === 'none') return null;
+
+            const fmtD = (d) => d ? new Date(d + 'T00:00:00').toLocaleDateString('es-ES') : null;
+
+            const incidentInner = (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                  <button type="button" onClick={() => { setEditingIncident(null); setIncidentForm(emptyIncident()); setIncidentFile(null); setShowIncidentForm(p => !p); }}
+                    style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '6px 14px', borderRadius: '7px', border: '1px solid #dc2626', background: '#fff1f2', color: '#dc2626', fontSize: '0.8rem', fontWeight: 700, cursor: 'pointer' }}>
+                    <Plus size={13} /> Registrar avería
+                  </button>
+                </div>
+                {showIncidentForm && (
+                  <div style={{ background: '#fafafa', border: '1px solid var(--border)', borderRadius: '10px', padding: '16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                      <div>
+                        <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Fecha avería *</label>
+                        <input type="date" value={incidentForm.incident_date} onChange={e => setIncidentForm(p => ({ ...p, incident_date: e.target.value }))} style={{ width: '100%', padding: '8px 10px', border: '1px solid var(--border)', borderRadius: '7px', fontSize: '0.88rem', marginTop: '4px', boxSizing: 'border-box' }} />
+                      </div>
+                      <div>
+                        <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Fecha resolución</label>
+                        <input type="date" value={incidentForm.resolved_date} onChange={e => setIncidentForm(p => ({ ...p, resolved_date: e.target.value }))} style={{ width: '100%', padding: '8px 10px', border: '1px solid var(--border)', borderRadius: '7px', fontSize: '0.88rem', marginTop: '4px', boxSizing: 'border-box' }} />
+                      </div>
+                    </div>
+                    <div>
+                      <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Descripción de la avería</label>
+                      <textarea value={incidentForm.description} onChange={e => setIncidentForm(p => ({ ...p, description: e.target.value }))} rows={3} style={{ width: '100%', padding: '8px 10px', border: '1px solid var(--border)', borderRadius: '7px', fontSize: '0.88rem', resize: 'vertical', marginTop: '4px', boxSizing: 'border-box' }} placeholder="Describe la avería o incidencia..." />
+                    </div>
+                    <div>
+                      <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Acciones correctivas</label>
+                      <textarea value={incidentForm.corrective_action} onChange={e => setIncidentForm(p => ({ ...p, corrective_action: e.target.value }))} rows={2} style={{ width: '100%', padding: '8px 10px', border: '1px solid var(--border)', borderRadius: '7px', fontSize: '0.88rem', resize: 'vertical', marginTop: '4px', boxSizing: 'border-box' }} placeholder="Reparación realizada, proveedor, referencia..." />
+                    </div>
+                    <div>
+                      <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Factura / Albarán</label>
+                      <div onClick={() => incidentFileRef.current?.click()} style={{ marginTop: '4px', border: `2px dashed ${incidentFile ? '#dc2626' : 'var(--border)'}`, borderRadius: '8px', padding: '12px 16px', cursor: 'pointer', background: incidentFile ? '#fff1f2' : '#fafafa', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        <Upload size={15} color={incidentFile ? '#dc2626' : '#94a3b8'} />
+                        {incidentFile ? <span style={{ fontSize: '0.82rem', color: '#dc2626', fontWeight: 600 }}>{incidentFile.name}</span>
+                          : incidentForm.attachment_name ? <span style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>{incidentForm.attachment_name} · <span style={{ color: 'var(--primary)' }}>Cambiar</span></span>
+                          : <span style={{ fontSize: '0.82rem', color: '#94a3b8' }}>Adjuntar factura o albarán (PDF / imagen)</span>}
+                        {incidentForm.attachment_url && !incidentFile && <a href={incidentForm.attachment_url} target="_blank" rel="noreferrer" onClick={e => e.stopPropagation()} style={{ marginLeft: 'auto', color: 'var(--primary)' }}><Eye size={15} /></a>}
+                      </div>
+                      <input ref={incidentFileRef} type="file" accept=".pdf,.jpg,.jpeg,.png" style={{ display: 'none' }} onChange={e => { if (e.target.files[0]) setIncidentFile(e.target.files[0]); }} />
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
+                      <button type="button" onClick={() => { setShowIncidentForm(false); setEditingIncident(null); setIncidentFile(null); }} style={{ padding: '7px 16px', borderRadius: '7px', border: '1px solid var(--border)', background: 'white', cursor: 'pointer', fontSize: '0.85rem' }}>Cancelar</button>
+                      <button type="button" onClick={saveIncident} disabled={savingIncident} style={{ padding: '7px 16px', borderRadius: '7px', border: 'none', background: '#dc2626', color: 'white', cursor: 'pointer', fontSize: '0.85rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <Save size={14} />{savingIncident ? 'Guardando...' : 'Guardar'}
+                      </button>
+                    </div>
+                  </div>
+                )}
+                {incidents.length === 0 && !showIncidentForm && (
+                  <div style={{ fontSize: '0.82rem', color: 'var(--text-muted)', textAlign: 'center', padding: '16px', background: '#f8fafc', borderRadius: '8px' }}>Sin averías registradas</div>
+                )}
+                {incidents.length > 0 && (
+                  <div style={{ border: '1px solid var(--border)', borderRadius: '10px', overflow: 'hidden' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: '100px 100px 1fr 1fr 28px 28px 28px', gap: '8px', padding: '7px 14px', background: '#f8fafc', fontSize: '0.68rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em', borderBottom: '1px solid var(--border)' }}>
+                      <span>Fecha</span><span>Resolución</span><span>Descripción</span><span>Acción correctiva</span><span></span><span></span><span></span>
+                    </div>
+                    {incidents.map(inc => (
+                      <div key={inc.id} style={{ display: 'grid', gridTemplateColumns: '100px 100px 1fr 1fr 28px 28px 28px', gap: '8px', padding: '10px 14px', alignItems: 'center', borderBottom: '1px solid #f1f5f9', fontSize: '0.82rem' }}>
+                        <span style={{ fontWeight: 600, color: '#dc2626' }}>{fmtD(inc.incident_date) || '—'}</span>
+                        <span style={{ color: inc.resolved_date ? '#16a34a' : '#94a3b8', fontWeight: inc.resolved_date ? 600 : 400 }}>{fmtD(inc.resolved_date) || 'Pendiente'}</span>
+                        <span style={{ color: 'var(--secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={inc.description}>{inc.description || '—'}</span>
+                        <span style={{ color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={inc.corrective_action}>{inc.corrective_action || '—'}</span>
+                        {inc.attachment_url ? <a href={inc.attachment_url} target="_blank" rel="noreferrer" style={{ color: 'var(--primary)', display: 'flex' }} title={inc.attachment_name || 'Ver'}><Eye size={14} /></a> : <span />}
+                        <button type="button" onClick={() => openEditIncident(inc)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', padding: '2px', display: 'flex' }}><Edit3 size={13} /></button>
+                        <button type="button" onClick={() => deleteIncident(inc.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#dc2626', padding: '2px', display: 'flex' }}><Trash2 size={13} /></button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+
+            if (incidentMode === 'optional') return (
+              <div style={{ marginTop: '20px' }}>
+                {!incidentOptionalOpen ? (
+                  <button type="button" onClick={() => setIncidentOptionalOpen(true)}
+                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8', fontSize: '0.78rem', display: 'flex', alignItems: 'center', gap: '6px', padding: '4px 0', textDecoration: 'underline' }}>
+                    <Wrench size={13} />
+                    {incidents.length > 0 ? `Historial de averías (${incidents.length})` : 'Registrar avería ocasional'}
+                  </button>
+                ) : (
+                  <div style={{ border: '1px solid #fecaca', borderRadius: '12px', overflow: 'hidden' }}>
+                    <div style={{ background: '#fff1f2', padding: '12px 20px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                      <Wrench size={14} color="#dc2626" />
+                      <span style={{ fontWeight: 700, fontSize: '0.85rem', color: '#dc2626', flex: 1 }}>Averías / Reparaciones</span>
+                      {incidents.length > 0 && <span style={{ fontSize: '0.72rem', background: '#fee2e2', color: '#dc2626', borderRadius: '999px', padding: '2px 8px', fontWeight: 700 }}>{incidents.length}</span>}
+                      <button type="button" onClick={() => setIncidentOptionalOpen(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8' }}><ChevronUp size={14} /></button>
+                    </div>
+                    <div style={{ padding: '14px 20px' }}>{incidentInner}</div>
+                  </div>
+                )}
+              </div>
+            );
+
+            return (
+              <div style={{ marginTop: '32px', border: '1px solid #fecaca', borderRadius: '12px', overflow: 'hidden' }}>
+                <button type="button" onClick={() => setIncidentSectionOpen(p => !p)}
+                  style={{ width: '100%', background: '#fff1f2', border: 'none', cursor: 'pointer', padding: '14px 20px', display: 'flex', alignItems: 'center', gap: '10px', textAlign: 'left' }}>
+                  <Wrench size={16} color="#dc2626" />
+                  <span style={{ fontWeight: 700, fontSize: '0.9rem', color: '#dc2626', flex: 1 }}>Historial de Averías y Reparaciones</span>
+                  {incidents.length > 0 && <span style={{ fontSize: '0.75rem', background: '#fee2e2', color: '#dc2626', borderRadius: '999px', padding: '2px 8px', fontWeight: 700 }}>{incidents.length}</span>}
+                  {incidentSectionOpen ? <ChevronUp size={15} color="#dc2626" /> : <ChevronDown size={15} color="#dc2626" />}
+                </button>
+                {incidentSectionOpen && <div style={{ padding: '16px 20px' }}>{incidentInner}</div>}
+              </div>
+            );
+          })()}
 
           <div style={{ borderTop: '1px solid var(--border)', paddingTop: '24px', marginTop: '32px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '16px' }}>
             <div>

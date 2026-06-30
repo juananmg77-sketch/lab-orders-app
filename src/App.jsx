@@ -19,18 +19,20 @@ export default function App() {
   const [activeModule, setActiveModule] = useState(null);
 
   const [role, setRole] = useState('operations');
+  const [canApprove, setCanApprove] = useState(true);
   const [pendingEquipmentData, setPendingEquipmentData] = useState(null);
 
   const labFromDelegacion = (d) => d === 'Canarias' ? 'HSLAB Canarias' : 'HSLAB Baleares';
 
   const fetchUserRole = async (user) => {
     if (!user) return;
-    const { data: profile } = await supabase.from('profiles').select('role, delegacion').eq('id', user.id).single();
+    const { data: profile } = await supabase.from('profiles').select('role, delegacion, can_approve').eq('id', user.id).single();
     if (profile?.role) {
       setRole(profile.role);
     } else {
       setRole(user.user_metadata?.role || 'operations');
     }
+    setCanApprove(profile?.can_approve !== false);
     const delegacion = profile?.delegacion || user.user_metadata?.delegacion;
     if (delegacion) {
       setGlobalLab(labFromDelegacion(delegacion));
@@ -105,7 +107,27 @@ export default function App() {
         onLogout={handleLogout}
         onBackToHub={() => setActiveModule(null)}
         role={role}
+        canApprove={canApprove}
         onSelectModule={setActiveModule}
+        onRegisterEquipment={(equipData) => {
+          setPendingEquipmentData(equipData);
+          setActiveModule('equipos');
+        }}
+      />
+    );
+  }
+
+  if (activeModule === 'produccion') {
+    return (
+      <PurchasingModule
+        session={session}
+        globalLab={globalLab}
+        onLogout={handleLogout}
+        onBackToHub={() => setActiveModule(null)}
+        role={role}
+        canApprove={canApprove}
+        onSelectModule={setActiveModule}
+        initialTab="produccion"
         onRegisterEquipment={(equipData) => {
           setPendingEquipmentData(equipData);
           setActiveModule('equipos');

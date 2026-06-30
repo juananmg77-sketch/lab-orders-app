@@ -140,6 +140,14 @@ body {
   width: 100%;
 }
 
+.content-area {
+  padding: 32px;
+  max-width: 1300px;
+  margin: 0 auto;
+  width: 100%;
+  box-sizing: border-box;
+}
+
 .card {
   background-color: var(--surface);
   border-radius: 12px;
@@ -279,8 +287,179 @@ tr:hover {
 .badge-approval { background-color: #EDE9F6; color: #5B21B6; }
 .badge-rejected { background-color: #F1F5F9; color: #475569; }
 
+/* ── Login responsive ── */
+.auth-container {
+  display: flex;
+  height: 100vh;
+  width: 100vw;
+  overflow: hidden;
+}
+.auth-left {
+  flex: 1;
+  background-color: var(--primary);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px;
+  color: white;
+  text-align: center;
+}
+.auth-right {
+  flex: 1;
+  background-color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px;
+  overflow-y: auto;
+}
+.auth-right-inner {
+  width: 100%;
+  max-width: 400px;
+}
+
+@media (max-width: 768px) {
+  .auth-container {
+    flex-direction: column;
+  }
+  .auth-left {
+    display: none;
+  }
+  .auth-right {
+    flex: 1;
+    padding: 32px 24px;
+    align-items: flex-start;
+    padding-top: 48px;
+  }
+  .auth-right-inner {
+    max-width: 100%;
+  }
+}
+
 /* Custom Scrollbar */
 ::-webkit-scrollbar { width: 8px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: #CBD5E0; border-radius: 4px; }
 ::-webkit-scrollbar-thumb:hover { background: #A0AEC0; }
+
+/* ── Mobile ─────────────────────────────────────── */
+@media (max-width: 768px) {
+
+  /* Sidebar: oculta por defecto, desliza desde la izquierda */
+  .sidebar {
+    position: fixed;
+    top: 0; left: 0; bottom: 0;
+    transform: translateX(-100%);
+    transition: transform 0.25s ease;
+    z-index: 200;
+    width: 260px;
+  }
+
+  .sidebar.open {
+    transform: translateX(0);
+  }
+
+  /* Overlay oscuro detrás del sidebar */
+  .sidebar-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.45);
+    z-index: 199;
+  }
+
+  .sidebar-overlay.open {
+    display: block;
+  }
+
+  /* El layout no reserva espacio para el sidebar */
+  .layout {
+    flex-direction: column;
+  }
+
+  .main-content {
+    width: 100%;
+  }
+
+  /* Header más compacto */
+  .header {
+    padding: 0 16px;
+    height: 56px;
+  }
+
+  /* Contenido con menos padding */
+  .page-content {
+    padding: 16px;
+  }
+
+  /* Título de página más pequeño */
+  .page-title {
+    font-size: 1.15rem;
+  }
+
+  /* Cards sin tanto margen */
+  .card {
+    padding: 16px;
+    margin-bottom: 16px;
+  }
+
+  /* Botón hamburguesa */
+  .hamburger {
+    display: flex !important;
+  }
+
+  /* Botón cerrar sidebar */
+  .sidebar-close {
+    display: block !important;
+  }
+
+  /* Tablas: scroll horizontal con columnas mínimas */
+  .table-wrapper {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  table {
+    min-width: 600px;
+  }
+
+  th, td {
+    padding: 8px 10px;
+    white-space: nowrap;
+  }
+
+  /* Modales a pantalla completa */
+  .modal-overlay > .card {
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    border-radius: 0 !important;
+    height: 100vh;
+    overflow-y: auto;
+  }
+
+  /* Grids de filtros: una columna */
+  .filters-grid {
+    flex-direction: column !important;
+  }
+
+  /* Flex que se rompe en columna */
+  .flex-between {
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+}
+
+/* El botón hamburguesa está oculto en desktop */
+.hamburger {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 6px;
+  border-radius: 6px;
+  color: var(--text);
+}

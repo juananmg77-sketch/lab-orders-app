@@ -39,14 +39,25 @@ export default function InvoiceImporter({ isOpen, onClose, existingArticles, onI
         const typedarray = new Uint8Array(this.result);
         const pdf = await window.pdfjsLib.getDocument(typedarray).promise;
         let fullText = "";
-        
+
         for (let i = 1; i <= pdf.numPages; i++) {
           const page = await pdf.getPage(i);
           const textContent = await page.getTextContent();
-          const pageText = textContent.items.map(item => item.str).join(" ");
-          fullText += pageText + "\n";
+          // Use y-position changes to reconstruct lines
+          const items = textContent.items;
+          let pageText = '';
+          let prevY = null;
+          for (const item of items) {
+            if (!item.str) continue;
+            const y = item.transform ? Math.round(item.transform[5]) : 0;
+            if (prevY !== null && Math.abs(y - prevY) > 3) pageText += '\n';
+            pageText += item.str + ' ';
+            prevY = y;
+          }
+          fullText += pageText + '\n---PAGE---\n';
         }
 
+        console.log('[InvoiceImporter] Texto extraído (primeras 4000 chars):\n', fullText.slice(0, 4000));
         processText(fullText);
       };
       reader.readAsArrayBuffer(file);
@@ -57,88 +68,98 @@ export default function InvoiceImporter({ isOpen, onClose, existingArticles, onI
     }
   };
 
-  const processText = (text) => {
-    // Keywords that indicate the line is NOT an article (totals, footers, etc)
-    const discardKeywords = ['TOTAL', 'SUBTOTAL', 'IVA', 'VENCIMIENTO', 'BANCO', 'IBAN', 'PÁG', 'CLIENTE', 'FECHA', 'ALBARÁN', 'BASE IMPONIBLE', 'DESCUENTO', 'R.E.'];
-    
-    const lines = text.split('\n');
-    const processed = [];
-    
-    // Pattern to look for potential item lines: typically has a reference-like string and a price
-    const potentialLines = text.match(/[A-Z0-9./-]{3,}.*?\d+[,.]\d{2}/gi) || [];
+  const buildArticleEntry = (ref, desc, priceStr, processed, seen, labExisting) => {
+    const upperLine = (ref + ' ' + desc).toUpperCase();
+    const skip = ['TOTAL','SUBTOTAL','IVA','IGIC','VENCIMIENTO','BANCO','ALBARÁN',
+      'BASE IMPONIBLE','DESCUENTO','CUOTA','PORTES','TRANSFERENCIA','FACTURA',
+      'NÚMERO','CLIENTE','CONDICIONES','PÁGINA','PÁGINA'];
+    if (skip.some(k => upperLine.includes(k))) return;
+    if (seen.has(ref.toLowerCase())) return;
+    seen.add(ref.toLowerCase());
 
-    potentialLines.forEach((line, idx) => {
-      // 1. Skip if it contains discard keywords
-      const upperLine = line.toUpperCase();
-      if (discardKeywords.some(kw => upperLine.includes(kw))) return;
+    const normalizedPrice = priceStr.replace('.','') // quitar separador miles
+      .replace(',', '.'); // → decimal punto para parseFloat
+    const newPriceVal = parseFloat(normalizedPrice) || 0;
+    if (newPriceVal <= 0 || newPriceVal > 99999) return;
 
-      // 2. Extract price (usually the last numeric value with decimals in the line)
-      const priceMatches = [...line.matchAll(/(\d+[,.]\d{2})/g)];
-      if (priceMatches.length === 0) return;
-      
-      const lastPriceStr = priceMatches[priceMatches.length - 1][0];
-      
-      // 3. Extract potential reference (typically at the beginning or after a small code)
-      // Look for a combination of letters and numbers that doesn't look like a common word
-      const refMatch = line.match(/[A-Z0-9./-]{5,}/i);
-      const ref = refMatch ? refMatch[0] : null;
-      
-      // 4. Extract description by removing ref and price
-      let desc = line;
-      if (ref) desc = desc.replace(ref, '');
-      desc = desc.replace(lastPriceStr, '').replace(/€/g, '').trim();
-      
-      // If description is empty or too short, it might not be an article
-      if (desc.length < 5 && !ref) return;
+    const displayPrice = priceStr.includes(',') ? priceStr + ' €' : priceStr + ',00 €';
 
-      // 5. Match against existing articles
-      // Use comma for decimals to stay consistent with seed data format (e.g. "55,42 €")
-      const normalizedNewPrice = lastPriceStr.replace('.', ',') + ' €';
-      const newPriceVal = parseFloat(lastPriceStr.replace(',', '.'));
+    const match = labExisting.find(a =>
+      (a.supplierRef && a.supplierRef.toLowerCase() === ref.toLowerCase()) ||
+      a.id.toLowerCase() === ref.toLowerCase() ||
+      (desc.length > 10 && a.name.toLowerCase().includes(desc.toLowerCase().substring(0, 20)))
+    );
 
-      // Find match only within the same lab
-      const labExisting = existingArticles.filter(a => (a.lab || 'HSLAB Baleares') === selectedLab);
-      const match = labExisting.find(a =>
-        (ref && a.supplierRef && a.supplierRef.toLowerCase() === ref.toLowerCase()) ||
-        (ref && a.id.toLowerCase() === ref.toLowerCase()) ||
-        (desc.length > 10 && a.name.toLowerCase().includes(desc.toLowerCase().substring(0, 15)))
-      );
-
-      let action = 'new'; 
-      let actionColor = 'var(--info)';
-      let statusText = 'Nuevo Artículo';
-
-      if (match) {
-        const currentPriceStr = match.price ? match.price.replace('€', '').trim().replace(',', '.') : '0';
-        const oldPriceVal = parseFloat(currentPriceStr);
-        
-        if (Math.abs(newPriceVal - oldPriceVal) > 0.01) {
-          action = 'update_price';
-          actionColor = 'var(--warning)';
-          statusText = 'Cambio de Precio';
-        } else {
-          action = 'exists';
-          actionColor = 'var(--success)';
-          statusText = 'Ya existe (Igual)';
-        }
+    let action = 'new', actionColor = 'var(--info)', statusText = 'Nuevo Artículo';
+    if (match) {
+      const oldVal = parseFloat((match.price || '0').replace('€','').trim().replace(',','.').replace(/\./g,'').replace(',','.')) || 0;
+      if (Math.abs(newPriceVal - oldVal) > 0.01) {
+        action = 'update_price'; actionColor = 'var(--warning)'; statusText = 'Cambio de Precio';
+      } else {
+        action = 'exists'; actionColor = 'var(--success)'; statusText = 'Ya existe (Igual)';
       }
+    }
 
-      processed.push({
-        id: match ? match.id : null,
-        ref: ref || 'S/REF',
-        name: match ? match.name : desc,
-        originalDesc: desc,
-        currentPrice: match ? match.price : null,
-        newPrice: normalizedNewPrice,
-        action,
-        statusText,
-        actionColor,
-        selected: action !== 'exists',
-        isDuplicate: match && action === 'exists',
-        article: match // Store full article for later upsert
-      });
+    processed.push({
+      id: match?.id ?? null,
+      ref,
+      name: match ? match.name : desc.replace(/\s+/g,' ').trim().toUpperCase(),
+      originalDesc: desc,
+      currentPrice: match?.price ?? null,
+      newPrice: displayPrice,
+      action, statusText, actionColor,
+      selected: action !== 'exists',
+      isDuplicate: match && action === 'exists',
+      article: match ?? null
     });
+  };
 
+  const processText = (text) => {
+    const labExisting = existingArticles.filter(a =>
+      a.lab === 'ALL' || a.lab === selectedLab ||
+      (a.stock_labs && selectedLab in a.stock_labs)
+    );
+    const seen = new Set();
+    const processed = [];
+
+    // ── Limpieza quirúrgica: eliminar líneas no-artículo ──────────────────
+    // Procesar línea a línea (pdfjs ahora separa por salto de y-position)
+    const lines = text.split('\n');
+
+    // Regex para identificar líneas de lote (fecha - código - qty uds)
+    const lotLineRe = /^\s*\d{2}\/\d{2}\/\d{4}|uds?\.?\s*$|-\s*-\s*[\d,.]+\s*uds?/i;
+    // Regex para cabeceras/pies repetidos
+    const headerRe = /^(Factura|Número:|Fecha:|Página:|Código cliente|Fecha de vencimiento|Dirección de|Asesoramiento|Montajes y|Registro Mercantil|Condiciones de pago|Base imponible|IBAN|BIC\s|Su pedido|Observaciones:|De Albarán|---PAGE---)/i;
+
+    const articleLines = lines.filter(l => !lotLineRe.test(l) && !headerRe.test(l) && l.trim().length > 5);
+    const cleanText = articleLines.join(' ');
+
+    console.log('[InvoiceImporter] Texto limpio (primeros 2000):\n', cleanText.slice(0, 2000));
+
+    // ── Estrategia 1: formato MELCAN/Canarias ─────────────────────────────
+    // REF DESCRIPCIÓN QTY PRECIO_UNIT DISC%+ TOTAL_IMPORTE
+    // Los porcentajes (7%3%, 10%3%, etc.) son el ancla más fiable
+    // Captura: (ref)(desc)(qty)(precio_unit)(total)
+    const melcanRe = /([A-Z0-9][A-Z0-9._/-]{2,})\s+(.+?)\s+(\d+(?:[,.]\d{1,3})?)\s+(\d+[,.]\d{2})\s+(?:\d+(?:[,.]\d+)?%\s*){1,4}(\d+(?:[.]\d{3})*[,.]\d{2})/g;
+    let m;
+    while ((m = melcanRe.exec(cleanText)) !== null) {
+      const ref   = m[1].trim();
+      const desc  = m[2].trim();
+      const price = m[4]; // precio UNITARIO (no el total importe)
+      if (/^\d{1,3}$/.test(ref)) continue; // saltar años/páginas
+      buildArticleEntry(ref, desc, price, processed, seen, labExisting);
+    }
+
+    // ── Estrategia 2: fallback genérico si no se encontró nada ────────────
+    // Para otras facturas sin % de impuesto: REF DESCRIPCIÓN PRECIO
+    if (processed.length === 0) {
+      const genericRe = /([A-Z0-9][A-Z0-9._/-]{3,})\s+([^0-9][^€\n]{5,}?)\s+(\d+[,.]\d{2})\s*€?/g;
+      while ((m = genericRe.exec(cleanText)) !== null) {
+        buildArticleEntry(m[1].trim(), m[2].trim(), m[3], processed, seen, labExisting);
+      }
+    }
+
+    console.log('[InvoiceImporter] Artículos detectados:', processed.length, processed.map(p => p.ref));
     setExtractedData(processed);
     setIsExtracting(false);
   };
@@ -171,14 +192,16 @@ export default function InvoiceImporter({ isOpen, onClose, existingArticles, onI
             .from('articles')
             .insert({
               id: `LAB-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).substr(2, 4).toUpperCase()}`,
-              name: item.name,
+              name: (item.name || '').toUpperCase(),
               supplierRef: item.ref,
               price: item.newPrice,
               supplierName: selectedSupplierName || 'Importado por Factura',
               category: 'General',
               stock: 0,
               minStock: 5,
-              lab: selectedLab
+              lab: 'ALL',
+              stock_labs: { [selectedLab]: 0 },
+              min_stock_labs: { [selectedLab]: 5 }
             });
 
           if (error) throw new Error(`Error insertando ${item.name}: ${error.message}`);
@@ -230,7 +253,12 @@ export default function InvoiceImporter({ isOpen, onClose, existingArticles, onI
                   onChange={(e) => setSelectedSupplierName(e.target.value)}
                 >
                   <option value="">Detectar automáticamente o genérico</option>
-                  {[...new Set(existingArticles.filter(a => (a.lab || 'HSLAB Baleares') === selectedLab).map(a => a.supplierName))].map(s => (
+                  {[...new Set(
+                    existingArticles
+                      .filter(a => a.lab === 'ALL' || a.lab === selectedLab || (a.stock_labs && selectedLab in a.stock_labs))
+                      .map(a => a.supplierName)
+                      .filter(Boolean)
+                  )].sort().map(s => (
                     <option key={s} value={s}>{s}</option>
                   ))}
                 </select>

@@ -1,5 +1,5 @@
 import React from 'react';
-import { ShoppingCart, LogOut, Settings, Bell, Microscope, Users, FlaskConical, Tag, GraduationCap, UserCog } from 'lucide-react';
+import { ShoppingCart, LogOut, Settings, Bell, Microscope, Users, FlaskConical, Tag, GraduationCap, UserCog, TestTube2 } from 'lucide-react';
 import logo from './assets/logo.png';
 
 export default function Hub({ session, globalLab, setGlobalLab, onSelectModule, onLogout, role = 'operations' }) {
@@ -251,7 +251,32 @@ export default function Hub({ session, globalLab, setGlobalLab, onSelectModule, 
               </div>
               <h2 style={{ fontSize: '1.5rem', color: 'var(--secondary)', margin: '0 0 12px 0' }}>Previsión Legionella</h2>
               <p style={{ color: 'var(--text-muted)', margin: 0, lineHeight: 1.5 }}>
-                Cálculo mensual de envases previstos por nodo logístico a partir del fichero de actividades.
+                Cálculo mensual de las entradas de muestras en Laboratorio.
+              </p>
+            </div>
+          )}
+
+          {/* Module: Producción / Uso de Lotes (Lab + Admin) */}
+          {['admin', 'lab'].includes(role) && (
+            <div
+              onClick={() => onSelectModule('produccion')}
+              style={{
+                width: '320px', backgroundColor: 'white', borderRadius: '20px',
+                padding: '40px 30px', boxShadow: '0 10px 30px rgba(0,0,0,0.08)',
+                cursor: 'pointer', display: 'flex', flexDirection: 'column',
+                alignItems: 'center', textAlign: 'center',
+                borderTop: '6px solid #0d9488',
+                transition: 'transform 0.3s ease, box-shadow 0.3s ease',
+              }}
+              onMouseOver={(e) => e.currentTarget.style.transform = 'translateY(-10px)'}
+              onMouseOut={(e) => e.currentTarget.style.transform = 'translateY(0)'}
+            >
+              <div style={{ width: '80px', height: '80px', borderRadius: '40px', backgroundColor: '#f0fdfa', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '24px' }}>
+                <TestTube2 size={40} color="#0d9488" />
+              </div>
+              <h2 style={{ fontSize: '1.5rem', color: 'var(--secondary)', margin: '0 0 12px 0' }}>Producción / Uso de Lotes</h2>
+              <p style={{ color: 'var(--text-muted)', margin: 0, lineHeight: 1.5 }}>
+                Registro de lotes de medios preparados y apertura de reactivos comerciales.
               </p>
             </div>
           )}
@@ -281,36 +306,6 @@ export default function Hub({ session, globalLab, setGlobalLab, onSelectModule, 
             </div>
           )}
 
-          {/* Module 4: Usuarios (Admin Only) */}
-          {showUsers && (
-            <div 
-              onClick={() => onSelectModule('usuarios')}
-              style={{ 
-                width: '320px', 
-                backgroundColor: 'white', 
-                borderRadius: '20px', 
-                padding: '40px 30px', 
-                boxShadow: '0 10px 30px rgba(0,0,0,0.08)',
-                cursor: 'pointer',
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                textAlign: 'center',
-                borderTop: '6px solid #6366f1',
-                transition: 'transform 0.3s ease, box-shadow 0.3s ease'
-               }}
-               onMouseOver={(e) => e.currentTarget.style.transform = 'translateY(-10px)'}
-               onMouseOut={(e) => e.currentTarget.style.transform = 'translateY(0)'}
-            >
-              <div style={{ width: '80px', height: '80px', borderRadius: '40px', backgroundColor: '#eef2ff', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '24px' }}>
-                <Settings size={40} color="#6366f1" />
-              </div>
-              <h2 style={{ fontSize: '1.5rem', color: 'var(--secondary)', margin: '0 0 12px 0' }}>Accesos y Roles</h2>
-              <p style={{ color: 'var(--text-muted)', margin: 0, lineHeight: 1.5 }}>
-                Administración de usuarios, asignación de permisos y niveles de acceso.
-              </p>
-            </div>
-          )}
 
         </div>
       </main>

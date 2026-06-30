@@ -46,7 +46,12 @@ function parseOrderDate(dateStr) {
   return new Date(y, m - 1, d);
 }
 
-export default function Dashboard({ orders, articles, onTabChange, onNavigateToPedidos, role = 'operations', monthlyBudgets = {}, onSaveBudget }) {
+// Para contabilización económica usa la fecha de aprobación cuando existe
+function accountingDate(order) {
+  return parseOrderDate(order.approval_date || order.date);
+}
+
+export default function Dashboard({ orders, articles, onTabChange, onNavigateToPedidos, onNavigateToArticles, role = 'operations', monthlyBudgets = {}, onSaveBudget }) {
   const [monthFilter, setMonthFilter]           = useState('');
   const [dateRange, setDateRange]               = useState({ start: '', end: '' });
   const [spendingSupplier, setSpendingSupplier] = useState('Todos');
@@ -55,12 +60,14 @@ export default function Dashboard({ orders, articles, onTabChange, onNavigateToP
   const [statusFilter, setStatusFilter]         = useState('Todos');
   // Local editing state: { 'YYYY-MM': string } — only active while input is focused
   const [editingBudgets, setEditingBudgets]     = useState({});
+  const [analysisFilter, setAnalysisFilter]     = useState('');
+  const [accountTypeFilter, setAccountTypeFilter] = useState('');
 
   // Months available derived from orders
   const availableMonths = useMemo(() => {
     const seen = new Set();
     orders.forEach(o => {
-      const d = parseOrderDate(o.date);
+      const d = accountingDate(o);
       if (d && !isNaN(d)) {
         seen.add(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`);
       }
@@ -71,7 +78,7 @@ export default function Dashboard({ orders, articles, onTabChange, onNavigateToP
   // Base filter: month OR date range + supplier (used for status summary cards — ignores statusFilter)
   const baseFiltered = useMemo(() => {
     return orders.filter(order => {
-      const d = parseOrderDate(order.date);
+      const d = accountingDate(order);
       if (!d) return false;
 
       let matchesDate = true;
@@ -88,11 +95,40 @@ export default function Dashboard({ orders, articles, onTabChange, onNavigateToP
     });
   }, [orders, monthFilter, dateRange, spendingSupplier]);
 
-  // Full filtered (includes statusFilter) — used for charts and reference table
+  // Map article id → analysis_type and account_type from the articles catalogue
+  const articleAnalysisMap = useMemo(() => {
+    const map = {};
+    articles.forEach(a => { if (a.id) map[a.id] = a.analysis_type || null; });
+    return map;
+  }, [articles]);
+
+  const articleAccountTypeMap = useMemo(() => {
+    const map = {};
+    articles.forEach(a => { if (a.id) map[a.id] = a.account_type || 'OPEX'; });
+    return map;
+  }, [articles]);
+
+  // Full filtered (includes statusFilter + analysisFilter + accountTypeFilter) — used for charts and reference table
   const filteredData = useMemo(() => {
-    if (statusFilter === 'Todos') return baseFiltered;
-    return baseFiltered.filter(o => o.status === statusFilter);
-  }, [baseFiltered, statusFilter]);
+    let data = statusFilter === 'Todos' ? baseFiltered : baseFiltered.filter(o => o.status === statusFilter);
+    if (analysisFilter) {
+      data = data.filter(o =>
+        o.cart && o.cart.some(item => {
+          const aType = item.article?.analysis_type || articleAnalysisMap[item.article?.id] || null;
+          return aType === analysisFilter;
+        })
+      );
+    }
+    if (accountTypeFilter) {
+      data = data.filter(o =>
+        o.cart && o.cart.some(item => {
+          const aType = item.article?.account_type || articleAccountTypeMap[item.article?.id] || 'OPEX';
+          return aType === accountTypeFilter;
+        })
+      );
+    }
+    return data;
+  }, [baseFiltered, statusFilter, analysisFilter, accountTypeFilter, articleAnalysisMap, articleAccountTypeMap]);
 
   // Orders "realizados": sent to supplier (excludes Pendiente de Aprobación and Rechazado)
   // Used exclusively for the monthly budget control table
@@ -105,7 +141,7 @@ export default function Dashboard({ orders, articles, onTabChange, onNavigateToP
   const budgetByMonth = useMemo(() => {
     const map = {};
     realizedOrders.forEach(o => {
-      const d = parseOrderDate(o.date);
+      const d = accountingDate(o);
       if (!d) return;
       const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
       map[key] = (map[key] || 0) + (o.total || 0);
@@ -144,12 +180,13 @@ export default function Dashboard({ orders, articles, onTabChange, onNavigateToP
     const supplierSpending = {};
     const monthlySpending = {};
     const categorySpending = {};
+    const analysisSpending = { 'Legionella': 0, 'Alimentos': 0, 'Piscinas': 0, 'Sin asignar': 0 };
 
     filteredData.forEach(order => {
       totalSpent += order.total || 0;
       supplierSpending[order.supplier] = (supplierSpending[order.supplier] || 0) + order.total;
 
-      const d = parseOrderDate(order.date);
+      const d = accountingDate(order);
       if (d) {
         const monthKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
         monthlySpending[monthKey] = (monthlySpending[monthKey] || 0) + (order.total || 0);
@@ -168,6 +205,11 @@ export default function Dashboard({ orders, articles, onTabChange, onNavigateToP
           // Acumular gasto por categoría
           const cat = (item.article.category || 'Sin categoría').trim();
           categorySpending[cat] = (categorySpending[cat] || 0) + subtotal;
+
+          // Acumular gasto por grupo de análisis
+          const rawAType = item.article.analysis_type || articleAnalysisMap[ref] || null;
+          const aKey = ['Legionella', 'Alimentos', 'Piscinas'].includes(rawAType) ? rawAType : 'Sin asignar';
+          analysisSpending[aKey] = (analysisSpending[aKey] || 0) + subtotal;
 
           if (!refMap.has(ref)) {
             refMap.set(ref, { id: ref, name: item.article.name, category: item.article.category || '', supplier: item.article.supplierName, totalQty: 0, totalCost: 0, count: 0 });
@@ -217,8 +259,8 @@ export default function Dashboard({ orders, articles, onTabChange, onNavigateToP
         return sum + (parseFloat(priceStr) || 0) * (art.stock || 0);
       }, 0);
 
-    return { totalSpent, totalOrders: filteredData.length, totalItemsPurchased, refStats, supplierChartData, monthlyChartData, currentStockValuation, monthlySpendingMap: monthlySpending, categoryChartData, spentEquipos, spentConsumo };
-  }, [filteredData, searchRef, articles, stockSupplier]);
+    return { totalSpent, totalOrders: filteredData.length, totalItemsPurchased, refStats, supplierChartData, monthlyChartData, currentStockValuation, monthlySpendingMap: monthlySpending, categoryChartData, spentEquipos, spentConsumo, analysisSpending };
+  }, [filteredData, searchRef, articles, stockSupplier, articleAnalysisMap]);
 
   const uniqueSuppliers = useMemo(() => {
     const names = [...new Set([
@@ -239,7 +281,7 @@ export default function Dashboard({ orders, articles, onTabChange, onNavigateToP
   const kpiMonth  = monthFilter || `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
   const kpiBudget = monthlyBudgets[kpiMonth] || 0;
   const kpiSpent  = realizedOrders
-    .filter(o => { const d = parseOrderDate(o.date); return d && `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}` === kpiMonth; })
+    .filter(o => { const d = accountingDate(o); return d && `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}` === kpiMonth; })
     .reduce((s, o) => s + (o.total || 0), 0);
   const kpiLabelStr = monthLabel(kpiMonth);
   const kpiIsOver   = kpiBudget > 0 && kpiSpent > kpiBudget;
@@ -259,118 +301,92 @@ export default function Dashboard({ orders, articles, onTabChange, onNavigateToP
       </div>
 
       {/* Filters Bar */}
-      <div className="card" style={{ marginBottom: '24px', padding: '16px', display: 'flex', gap: '16px', alignItems: 'flex-end', flexWrap: 'wrap' }}>
-        {/* Estado */}
-        <div className="input-group" style={{ margin: 0, minWidth: '180px' }}>
-          <label className="input-label" style={{ fontSize: '0.8rem' }}>Estado</label>
-          <select className="input-field" value={statusFilter} onChange={e => setStatusFilter(e.target.value)}>
-            <option value="Todos">Todos los estados</option>
-            <option value="Completado">Completado</option>
-            <option value="Pendiente">Pendiente</option>
-            <option value="Incompleto">Incompleto</option>
-            <option value="Pendiente de Aprobación">Pendiente de Aprobación</option>
-            <option value="Rechazado">Rechazado</option>
-          </select>
-        </div>
+      <div className="card" style={{ marginBottom: '24px', padding: '12px 20px' }}>
+        <div style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
 
-        {/* Proveedor */}
-        <div className="input-group" style={{ margin: 0, minWidth: '180px' }}>
-          <label className="input-label" style={{ fontSize: '0.8rem' }}>Proveedor</label>
-          <select className="input-field" value={spendingSupplier} onChange={e => setSpendingSupplier(e.target.value)}>
-            {uniqueSuppliers.map(s => <option key={s} value={s}>{s}</option>)}
-          </select>
-        </div>
-
-        {/* Mes */}
-        <div className="input-group" style={{ margin: 0, minWidth: '160px' }}>
-          <label className="input-label" style={{ fontSize: '0.8rem' }}>Mes</label>
-          <select
-            className="input-field"
-            value={monthFilter}
-            onChange={e => {
-              setMonthFilter(e.target.value);
-              if (e.target.value) setDateRange({ start: '', end: '' });
-            }}
-          >
-            <option value="">Todos los meses</option>
-            {availableMonths.map(ym => (
-              <option key={ym} value={ym}>{monthLabel(ym)}</option>
-            ))}
-          </select>
-        </div>
-
-        {/* Desde / Hasta */}
-        <div className="input-group" style={{ margin: 0 }}>
-          <label className="input-label" style={{ fontSize: '0.8rem' }}>Desde</label>
-          <input type="date" className="input-field" value={dateRange.start}
-            onChange={e => { setDateRange({ ...dateRange, start: e.target.value }); setMonthFilter(''); }} />
-        </div>
-        <div className="input-group" style={{ margin: 0 }}>
-          <label className="input-label" style={{ fontSize: '0.8rem' }}>Hasta</label>
-          <input type="date" className="input-field" value={dateRange.end}
-            onChange={e => { setDateRange({ ...dateRange, end: e.target.value }); setMonthFilter(''); }} />
-        </div>
-
-        {/* Buscar referencia */}
-        <div className="input-group" style={{ margin: 0, flex: 1, minWidth: '220px' }}>
-          <label className="input-label" style={{ fontSize: '0.8rem' }}>Buscar Referencia</label>
-          <div style={{ position: 'relative' }}>
-            <Search size={16} style={{ position: 'absolute', left: '12px', top: '12px', color: 'var(--text-muted)' }} />
-            <input type="text" className="input-field" placeholder="Nombre o Ref..."
-              style={{ paddingLeft: '36px' }} value={searchRef} onChange={e => setSearchRef(e.target.value)} />
+          {/* Mes */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', minWidth: '160px' }}>
+            <span style={{ fontSize: '0.68rem', fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', color: 'var(--text-muted)' }}>Período</span>
+            <select className="input-field" style={{ margin: 0, padding: '7px 10px', fontSize: '0.85rem', height: 'auto' }}
+              value={monthFilter} onChange={e => setMonthFilter(e.target.value)}>
+              <option value="">Todos los meses</option>
+              {availableMonths.map(ym => <option key={ym} value={ym}>{monthLabel(ym)}</option>)}
+            </select>
           </div>
-        </div>
-      </div>
 
-      {/* Status Summary Panel */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '12px', marginBottom: '24px' }}>
-        {/* 4 status cards */}
-        {Object.entries(STATUS_CONFIG).map(([status, cfg]) => {
-          const Icon = cfg.icon;
-          const data = statusSummary[status] || { count: 0, total: 0 };
-          return (
-            <div
-              key={status}
-              className="card"
-              style={{ padding: '16px', cursor: data.count > 0 ? 'pointer' : 'default', transition: 'box-shadow 0.2s', borderTop: `3px solid ${cfg.color}`, opacity: data.count === 0 ? 0.55 : 1 }}
-              onClick={() => { if (data.count > 0 && onNavigateToPedidos) onNavigateToPedidos(status); }}
-              title={data.count > 0 ? `Ver ${data.count} pedido(s) "${cfg.label}" en Gestión de Pedidos` : `Sin pedidos "${cfg.label}"`}
+          <div style={{ width: '1px', height: '36px', backgroundColor: 'var(--border)', alignSelf: 'flex-end', marginBottom: '2px' }} />
+
+          {/* Estado */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', minWidth: '170px' }}>
+            <span style={{ fontSize: '0.68rem', fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', color: 'var(--text-muted)' }}>Estado</span>
+            <select className="input-field" style={{ margin: 0, padding: '7px 10px', fontSize: '0.85rem', height: 'auto' }}
+              value={statusFilter} onChange={e => setStatusFilter(e.target.value)}>
+              <option value="Todos">Todos los estados</option>
+              <option value="Completado">Completado</option>
+              <option value="Pendiente">Pendiente</option>
+              <option value="Incompleto">Incompleto</option>
+              <option value="Pendiente de Aprobación">Pendiente de Aprobación</option>
+              <option value="Rechazado">Rechazado</option>
+            </select>
+          </div>
+
+          {/* Proveedor */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', minWidth: '170px' }}>
+            <span style={{ fontSize: '0.68rem', fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', color: 'var(--text-muted)' }}>Proveedor</span>
+            <select className="input-field" style={{ margin: 0, padding: '7px 10px', fontSize: '0.85rem', height: 'auto' }}
+              value={spendingSupplier} onChange={e => setSpendingSupplier(e.target.value)}>
+              {uniqueSuppliers.map(s => <option key={s} value={s}>{s}</option>)}
+            </select>
+          </div>
+
+          <div style={{ width: '1px', height: '36px', backgroundColor: 'var(--border)', alignSelf: 'flex-end', marginBottom: '2px' }} />
+
+          {/* Grupo de análisis */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', minWidth: '150px' }}>
+            <span style={{ fontSize: '0.68rem', fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', color: 'var(--text-muted)' }}>Grupo análisis</span>
+            <select className="input-field" style={{ margin: 0, padding: '7px 10px', fontSize: '0.85rem', height: 'auto' }}
+              value={analysisFilter} onChange={e => setAnalysisFilter(e.target.value)}>
+              <option value="">Todos</option>
+              <option value="Legionella">Legionella</option>
+              <option value="Alimentos">Alimentos</option>
+              <option value="Piscinas">Piscinas</option>
+            </select>
+          </div>
+
+          {/* CAPEX / OPEX */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', minWidth: '130px' }}>
+            <span style={{ fontSize: '0.68rem', fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', color: 'var(--text-muted)' }}>Tipo gasto</span>
+            <select className="input-field" style={{ margin: 0, padding: '7px 10px', fontSize: '0.85rem', height: 'auto' }}
+              value={accountTypeFilter} onChange={e => setAccountTypeFilter(e.target.value)}>
+              <option value="">CAPEX + OPEX</option>
+              <option value="OPEX">Solo OPEX</option>
+              <option value="CAPEX">Solo CAPEX</option>
+            </select>
+          </div>
+
+          <div style={{ width: '1px', height: '36px', backgroundColor: 'var(--border)', alignSelf: 'flex-end', marginBottom: '2px' }} />
+
+          {/* Buscar referencia */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', flex: 1, minWidth: '200px' }}>
+            <span style={{ fontSize: '0.68rem', fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', color: 'var(--text-muted)' }}>Buscar artículo</span>
+            <div style={{ position: 'relative' }}>
+              <Search size={15} style={{ position: 'absolute', left: '10px', top: '9px', color: 'var(--text-muted)' }} />
+              <input type="text" className="input-field" placeholder="Nombre o referencia…"
+                style={{ margin: 0, paddingLeft: '32px', padding: '7px 10px 7px 32px', fontSize: '0.85rem', height: 'auto' }}
+                value={searchRef} onChange={e => setSearchRef(e.target.value)} />
+            </div>
+          </div>
+
+          {/* Reset */}
+          {(monthFilter || statusFilter !== 'Todos' || spendingSupplier !== 'Todos' || analysisFilter || accountTypeFilter || searchRef) && (
+            <button
+              onClick={() => { setMonthFilter(''); setStatusFilter('Todos'); setSpendingSupplier('Todos'); setAnalysisFilter(''); setAccountTypeFilter(''); setSearchRef(''); }}
+              style={{ alignSelf: 'flex-end', marginBottom: '2px', background: 'none', border: '1px solid var(--border)', borderRadius: '6px', padding: '7px 12px', fontSize: '0.78rem', color: 'var(--text-muted)', cursor: 'pointer', whiteSpace: 'nowrap' }}
             >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
-                <div style={{ width: '32px', height: '32px', borderRadius: '8px', backgroundColor: cfg.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', color: cfg.color, flexShrink: 0 }}>
-                  <Icon size={16} />
-                </div>
-                <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', lineHeight: 1.2 }}>{cfg.label}</span>
-              </div>
-              <div style={{ fontSize: '1.6rem', fontWeight: 800, color: cfg.color, lineHeight: 1 }}>{data.count}</div>
-              <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '4px' }}>
-                {data.total > 0 ? data.total.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €' : '—'}
-              </div>
-            </div>
-          );
-        })}
-
-        {/* Importe total card */}
-        {(() => {
-          const totalImporte = baseFiltered.reduce((s, o) => s + (o.total || 0), 0);
-          const totalPedidos = baseFiltered.length;
-          return (
-            <div className="card" style={{ padding: '16px', borderTop: '3px solid var(--primary)', backgroundColor: 'var(--primary-light)' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
-                <div style={{ width: '32px', height: '32px', borderRadius: '8px', backgroundColor: 'rgba(0,118,206,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--primary)', flexShrink: 0 }}>
-                  <TrendingUp size={16} />
-                </div>
-                <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--primary)', lineHeight: 1.2 }}>Importe Total</span>
-              </div>
-              <div style={{ fontSize: '1.3rem', fontWeight: 800, color: 'var(--primary)', lineHeight: 1 }}>
-                {totalImporte.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
-              </div>
-              <div style={{ fontSize: '0.72rem', color: 'var(--primary)', marginTop: '4px', opacity: 0.75 }}>
-                {totalPedidos} pedido{totalPedidos !== 1 ? 's' : ''}
-              </div>
-            </div>
-          );
-        })()}
+              Limpiar filtros
+            </button>
+          )}
+        </div>
       </div>
 
       {/* KPI Cards */}
@@ -474,54 +490,130 @@ export default function Dashboard({ orders, articles, onTabChange, onNavigateToP
         </div>
       </div>
 
-      {/* Desglose Consumibles vs Equipos */}
+      {/* Desglose OPEX vs CAPEX — clickables como filtro */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '24px' }}>
-        {/* Consumibles / Reactivos */}
-        <div className="card" style={{ padding: '20px', display: 'flex', alignItems: 'center', gap: '16px', borderTop: '3px solid #0891B2' }}>
-          <div style={{ width: '48px', height: '48px', borderRadius: '12px', backgroundColor: 'rgba(8,145,178,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#0891B2', flexShrink: 0 }}>
-            <FlaskConical size={24} />
-          </div>
-          <div style={{ flex: 1 }}>
-            <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 500, marginBottom: '2px' }}>Gasto Consumibles / Reactivos</div>
-            <div style={{ fontSize: '1.5rem', fontWeight: 700, color: '#0891B2' }}>
-              {stats.spentConsumo.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
-            </div>
-            {stats.totalSpent > 0 && (
-              <div style={{ marginTop: '6px' }}>
-                <div style={{ height: '5px', backgroundColor: '#E2E8F0', borderRadius: '3px' }}>
-                  <div style={{ height: '5px', width: `${Math.min(100, (stats.spentConsumo / stats.totalSpent) * 100).toFixed(1)}%`, backgroundColor: '#0891B2', borderRadius: '3px', transition: 'width 0.4s' }} />
-                </div>
-                <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '3px' }}>
-                  {((stats.spentConsumo / stats.totalSpent) * 100).toFixed(1)}% del gasto total
-                </div>
+        {/* OPEX — Consumibles / Reactivos */}
+        {[
+          { key: 'OPEX', label: 'OPEX · Consumibles / Reactivos', value: stats.spentConsumo, color: '#0891B2', bg: 'rgba(8,145,178,0.08)', Icon: FlaskConical },
+          { key: 'CAPEX', label: 'CAPEX · Equipos / Equipamiento', value: stats.spentEquipos, color: '#D97706', bg: 'rgba(217,119,6,0.08)', Icon: Wrench },
+        ].map(({ key, label, value, color, bg, Icon }) => {
+          const isActive = accountTypeFilter === key;
+          return (
+            <div
+              key={key}
+              className="card"
+              onClick={() => setAccountTypeFilter(isActive ? '' : key)}
+              style={{
+                padding: '20px', display: 'flex', alignItems: 'center', gap: '16px',
+                borderTop: `3px solid ${color}`,
+                cursor: 'pointer', transition: 'all 0.2s',
+                outline: isActive ? `2px solid ${color}` : '2px solid transparent',
+                backgroundColor: isActive ? bg : undefined,
+              }}
+              title={isActive ? 'Quitar filtro' : `Filtrar por ${key}`}
+            >
+              <div style={{ width: '48px', height: '48px', borderRadius: '12px', backgroundColor: bg, display: 'flex', alignItems: 'center', justifyContent: 'center', color, flexShrink: 0 }}>
+                <Icon size={24} />
               </div>
-            )}
-          </div>
-        </div>
-
-        {/* Equipos / Equipamiento */}
-        <div className="card" style={{ padding: '20px', display: 'flex', alignItems: 'center', gap: '16px', borderTop: '3px solid #D97706' }}>
-          <div style={{ width: '48px', height: '48px', borderRadius: '12px', backgroundColor: 'rgba(217,119,6,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#D97706', flexShrink: 0 }}>
-            <Wrench size={24} />
-          </div>
-          <div style={{ flex: 1 }}>
-            <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 500, marginBottom: '2px' }}>Gasto Equipos / Equipamiento</div>
-            <div style={{ fontSize: '1.5rem', fontWeight: 700, color: '#D97706' }}>
-              {stats.spentEquipos.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
-            </div>
-            {stats.totalSpent > 0 && (
-              <div style={{ marginTop: '6px' }}>
-                <div style={{ height: '5px', backgroundColor: '#E2E8F0', borderRadius: '3px' }}>
-                  <div style={{ height: '5px', width: `${Math.min(100, (stats.spentEquipos / stats.totalSpent) * 100).toFixed(1)}%`, backgroundColor: '#D97706', borderRadius: '3px', transition: 'width 0.4s' }} />
+              <div style={{ flex: 1 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '2px' }}>
+                  <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 500 }}>{label}</div>
+                  {isActive && (
+                    <span style={{ fontSize: '0.65rem', fontWeight: 700, color, backgroundColor: bg, border: `1px solid ${color}`, borderRadius: '4px', padding: '1px 6px' }}>
+                      Filtro activo
+                    </span>
+                  )}
                 </div>
-                <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '3px' }}>
-                  {((stats.spentEquipos / stats.totalSpent) * 100).toFixed(1)}% del gasto total
+                <div style={{ fontSize: '1.5rem', fontWeight: 700, color }}>
+                  {value.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
                 </div>
+                {stats.totalSpent > 0 && (
+                  <div style={{ marginTop: '6px' }}>
+                    <div style={{ height: '5px', backgroundColor: '#E2E8F0', borderRadius: '3px' }}>
+                      <div style={{ height: '5px', width: `${Math.min(100, (value / stats.totalSpent) * 100).toFixed(1)}%`, backgroundColor: color, borderRadius: '3px', transition: 'width 0.4s' }} />
+                    </div>
+                    <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '3px' }}>
+                      {((value / stats.totalSpent) * 100).toFixed(1)}% del gasto total
+                    </div>
+                  </div>
+                )}
               </div>
-            )}
-          </div>
-        </div>
+            </div>
+          );
+        })}
       </div>
+
+      {/* Gasto por Grupo de Análisis */}
+      {(() => {
+        const ANALYSIS_CFG = {
+          'Legionella':   { color: '#92400e', bg: '#fef3c7', border: '#F59E0B' },
+          'Alimentos':    { color: '#166534', bg: '#dcfce7', border: '#16a34a' },
+          'Piscinas':     { color: '#1e40af', bg: '#dbeafe', border: '#3B82F6' },
+          'Sin asignar':  { color: 'var(--text-muted)', bg: 'var(--surface)', border: '#cbd5e1' },
+        };
+        const totalAnalysis = Object.values(stats.analysisSpending).reduce((s, v) => s + v, 0);
+        return (
+          <div style={{ marginBottom: '24px' }}>
+            <h3 style={{ margin: '0 0 12px 0', fontSize: '1rem', color: 'var(--text-muted)', fontWeight: 600, letterSpacing: '0.03em' }}>
+              GASTO POR GRUPO DE ANÁLISIS{analysisFilter ? ` · Filtrado: ${analysisFilter}` : ''}
+            </h3>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px' }}>
+              {Object.entries(ANALYSIS_CFG).map(([key, cfg]) => {
+                const val = stats.analysisSpending[key] || 0;
+                const pct = totalAnalysis > 0 ? (val / totalAnalysis) * 100 : 0;
+                const isActive = analysisFilter === key;
+                return (
+                  <div
+                    key={key}
+                    className="card"
+                    onClick={() => {
+                      if (key === 'Sin asignar' && onNavigateToArticles) {
+                        onNavigateToArticles('__unassigned__');
+                      } else {
+                        setAnalysisFilter(isActive ? '' : key);
+                      }
+                    }}
+                    style={{
+                      padding: '16px', cursor: 'pointer', transition: 'all 0.2s',
+                      borderTop: `3px solid ${cfg.border}`,
+                      outline: isActive ? `2px solid ${cfg.border}` : 'none',
+                      backgroundColor: isActive ? cfg.bg : undefined,
+                    }}
+                    title={key === 'Sin asignar' ? 'Ver artículos sin asignar' : (isActive ? 'Quitar filtro' : `Filtrar por ${key}`)}
+                  >
+                    {onNavigateToArticles && key !== 'Sin asignar' && (
+                      <div
+                        onClick={e => { e.stopPropagation(); onNavigateToArticles(key); }}
+                        style={{ float: 'right', fontSize: '0.68rem', color: cfg.color, opacity: 0.7, textDecoration: 'underline dotted', cursor: 'pointer', marginTop: '2px' }}
+                        title="Ver artículos de este grupo"
+                      >
+                        ver artículos →
+                      </div>
+                    )}
+                    {key === 'Sin asignar' && (
+                      <div style={{ float: 'right', fontSize: '0.68rem', color: cfg.color, opacity: 0.8, marginTop: '2px' }}>
+                        ver artículos →
+                      </div>
+                    )}
+                    <div style={{ fontSize: '0.78rem', fontWeight: 600, color: cfg.color, marginBottom: '6px' }}>{key}</div>
+                    <div style={{ fontSize: '1.3rem', fontWeight: 800, color: cfg.color }}>
+                      {val.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
+                    </div>
+                    <div style={{ marginTop: '8px' }}>
+                      <div style={{ height: '4px', backgroundColor: '#E2E8F0', borderRadius: '2px' }}>
+                        <div style={{ height: '4px', width: `${Math.min(100, pct).toFixed(1)}%`, backgroundColor: cfg.border, borderRadius: '2px', transition: 'width 0.4s' }} />
+                      </div>
+                      <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '3px' }}>
+                        {pct.toFixed(1)}% del gasto por artículo
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Charts Row */}
       <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr', gap: '20px', marginBottom: '24px' }}>
@@ -614,13 +706,75 @@ export default function Dashboard({ orders, articles, onTabChange, onNavigateToP
         </div>
       )}
 
+      {/* Detailed Reference Table */}
+      <div className="card" style={{ overflow: 'hidden' }}>
+        <div style={{ padding: '20px 24px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'baseline', gap: '12px' }}>
+          <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 700, color: 'var(--secondary)' }}>Detalle por referencia</h3>
+          <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontWeight: 400 }}>volumen acumulado · para negociación con proveedores</span>
+        </div>
+        <div style={{ maxHeight: '520px', overflowY: 'auto' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.875rem' }}>
+            <thead>
+              <tr style={{ backgroundColor: 'var(--surface)', borderBottom: '2px solid var(--border)', position: 'sticky', top: 0, zIndex: 1 }}>
+                <th style={{ padding: '10px 16px', textAlign: 'left', fontWeight: 600, fontSize: '0.72rem', letterSpacing: '0.06em', textTransform: 'uppercase', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>Artículo</th>
+                <th style={{ padding: '10px 16px', textAlign: 'left', fontWeight: 600, fontSize: '0.72rem', letterSpacing: '0.06em', textTransform: 'uppercase', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>Categoría</th>
+                <th style={{ padding: '10px 16px', textAlign: 'left', fontWeight: 600, fontSize: '0.72rem', letterSpacing: '0.06em', textTransform: 'uppercase', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>Proveedor</th>
+                <th style={{ padding: '10px 16px', textAlign: 'right', fontWeight: 600, fontSize: '0.72rem', letterSpacing: '0.06em', textTransform: 'uppercase', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>Uds.</th>
+                <th style={{ padding: '10px 16px', textAlign: 'right', fontWeight: 600, fontSize: '0.72rem', letterSpacing: '0.06em', textTransform: 'uppercase', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>P. Medio</th>
+                <th style={{ padding: '10px 16px', textAlign: 'right', fontWeight: 600, fontSize: '0.72rem', letterSpacing: '0.06em', textTransform: 'uppercase', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>Total</th>
+              </tr>
+            </thead>
+            <tbody>
+              {stats.refStats.map((ref, i) => {
+                const isEquipo = EQUIPO_RE.test(ref.category || '');
+                return (
+                  <tr key={ref.id} style={{ borderBottom: '1px solid var(--border)', backgroundColor: i % 2 === 0 ? 'transparent' : 'rgba(0,0,0,0.015)' }}>
+                    <td style={{ padding: '12px 16px' }}>
+                      <div style={{ fontWeight: 600, color: 'var(--secondary)', lineHeight: 1.3 }}>{ref.name}</div>
+                      <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '2px', fontFamily: 'monospace' }}>{ref.id}</div>
+                    </td>
+                    <td style={{ padding: '12px 16px' }}>
+                      {ref.category ? (
+                        <span style={{
+                          fontSize: '0.72rem', fontWeight: 600, padding: '3px 8px', borderRadius: '4px',
+                          backgroundColor: isEquipo ? 'rgba(217,119,6,0.08)' : 'rgba(8,145,178,0.06)',
+                          color: isEquipo ? '#b45309' : '#0369a1',
+                          whiteSpace: 'nowrap'
+                        }}>
+                          {ref.category}
+                        </span>
+                      ) : <span style={{ color: 'var(--text-muted)' }}>—</span>}
+                    </td>
+                    <td style={{ padding: '12px 16px', color: 'var(--text)', fontSize: '0.82rem' }}>{ref.supplier}</td>
+                    <td style={{ padding: '12px 16px', textAlign: 'right', fontWeight: 600, color: 'var(--text)' }}>{ref.totalQty}</td>
+                    <td style={{ padding: '12px 16px', textAlign: 'right', color: 'var(--text-muted)', fontSize: '0.82rem' }}>
+                      {ref.avgPrice.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
+                    </td>
+                    <td style={{ padding: '12px 16px', textAlign: 'right', fontWeight: 700, color: 'var(--primary)', whiteSpace: 'nowrap' }}>
+                      {ref.totalCost.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
+                    </td>
+                  </tr>
+                );
+              })}
+              {stats.refStats.length === 0 && (
+                <tr>
+                  <td colSpan="6" style={{ textAlign: 'center', padding: '48px', color: 'var(--text-muted)', fontSize: '0.85rem' }}>
+                    No hay datos para los filtros seleccionados.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
       {/* Admin Budget Analysis Table */}
       {role === 'admin' && (
-        <div className="card" style={{ marginBottom: '24px' }}>
+        <div className="card" style={{ marginTop: '24px' }}>
           <div style={{ padding: '20px 24px', borderBottom: '1px solid var(--border)' }}>
-            <h3 style={{ margin: '0 0 2px 0', fontSize: '1.1rem' }}>Control Presupuestario Mensual</h3>
+            <h3 style={{ margin: '0 0 2px 0', fontSize: '1rem', fontWeight: 700, color: 'var(--secondary)' }}>Control Presupuestario Mensual</h3>
             <p style={{ margin: 0, fontSize: '0.78rem', color: 'var(--text-muted)' }}>
-              Suma de pedidos realizados (Completado + Incompleto + Pendiente) · Haz clic en el presupuesto de cada mes para editarlo
+              Pedidos realizados (Completado + Incompleto + Pendiente) · Haz clic en el presupuesto para editarlo
             </p>
           </div>
           <div className="table-wrapper">
@@ -643,7 +797,7 @@ export default function Dashboard({ orders, articles, onTabChange, onNavigateToP
                   </tr>
                 )}
                 {budgetByMonth.map(d => {
-                  const budget  = monthlyBudgets[d.month] ?? 0;
+                  const budget    = monthlyBudgets[d.month] ?? 0;
                   const isEditing = d.month in editingBudgets;
                   const editVal   = isEditing ? editingBudgets[d.month] : budget;
                   const diff      = budget > 0 ? budget - d.value : null;
@@ -705,67 +859,6 @@ export default function Dashboard({ orders, articles, onTabChange, onNavigateToP
           </div>
         </div>
       )}
-
-      {/* Detailed Reference Table */}
-      <div className="card">
-        <div className="flex-between" style={{ padding: '20px 24px', borderBottom: '1px solid var(--border)' }}>
-          <h3 style={{ margin: 0, fontSize: '1.1rem' }}>Detalle por Referencia para Negociación</h3>
-          <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Muestra el volumen acumulado e importes pagados</span>
-        </div>
-        <div className="table-wrapper" style={{ maxHeight: '500px', overflowY: 'auto' }}>
-          <table>
-            <thead style={{ position: 'sticky', top: 0, backgroundColor: 'var(--surface)', zIndex: 1 }}>
-              <tr>
-                <th>Referencia</th>
-                <th>Nombre Artículo</th>
-                <th>Categoría</th>
-                <th>Proveedor</th>
-                <th style={{ textAlign: 'center' }}>Cant. Total</th>
-                <th style={{ textAlign: 'right' }}>Precio Medio</th>
-                <th style={{ textAlign: 'right' }}>Gasto total</th>
-              </tr>
-            </thead>
-            <tbody>
-              {stats.refStats.map(ref => {
-                const isEquipo = EQUIPO_RE.test(ref.category || '');
-                return (
-                  <tr key={ref.id}>
-                    <td style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>{ref.id}</td>
-                    <td style={{ fontWeight: 600 }}>{ref.name}</td>
-                    <td>
-                      {ref.category ? (
-                        <span style={{ fontSize: '0.75rem', fontWeight: 700, padding: '2px 8px', borderRadius: '5px',
-                          backgroundColor: isEquipo ? 'rgba(217,119,6,0.1)' : 'rgba(8,145,178,0.08)',
-                          color: isEquipo ? '#D97706' : '#0891B2',
-                          border: `1px solid ${isEquipo ? '#FCD34D' : '#BAE6FD'}`,
-                          whiteSpace: 'nowrap'
-                        }}>
-                          {isEquipo ? '⚙️ ' : '🧪 '}{ref.category}
-                        </span>
-                      ) : <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>—</span>}
-                    </td>
-                    <td style={{ fontSize: '0.85rem' }}>{ref.supplier}</td>
-                    <td style={{ textAlign: 'center' }}>
-                      <span className="badge badge-info" style={{ minWidth: '40px' }}>{ref.totalQty}</span>
-                    </td>
-                    <td style={{ textAlign: 'right' }}>{ref.avgPrice.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €</td>
-                    <td style={{ textAlign: 'right', fontWeight: 600, color: 'var(--primary)' }}>
-                      {ref.totalCost.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
-                    </td>
-                  </tr>
-                );
-              })}
-              {stats.refStats.length === 0 && (
-                <tr>
-                  <td colSpan="7" style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>
-                    No hay datos disponibles para los filtros seleccionados.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
     </div>
   );
 }

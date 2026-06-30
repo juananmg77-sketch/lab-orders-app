@@ -1,16 +1,24 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { X, ShoppingCart, Send, FileText, Trash2, Plus } from 'lucide-react';
+import { X, ShoppingCart, Send, FileText, Trash2, Plus, PackagePlus } from 'lucide-react';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import logo from './assets/logo.png';
 
-export default function NewOrderModal({ isOpen, onClose, onSaveOrder, suppliers, articles, editingOrder, defaultSupplierForOrder, initialCart = [], selectedLab = 'HSLAB Baleares' }) {
+const ARTICLE_CATEGORIES = [
+  'Medios de Cultivo','Consumibles','Reactivos Químicos','Filtración',
+  'Material de Vidrio/PP','Kits Rápidos','Desinfección','EPI',
+  'Equipos','Fungibles Equipos','Otros'
+];
+
+export default function NewOrderModal({ isOpen, onClose, onSaveOrder, suppliers, articles, editingOrder, defaultSupplierForOrder, initialCart = [], selectedLab = 'HSLAB Baleares', onQuickCreateArticle }) {
   const [selectedSupplierName, setSelectedSupplierName] = useState('');
   const [cart, setCart] = useState([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [articleSearch, setArticleSearch] = useState('');
   const [articleCategory, setArticleCategory] = useState('');
   const [suggestedCart, setSuggestedCart] = useState([]);
+  const [showQuickCreate, setShowQuickCreate] = useState(false);
+  const [quickForm, setQuickForm] = useState({ name: '', category: 'Consumibles', price: '', supplierRef: '', minStock: '1' });
   const [logoBase64, setLogoBase64] = useState('');
 
   // Pre-load and convert logo to B&W Base64
@@ -59,6 +67,8 @@ export default function NewOrderModal({ isOpen, onClose, onSaveOrder, suppliers,
       }
       setArticleSearch('');
       setArticleCategory('');
+      setShowQuickCreate(false);
+      setQuickForm({ name: '', category: 'Consumibles', price: '', supplierRef: '', minStock: '1' });
     }
   }, [isOpen, editingOrder, defaultSupplierForOrder, initialCart]);
 
@@ -150,10 +160,14 @@ export default function NewOrderModal({ isOpen, onClose, onSaveOrder, suppliers,
     const total = calculateTotal();
     const needsApproval = total >= APPROVAL_THRESHOLD && !editingOrder?.approved_by;
 
+    const hasCapex = cart.some(item => item.article?.account_type === 'CAPEX');
+
     let status;
-    if (needsApproval) {
+    if (hasCapex && !editingOrder?.approved_by) {
+      status = 'Pendiente Aprobación CEO';
+    } else if (needsApproval) {
       status = 'Pendiente de Aprobación';
-    } else if (editingOrder?.status && editingOrder.status !== 'Pendiente de Aprobación') {
+    } else if (editingOrder?.status && editingOrder.status !== 'Pendiente de Aprobación' && editingOrder.status !== 'Pendiente Aprobación CEO') {
       status = editingOrder.status;
     } else {
       status = 'Pendiente';
@@ -207,40 +221,45 @@ export default function NewOrderModal({ isOpen, onClose, onSaveOrder, suppliers,
     
     // Provider and Address Info
     const labName = selectedLab === 'HSLAB Canarias' ? 'HSCONSULTING LAB CANARIAS' : 'HSCONSULTING LAB';
-    const labAddress = selectedLab === 'HSLAB Canarias' 
-      ? 'Dirección de Entrega: C/ Triana 45. 35002 Las Palmas de Gran Canaria' 
-      : 'Dirección de Entrega: Plaza San Cosme 8. 07011 Palma de Mallorca';
-    
-    doc.text(labName, 14, 62);
-    doc.text(labAddress, 14, 68);
-    doc.text('lab@hsconsulting.es | Tel: 871 23 16 58', 14, 74);
+    const labAddressLines = selectedLab === 'HSLAB Canarias'
+      ? ['Dirección de Entrega: C/ García de Toledo, 159', 'Arinaga-Agüimes — 35118 Las Palmas de Gran Canaria']
+      : ['Dirección de Entrega: Camino Son Fangos, s/n — Planta Baja, Local B1',
+         'Edificio Mirall — 07007 Palma de Mallorca (Illes Balears)'];
 
-    // Order Info Box shifted down
+    doc.text(labName, 14, 62);
+    doc.text(labAddressLines[0], 14, 68);
+    doc.text(labAddressLines[1], 14, 73);
+    doc.text('lab@hsconsulting.es | Tel: 871 23 16 58', 14, 78);
+
+    // Order Info Box — ajustar posición vertical para dar espacio a las dos líneas
+
+
+    // Order Info Box — alineado a la derecha con la dirección de dos líneas
     doc.setDrawColor(230, 230, 230);
     doc.setFillColor(248, 248, 248);
-    doc.rect(130, 56, 66, 25, 'FD');
-    
+    doc.rect(130, 56, 66, 27, 'FD');
+
     doc.setFont("helvetica", "bold");
     doc.setTextColor(0, 0, 0);
-    doc.text(`Referencia:`, 134, 63);
-    doc.text(`Fecha:`, 134, 69);
-    doc.text(`Nº Proveedor:`, 134, 75);
-    
-    doc.setFont("helvetica", "normal");
-    doc.text(`${orderRef}`, 160, 63);
-    doc.text(`${new Date().toLocaleDateString()}`, 160, 69);
-    doc.text(`${orderSupplier?.id || 'Nuevo'}`, 160, 75);
+    doc.text(`Referencia:`,    134, 63);
+    doc.text(`Fecha:`,         134, 69);
+    doc.text(`Nº Proveedor:`,  134, 75);
 
-    // Supplier headers shifted down
+    doc.setFont("helvetica", "normal");
+    doc.text(`${orderRef}`,                              160, 63);
+    doc.text(`${new Date().toLocaleDateString()}`,       160, 69);
+    doc.text(`${orderSupplier?.id || 'Nuevo'}`,          160, 75);
+
+    // Supplier section — bajado para dar espacio a la segunda línea de dirección
     doc.setFontSize(11);
     doc.setFont("helvetica", "bold");
-    doc.text('DATOS DEL PROVEEDOR:', 14, 91);
-    
+    doc.text('DATOS DEL PROVEEDOR:', 14, 94);
+
     doc.setFont("helvetica", "normal");
     doc.setTextColor(50, 50, 50);
-    doc.text(`Proveedor: ${orderSupplier?.name || orderSupplierName}`, 14, 98);
-    doc.text(`Atención: ${orderSupplier?.contact || 'Dpto. Comercial'}`, 14, 104);
-    doc.text(`Email: ${orderSupplier?.email || 'desconocido@proveedor.com'}`, 14, 110);
+    doc.text(`Proveedor: ${orderSupplier?.name || orderSupplierName}`, 14, 101);
+    doc.text(`Atención: ${orderSupplier?.contact || 'Dpto. Comercial'}`, 14, 107);
+    doc.text(`Email: ${orderSupplier?.email || 'desconocido@proveedor.com'}`, 14, 113);
 
     const tableData = cart.map((item, index) => {
       const nameWithDesc = item.article.description 
@@ -297,7 +316,9 @@ export default function NewOrderModal({ isOpen, onClose, onSaveOrder, suppliers,
       return;
     }
 
-    if (orderData.status === 'Pendiente de Aprobación') {
+    if (orderData.status === 'Pendiente Aprobación CEO') {
+      alert(`📋 Este pedido contiene artículos CAPEX (inmovilizado) y queda en estado "Pendiente Aprobación CEO". Envía el pedido al CEO por email y apruébalo manualmente una vez confirme.`);
+    } else if (orderData.status === 'Pendiente de Aprobación') {
       alert(`⚠️ Este pedido supera los ${APPROVAL_THRESHOLD}€ y quedará pendiente de aprobación por el administrador (jamunoz@hsconsulting.es) antes de poder generar el PDF o enviarlo al proveedor.`);
     }
 
@@ -544,7 +565,6 @@ export default function NewOrderModal({ isOpen, onClose, onSaveOrder, suppliers,
                       {availableArticles.map(art => {
                         const statusColor = art.stock <= art.minStock ? 'var(--danger)' : 'var(--text-muted)';
                         const suggestion = suggestedCart.find(s => s.article.id === art.id);
-                        
                         return (
                           <tr key={art.id} style={suggestion ? { backgroundColor: 'var(--primary-light)' } : {}}>
                             <td>
@@ -566,7 +586,98 @@ export default function NewOrderModal({ isOpen, onClose, onSaveOrder, suppliers,
                               </form>
                             </td>
                           </tr>
-                        )})}
+                        );
+                      })}
+
+                      {/* Fila "crear al vuelo" cuando no hay resultados */}
+                      {availableArticles.length === 0 && articleSearch.length > 1 && (
+                        <tr>
+                          <td colSpan={3}>
+                            {!showQuickCreate ? (
+                              <div style={{ padding: '16px', textAlign: 'center' }}>
+                                <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: '10px' }}>
+                                  No se encontró <strong>"{articleSearch}"</strong> en el catálogo.
+                                </p>
+                                <button
+                                  type="button"
+                                  className="btn btn-primary"
+                                  style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem' }}
+                                  onClick={() => {
+                                    setShowQuickCreate(true);
+                                    setQuickForm(prev => ({ ...prev, name: articleSearch, supplierRef: '', price: '' }));
+                                  }}
+                                >
+                                  <PackagePlus size={16} /> Crear artículo nuevo
+                                </button>
+                              </div>
+                            ) : (
+                              <div style={{ padding: '16px', backgroundColor: '#f0f9ff', border: '1px solid #bae6fd', borderRadius: '8px', margin: '8px' }}>
+                                <div style={{ fontWeight: 700, color: 'var(--primary)', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                  <PackagePlus size={16} /> Nuevo artículo
+                                </div>
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '8px' }}>
+                                  <div>
+                                    <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)' }}>Nombre *</label>
+                                    <input className="input-field" style={{ padding: '6px 8px', fontSize: '0.85rem' }}
+                                      value={quickForm.name} onChange={e => setQuickForm(p => ({ ...p, name: e.target.value }))} />
+                                  </div>
+                                  <div>
+                                    <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)' }}>Categoría *</label>
+                                    <select className="input-field" style={{ padding: '6px 8px', fontSize: '0.85rem' }}
+                                      value={quickForm.category} onChange={e => setQuickForm(p => ({ ...p, category: e.target.value }))}>
+                                      {ARTICLE_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+                                    </select>
+                                  </div>
+                                  <div>
+                                    <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)' }}>Ref. Proveedor</label>
+                                    <input className="input-field" style={{ padding: '6px 8px', fontSize: '0.85rem' }}
+                                      value={quickForm.supplierRef} onChange={e => setQuickForm(p => ({ ...p, supplierRef: e.target.value }))}
+                                      placeholder="Opcional" />
+                                  </div>
+                                  <div>
+                                    <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)' }}>Precio unitario</label>
+                                    <input className="input-field" type="text" style={{ padding: '6px 8px', fontSize: '0.85rem' }}
+                                      value={quickForm.price} onChange={e => setQuickForm(p => ({ ...p, price: e.target.value }))}
+                                      placeholder="Ej: 12,50 €" />
+                                  </div>
+                                </div>
+                                <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+                                  <button type="button" className="btn btn-secondary" style={{ fontSize: '0.8rem', padding: '6px 12px' }}
+                                    onClick={() => setShowQuickCreate(false)}>Cancelar</button>
+                                  <button
+                                    type="button"
+                                    className="btn btn-primary"
+                                    style={{ fontSize: '0.8rem', padding: '6px 12px', display: 'flex', alignItems: 'center', gap: '4px' }}
+                                    onClick={async () => {
+                                      if (!quickForm.name.trim()) return;
+                                      if (onQuickCreateArticle) {
+                                        const newArt = await onQuickCreateArticle({
+                                          name: quickForm.name.trim(),
+                                          category: quickForm.category,
+                                          supplierName: selectedSupplierName || '',
+                                          supplierRef: quickForm.supplierRef.trim(),
+                                          price: quickForm.price.trim(),
+                                          minStock: parseInt(quickForm.minStock) || 1,
+                                          stock: 0,
+                                        });
+                                        if (newArt) {
+                                          setArticleSearch('');
+                                          setShowQuickCreate(false);
+                                          setQuickForm({ name: '', category: 'Consumibles', price: '', supplierRef: '', minStock: '1' });
+                                          // Auto-add to cart with qty 1
+                                          setTimeout(() => addToCart(newArt.id, '1'), 200);
+                                        }
+                                      }
+                                    }}
+                                  >
+                                    <Plus size={14} /> Guardar y añadir al pedido
+                                  </button>
+                                </div>
+                              </div>
+                            )}
+                          </td>
+                        </tr>
+                      )}
                     </tbody>
                   </table>
                 </div>
