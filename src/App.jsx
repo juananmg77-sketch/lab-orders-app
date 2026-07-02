@@ -10,6 +10,7 @@ import LegionellaForecastModule from './LegionellaForecastModule';
 import LabelGeneratorModule from './LabelGeneratorModule';
 import TrainingCertificateModule from './TrainingCertificateModule';
 import RRHHModule from './RRHHModule';
+import CalendarModule from './CalendarModule';
 
 
 export default function App() {
@@ -186,8 +187,19 @@ export default function App() {
 
   if (activeModule === 'usuarios' && role === 'admin') {
     return (
-      <UserManagementModule 
+      <UserManagementModule
         onBackToHub={() => setActiveModule(null)}
+      />
+    );
+  }
+
+  if (activeModule === 'calendario') {
+    return (
+      <CalendarModule
+        session={session}
+        globalLab={globalLab}
+        onBackToHub={() => setActiveModule(null)}
+        onSelectModule={setActiveModule}
       />
     );
   }
