@@ -841,6 +841,11 @@ export default function EquipmentModule({ session, onLogout, globalLab, onBackTo
             session={session}
             globalLab={globalLab}
             onSelectModule={onSelectModule}
+            onOpenEquipment={async (equipmentId) => {
+              const eq = equipments.find(e => e.id === equipmentId)
+                || (await supabase.from('equipments').select('*').eq('id', equipmentId).single()).data;
+              if (eq) setEditingEquipment(eq);
+            }}
           />
         )}
 

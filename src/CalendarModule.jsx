@@ -34,7 +34,7 @@ function statusBadge(dateStr, status) {
   return { label: 'Pendiente', color: '#2563EB', bg: '#EFF6FF' };
 }
 
-export default function CalendarModule({ session, globalLab, onBackToHub, onSelectModule, embedded = false }) {
+export default function CalendarModule({ session, globalLab, onBackToHub, onSelectModule, onOpenEquipment, embedded = false }) {
   const [view, setView]             = useState('calendar');
   const [currentDate, setCurrentDate] = useState(new Date());
   const [events, setEvents]         = useState([]);
@@ -327,14 +327,14 @@ export default function CalendarModule({ session, globalLab, onBackToHub, onSele
                   <AlertTriangle size={15} /> Vencidos ({overdue.length})
                 </h3>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                  {overdue.map(ev => <AgendaRow key={ev.id} ev={ev} onEdit={openEdit} onDelete={deleteEvent} onToggle={toggleDone} onGoEquip={onSelectModule} />)}
+                  {overdue.map(ev => <AgendaRow key={ev.id} ev={ev} onEdit={openEdit} onDelete={deleteEvent} onToggle={toggleDone} onOpenEquipment={onOpenEquipment} onGoEquip={onSelectModule} />)}
                 </div>
               </div>
             )}
             <h3 style={{ margin: '0 0 10px', fontSize: '0.9rem', fontWeight: 700, color: 'var(--secondary)' }}>Próximos eventos</h3>
             {upcomingEvents().length === 0 && <p style={{ color: 'var(--text-muted)' }}>Sin eventos pendientes.</p>}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-              {upcomingEvents().map(ev => <AgendaRow key={ev.id} ev={ev} onEdit={openEdit} onDelete={deleteEvent} onToggle={toggleDone} onGoEquip={onSelectModule} />)}
+              {upcomingEvents().map(ev => <AgendaRow key={ev.id} ev={ev} onEdit={openEdit} onDelete={deleteEvent} onToggle={toggleDone} onOpenEquipment={onOpenEquipment} onGoEquip={onSelectModule} />)}
             </div>
           </div>
         )}
@@ -350,6 +350,7 @@ export default function CalendarModule({ session, globalLab, onBackToHub, onSele
               onEdit={openEdit}
               onDelete={deleteEvent}
               onToggle={toggleDone}
+              onOpenEquipment={onOpenEquipment}
               onGoEquip={onSelectModule}
             />
           ) : (
@@ -430,7 +431,7 @@ export default function CalendarModule({ session, globalLab, onBackToHub, onSele
   );
 }
 
-function AgendaRow({ ev, onEdit, onDelete, onToggle, onGoEquip }) {
+function AgendaRow({ ev, onEdit, onDelete, onToggle, onGoEquip, onOpenEquipment }) {
   const type  = EVENT_TYPES[ev.type] || EVENT_TYPES.otro;
   const badge = statusBadge(ev.date, ev.status);
   const d     = daysUntil(ev.date);
@@ -471,7 +472,7 @@ function AgendaRow({ ev, onEdit, onDelete, onToggle, onGoEquip }) {
           </>
         )}
         {ev._readonly && (
-          <button title="Ver equipo" onClick={() => onGoEquip && onGoEquip('equipos', ev._equipment_id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--primary)', fontSize: '0.75rem', padding: '3px' }}>
+          <button title="Ver equipo" onClick={() => onOpenEquipment ? onOpenEquipment(ev._equipment_id) : onGoEquip && onGoEquip('equipos', ev._equipment_id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--primary)', fontSize: '0.75rem', padding: '3px' }}>
             Ver →
           </button>
         )}
@@ -480,7 +481,7 @@ function AgendaRow({ ev, onEdit, onDelete, onToggle, onGoEquip }) {
   );
 }
 
-function DayPanel({ dateStr, events, onClose, onAdd, onEdit, onDelete, onToggle, onGoEquip }) {
+function DayPanel({ dateStr, events, onClose, onAdd, onEdit, onDelete, onToggle, onGoEquip, onOpenEquipment }) {
   const dateLabel = new Date(dateStr + 'T12:00:00').toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' });
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
@@ -524,7 +525,7 @@ function DayPanel({ dateStr, events, onClose, onAdd, onEdit, onDelete, onToggle,
                   </div>
                 )}
                 {ev._readonly && (
-                  <button style={{ fontSize: '0.75rem', background: 'white', border: '1px solid var(--border)', borderRadius: '4px', padding: '3px 8px', cursor: 'pointer', color: 'var(--primary)', marginTop: '6px' }} onClick={() => onGoEquip && onGoEquip('equipos', ev._equipment_id)}>
+                  <button style={{ fontSize: '0.75rem', background: 'white', border: '1px solid var(--border)', borderRadius: '4px', padding: '3px 8px', cursor: 'pointer', color: 'var(--primary)', marginTop: '6px' }} onClick={() => onOpenEquipment ? onOpenEquipment(ev._equipment_id) : onGoEquip && onGoEquip('equipos', ev._equipment_id)}>
                     Ver equipo →
                   </button>
                 )}
