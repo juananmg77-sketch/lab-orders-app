@@ -53,11 +53,14 @@ export default function CalendarModule({ session, globalLab, onBackToHub, onSele
     setLoading(true);
     const [{ data: manual }, { data: equips }] = await Promise.all([
       supabase.from('lab_calendar_events').select('*').order('date'),
-      supabase.from('equipments').select('id, name, equipment_code, cal_valid_until, ver_valid_until, lab').not('cal_valid_until', 'is', null).order('cal_valid_until'),
+      supabase.from('equipments').select('id, name, equipment_code, cal_valid_until, ver_valid_until, lab, status, equipment_incidents(id, resolved_date)').not('cal_valid_until', 'is', null).eq('status', 'ALTA').order('cal_valid_until'),
     ]);
 
     const equipEvents = [];
-    (equips || []).forEach(eq => {
+    (equips || []).filter(eq => {
+      const hasOpenIncident = (eq.equipment_incidents || []).some(i => !i.resolved_date);
+      return !hasOpenIncident;
+    }).forEach(eq => {
       if (eq.cal_valid_until) equipEvents.push({
         id: `cal-${eq.id}`, title: `Calibración: ${eq.name}${eq.equipment_code ? ` (${eq.equipment_code})` : ''}`,
         date: eq.cal_valid_until, type: 'calibracion', status: 'pendiente',
