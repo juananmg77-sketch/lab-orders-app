@@ -10,7 +10,6 @@ import LegionellaForecastModule from './LegionellaForecastModule';
 import LabelGeneratorModule from './LabelGeneratorModule';
 import TrainingCertificateModule from './TrainingCertificateModule';
 import RRHHModule from './RRHHModule';
-import CalendarModule from './CalendarModule';
 
 
 export default function App() {
@@ -196,19 +195,6 @@ export default function App() {
     );
   }
 
-  if (activeModule === 'calendario') {
-    return (
-      <CalendarModule
-        session={session}
-        globalLab={globalLab}
-        onBackToHub={() => setActiveModule(null)}
-        onSelectModule={(module, equipmentId) => {
-          if (equipmentId) setInitialEquipmentId(equipmentId);
-          setActiveModule(module);
-        }}
-      />
-    );
-  }
 
   // Fallback for modules not yet implemented
   return (

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from './supabaseClient';
-import { Microscope, Activity, Settings, Plus, FileText, Trash2, Eye, ShieldCheck, ChevronLeft, Upload, Target, Thermometer, Scale, Download, Database, Users, RefreshCcw, Waves, Box, FlaskConical, Zap, Cpu, Sun, Wind } from 'lucide-react';
+import { Microscope, Activity, Settings, Plus, FileText, Trash2, Eye, ShieldCheck, ChevronLeft, Upload, Target, Thermometer, Scale, Download, Database, Users, RefreshCcw, Waves, Box, FlaskConical, Zap, Cpu, Sun, Wind, CalendarDays } from 'lucide-react';
+import CalendarModule from './CalendarModule';
 import * as XLSX from 'xlsx';
 import logo from './assets/logo.png';
 import EquipmentExcelImporter from './EquipmentExcelImporter';
@@ -316,8 +317,17 @@ export default function EquipmentModule({ session, onLogout, globalLab, onBackTo
             <span>Plan Mantenimiento</span>
           </div>
 
+          <div
+            className={`nav-item ${activeTab === 'calendario' ? 'active' : ''}`}
+            onClick={() => setActiveTab('calendario')}
+            style={{ color: activeTab === 'calendario' ? 'white' : 'var(--text-muted)' }}
+          >
+            <CalendarDays size={20} />
+            <span>Calendario Lab</span>
+          </div>
+
           {role === 'admin' && (
-            <div 
+            <div
               className="nav-item"
               onClick={() => onSelectModule('usuarios')}
               style={{ color: 'var(--text-muted)', marginTop: 'auto', borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: '12px' }}
@@ -377,7 +387,7 @@ export default function EquipmentModule({ session, onLogout, globalLab, onBackTo
       </aside>
 
       {/* Main Content */}
-      <main className="main-content" style={{ display: 'flex', flexDirection: 'column', padding: '32px' }}>
+      <main className="main-content" style={{ display: 'flex', flexDirection: 'column', padding: activeTab === 'calendario' ? '0' : '32px', overflow: 'hidden' }}>
         
         {(activeTab === 'inventario' || activeTab === 'consultores') && (
           <>
@@ -823,6 +833,15 @@ export default function EquipmentModule({ session, onLogout, globalLab, onBackTo
             <h2>Plan de Mantenimiento</h2>
             <p>Sección para consolidar vencimientos de calibración, certificados y preventivos de todo el parque.</p>
           </div>
+        )}
+
+        {activeTab === 'calendario' && (
+          <CalendarModule
+            embedded
+            session={session}
+            globalLab={globalLab}
+            onSelectModule={onSelectModule}
+          />
         )}
 
         <EquipmentExcelImporter 

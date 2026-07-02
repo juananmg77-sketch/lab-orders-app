@@ -1,5 +1,5 @@
 import React from 'react';
-import { ShoppingCart, LogOut, Settings, Bell, Microscope, Users, FlaskConical, Tag, GraduationCap, UserCog, TestTube2, CalendarDays } from 'lucide-react';
+import { ShoppingCart, LogOut, Settings, Bell, Microscope, Users, FlaskConical, Tag, GraduationCap, UserCog, TestTube2 } from 'lucide-react';
 import logo from './assets/logo.png';
 
 export default function Hub({ session, globalLab, setGlobalLab, onSelectModule, onLogout, role = 'operations' }) {
@@ -306,31 +306,6 @@ export default function Hub({ session, globalLab, setGlobalLab, onSelectModule, 
             </div>
           )}
 
-
-          {/* Module: Calendario de Laboratorio (Admin + Lab) */}
-          {['admin', 'lab'].includes(role) && (
-            <div
-              onClick={() => onSelectModule('calendario')}
-              style={{
-                width: '320px', backgroundColor: 'white', borderRadius: '20px',
-                padding: '40px 30px', boxShadow: '0 10px 30px rgba(0,0,0,0.08)',
-                cursor: 'pointer', display: 'flex', flexDirection: 'column',
-                alignItems: 'center', textAlign: 'center',
-                borderTop: '6px solid #7C3AED',
-                transition: 'transform 0.3s ease, box-shadow 0.3s ease',
-              }}
-              onMouseOver={(e) => e.currentTarget.style.transform = 'translateY(-10px)'}
-              onMouseOut={(e) => e.currentTarget.style.transform = 'translateY(0)'}
-            >
-              <div style={{ width: '80px', height: '80px', borderRadius: '40px', backgroundColor: '#F5F3FF', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '24px' }}>
-                <CalendarDays size={40} color="#7C3AED" />
-              </div>
-              <h2 style={{ fontSize: '1.5rem', color: 'var(--secondary)', margin: '0 0 12px 0' }}>Calendario Lab</h2>
-              <p style={{ color: 'var(--text-muted)', margin: 0, lineHeight: 1.5 }}>
-                Control de calibraciones, verificaciones, interlaboratorios y tareas del laboratorio.
-              </p>
-            </div>
-          )}
 
         </div>
       </main>

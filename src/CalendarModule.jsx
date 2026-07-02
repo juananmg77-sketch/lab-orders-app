@@ -34,7 +34,7 @@ function statusBadge(dateStr, status) {
   return { label: 'Pendiente', color: '#2563EB', bg: '#EFF6FF' };
 }
 
-export default function CalendarModule({ session, globalLab, onBackToHub, onSelectModule }) {
+export default function CalendarModule({ session, globalLab, onBackToHub, onSelectModule, embedded = false }) {
   const [view, setView]             = useState('calendar');
   const [currentDate, setCurrentDate] = useState(new Date());
   const [events, setEvents]         = useState([]);
@@ -160,36 +160,67 @@ export default function CalendarModule({ session, globalLab, onBackToHub, onSele
   const overdue = overdueEvents();
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', backgroundColor: 'var(--background)' }}>
-      {/* Header */}
-      <header style={{ height: '64px', backgroundColor: 'var(--surface)', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 28px', flexShrink: 0 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-          <button className="btn btn-secondary" style={{ padding: '6px 12px', display: 'flex', alignItems: 'center', gap: '6px' }} onClick={onBackToHub}>
-            <ArrowLeft size={16} /> Volver
-          </button>
-          <h1 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 700, color: 'var(--secondary)', display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <Calendar size={22} color="var(--primary)" /> Calendario de Laboratorio
-          </h1>
-        </div>
-        <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-          {overdue.length > 0 && (
-            <span style={{ display: 'flex', alignItems: 'center', gap: '5px', background: '#FEF2F2', color: '#DC2626', border: '1px solid #FECACA', borderRadius: '6px', padding: '4px 10px', fontSize: '0.82rem', fontWeight: 600 }}>
-              <AlertTriangle size={13} /> {overdue.length} vencido{overdue.length > 1 ? 's' : ''}
-            </span>
-          )}
-          <div style={{ display: 'flex', border: '1px solid var(--border)', borderRadius: '8px', overflow: 'hidden' }}>
-            <button onClick={() => setView('calendar')} style={{ padding: '6px 14px', border: 'none', background: view === 'calendar' ? 'var(--primary)' : 'white', color: view === 'calendar' ? 'white' : 'var(--text-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '5px', fontSize: '0.85rem' }}>
-              <Calendar size={14} /> Mes
+    <div style={{ display: 'flex', flexDirection: 'column', height: embedded ? '100%' : '100vh', backgroundColor: 'var(--background)' }}>
+      {/* Header — hidden in embedded mode */}
+      {!embedded && (
+        <header style={{ height: '64px', backgroundColor: 'var(--surface)', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 28px', flexShrink: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+            <button className="btn btn-secondary" style={{ padding: '6px 12px', display: 'flex', alignItems: 'center', gap: '6px' }} onClick={onBackToHub}>
+              <ArrowLeft size={16} /> Volver
             </button>
-            <button onClick={() => setView('agenda')} style={{ padding: '6px 14px', border: 'none', background: view === 'agenda' ? 'var(--primary)' : 'white', color: view === 'agenda' ? 'white' : 'var(--text-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '5px', fontSize: '0.85rem' }}>
-              <List size={14} /> Agenda
+            <h1 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 700, color: 'var(--secondary)', display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <Calendar size={22} color="var(--primary)" /> Calendario de Laboratorio
+            </h1>
+          </div>
+          <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+            {overdue.length > 0 && (
+              <span style={{ display: 'flex', alignItems: 'center', gap: '5px', background: '#FEF2F2', color: '#DC2626', border: '1px solid #FECACA', borderRadius: '6px', padding: '4px 10px', fontSize: '0.82rem', fontWeight: 600 }}>
+                <AlertTriangle size={13} /> {overdue.length} vencido{overdue.length > 1 ? 's' : ''}
+              </span>
+            )}
+            <div style={{ display: 'flex', border: '1px solid var(--border)', borderRadius: '8px', overflow: 'hidden' }}>
+              <button onClick={() => setView('calendar')} style={{ padding: '6px 14px', border: 'none', background: view === 'calendar' ? 'var(--primary)' : 'white', color: view === 'calendar' ? 'white' : 'var(--text-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '5px', fontSize: '0.85rem' }}>
+                <Calendar size={14} /> Mes
+              </button>
+              <button onClick={() => setView('agenda')} style={{ padding: '6px 14px', border: 'none', background: view === 'agenda' ? 'var(--primary)' : 'white', color: view === 'agenda' ? 'white' : 'var(--text-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '5px', fontSize: '0.85rem' }}>
+                <List size={14} /> Agenda
+              </button>
+            </div>
+            <button className="btn btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '7px 16px' }} onClick={() => openNewForm(null)}>
+              <Plus size={16} /> Nueva tarea
             </button>
           </div>
-          <button className="btn btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '7px 16px' }} onClick={() => openNewForm(null)}>
-            <Plus size={16} /> Nueva tarea
-          </button>
+        </header>
+      )}
+
+      {/* Embedded toolbar */}
+      {embedded && (
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 20px', borderBottom: '1px solid var(--border)', backgroundColor: 'var(--surface)', flexShrink: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <h2 style={{ margin: 0, fontSize: '1rem', fontWeight: 700, color: 'var(--secondary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <Calendar size={18} color="var(--primary)" /> Calendario de Laboratorio
+            </h2>
+            {overdue.length > 0 && (
+              <span style={{ display: 'flex', alignItems: 'center', gap: '4px', background: '#FEF2F2', color: '#DC2626', border: '1px solid #FECACA', borderRadius: '6px', padding: '3px 8px', fontSize: '0.78rem', fontWeight: 600 }}>
+                <AlertTriangle size={12} /> {overdue.length} vencido{overdue.length > 1 ? 's' : ''}
+              </span>
+            )}
+          </div>
+          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+            <div style={{ display: 'flex', border: '1px solid var(--border)', borderRadius: '8px', overflow: 'hidden' }}>
+              <button onClick={() => setView('calendar')} style={{ padding: '5px 12px', border: 'none', background: view === 'calendar' ? 'var(--primary)' : 'white', color: view === 'calendar' ? 'white' : 'var(--text-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.82rem' }}>
+                <Calendar size={13} /> Mes
+              </button>
+              <button onClick={() => setView('agenda')} style={{ padding: '5px 12px', border: 'none', background: view === 'agenda' ? 'var(--primary)' : 'white', color: view === 'agenda' ? 'white' : 'var(--text-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.82rem' }}>
+                <List size={13} /> Agenda
+              </button>
+            </div>
+            <button className="btn btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '5px', padding: '5px 12px', fontSize: '0.85rem' }} onClick={() => openNewForm(null)}>
+              <Plus size={14} /> Nueva tarea
+            </button>
+          </div>
         </div>
-      </header>
+      )}
 
       <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
 
