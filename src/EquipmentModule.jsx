@@ -96,7 +96,7 @@ const getSubtypeIcon = (sub) => {
 const DELEGACIONES = ['Baleares', 'Cataluña', 'Madrid', 'Valencia', 'Andalucía', 'Canarias'];
 const labFromDelegacion = (d) => d === 'Canarias' ? 'HSLAB Canarias' : 'HSLAB Baleares';
 
-export default function EquipmentModule({ session, onLogout, globalLab, onBackToHub, onSelectModule, role = 'operations', pendingEquipmentData, onPendingEquipmentConsumed }) {
+export default function EquipmentModule({ session, onLogout, globalLab, onBackToHub, onSelectModule, role = 'operations', pendingEquipmentData, onPendingEquipmentConsumed, initialEquipmentId, onInitialEquipmentConsumed }) {
   const [activeTab, setActiveTab] = useState('inventario');
   const [equipments, setEquipments] = useState([]);
   const [suppliers, setSuppliers] = useState([]);
@@ -170,6 +170,16 @@ export default function EquipmentModule({ session, onLogout, globalLab, onBackTo
     fetchEquipments();
     fetchSuppliers();
   }, [globalLab]);
+
+  // Auto-open equipment card from Calendar link
+  useEffect(() => {
+    if (!initialEquipmentId || equipments.length === 0) return;
+    const eq = equipments.find(e => e.id === initialEquipmentId);
+    if (eq) {
+      setEditingEquipment(eq);
+      if (onInitialEquipmentConsumed) onInitialEquipmentConsumed();
+    }
+  }, [initialEquipmentId, equipments]);
 
   // Auto-open new equipment modal pre-filled from Compras reception
   useEffect(() => {

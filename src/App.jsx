@@ -22,6 +22,7 @@ export default function App() {
   const [role, setRole] = useState('operations');
   const [canApprove, setCanApprove] = useState(true);
   const [pendingEquipmentData, setPendingEquipmentData] = useState(null);
+  const [initialEquipmentId, setInitialEquipmentId] = useState(null);
 
   const labFromDelegacion = (d) => d === 'Canarias' ? 'HSLAB Canarias' : 'HSLAB Baleares';
 
@@ -148,6 +149,8 @@ export default function App() {
         onSelectModule={setActiveModule}
         pendingEquipmentData={pendingEquipmentData}
         onPendingEquipmentConsumed={() => setPendingEquipmentData(null)}
+        initialEquipmentId={initialEquipmentId}
+        onInitialEquipmentConsumed={() => setInitialEquipmentId(null)}
       />
     );
   }
@@ -199,7 +202,10 @@ export default function App() {
         session={session}
         globalLab={globalLab}
         onBackToHub={() => setActiveModule(null)}
-        onSelectModule={setActiveModule}
+        onSelectModule={(module, equipmentId) => {
+          if (equipmentId) setInitialEquipmentId(equipmentId);
+          setActiveModule(module);
+        }}
       />
     );
   }

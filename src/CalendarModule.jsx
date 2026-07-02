@@ -437,7 +437,7 @@ function AgendaRow({ ev, onEdit, onDelete, onToggle, onGoEquip }) {
           </>
         )}
         {ev._readonly && (
-          <button title="Ver equipo" onClick={() => onGoEquip && onGoEquip('equipos')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--primary)', fontSize: '0.75rem', padding: '3px' }}>
+          <button title="Ver equipo" onClick={() => onGoEquip && onGoEquip('equipos', ev._equipment_id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--primary)', fontSize: '0.75rem', padding: '3px' }}>
             Ver →
           </button>
         )}
@@ -490,7 +490,7 @@ function DayPanel({ dateStr, events, onClose, onAdd, onEdit, onDelete, onToggle,
                   </div>
                 )}
                 {ev._readonly && (
-                  <button style={{ fontSize: '0.75rem', background: 'white', border: '1px solid var(--border)', borderRadius: '4px', padding: '3px 8px', cursor: 'pointer', color: 'var(--primary)', marginTop: '6px' }} onClick={() => onGoEquip && onGoEquip('equipos')}>
+                  <button style={{ fontSize: '0.75rem', background: 'white', border: '1px solid var(--border)', borderRadius: '4px', padding: '3px 8px', cursor: 'pointer', color: 'var(--primary)', marginTop: '6px' }} onClick={() => onGoEquip && onGoEquip('equipos', ev._equipment_id)}>
                     Ver equipo →
                   </button>
                 )}
