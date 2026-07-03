@@ -154,6 +154,16 @@ export default function EquipmentCardModal({ isOpen, onClose, equipment, onSave,
   const [tolVal, setTolVal] = useState('');
   const [tolUnit, setTolUnit] = useState('');
 
+  // Multi-parameter ranges (JSONB) — null means single-parameter mode
+  const [measuringRanges, setMeasuringRanges] = useState(null);
+
+  const updateMeasuringRange = (i, field, value) =>
+    setMeasuringRanges(prev => prev.map((r, idx) => idx === i ? { ...r, [field]: value } : r));
+  const removeMeasuringRange = (i) =>
+    setMeasuringRanges(prev => prev.filter((_, idx) => idx !== i));
+  const addMeasuringRange = () =>
+    setMeasuringRanges(prev => [...prev, { parameter: '', range: '', precision: '', tolerance: '' }]);
+
 const inferCategory = (eq) => {
   if (eq.macro_category) return eq.macro_category;
   const type = (eq.equipment_type || '').toLowerCase();
@@ -259,6 +269,13 @@ const inferCategory = (eq) => {
       
       setRequiresCalibration(requiresCal);
       setRequiresVerification(requiresVer);
+
+      // Multi-parameter JSONB ranges
+      if (Array.isArray(equipment.measuring_ranges) && equipment.measuring_ranges.length > 0) {
+        setMeasuringRanges(equipment.measuring_ranges);
+      } else {
+        setMeasuringRanges(null);
+      }
 
       // Reset Range/Tol fields if new
       if (!equipment.id) {
@@ -410,8 +427,9 @@ const inferCategory = (eq) => {
       manual_ref: formData.manual_ref || null,
       
       intended_use: formData.intended_use,
-      measuring_range: finalRange,
-      tolerance: finalTol,
+      measuring_range: measuringRanges ? null : finalRange,
+      tolerance: measuringRanges ? null : finalTol,
+      measuring_ranges: measuringRanges || null,
 
       calibration_freq: requiresCalibration ? formData.calibration_freq : null,
       calibration_type: requiresCalibration ? formData.calibration_type : null,
@@ -777,25 +795,64 @@ const inferCategory = (eq) => {
                 <input type="text" className="input-field" name="intended_use" value={formData.intended_use || ''} onChange={handleChange} placeholder="Ej. Medición temperatura estufas" />
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '12px', marginBottom: '16px' }}>
-                <div>
-                  <label className="input-label" style={{ fontSize: '0.85rem' }}>Rango de Medición / Uso</label>
-                  <div style={{ display: 'flex', gap: '8px' }}>
-                    <input type="text" className="input-field" placeholder="Valor (ej. 0-100)" value={rangeVal} onChange={e => setRangeVal(e.target.value)} style={{ flex: 2, margin: 0 }} />
-                    <input type="text" className="input-field" placeholder="Unidad (ej. °C)" value={rangeUnit} onChange={e => setRangeUnit(e.target.value)} style={{ flex: 1, margin: 0 }} />
-                    <div style={{ display: 'flex', alignItems: 'center', fontWeight: 'bold', color: 'var(--text-muted)' }}>+/-</div>
-                    <input type="text" className="input-field" placeholder="Dif. (ej. 2)" value={rangeDiff} onChange={e => setRangeDiff(e.target.value)} style={{ flex: 1, margin: 0 }} />
+              {measuringRanges ? (
+                <div style={{ marginBottom: '16px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                    <label className="input-label" style={{ fontSize: '0.85rem', margin: 0 }}>Rangos de Medición (Multiparámetro)</label>
+                    <button type="button" onClick={addMeasuringRange} style={{ background: 'none', border: '1px solid var(--primary)', color: 'var(--primary)', borderRadius: '6px', padding: '2px 10px', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 600 }}>+ Parámetro</button>
                   </div>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.78rem' }}>
+                    <thead>
+                      <tr style={{ backgroundColor: 'var(--primary-light)', color: 'var(--primary)' }}>
+                        {['Parámetro', 'Rango', 'Precisión', 'Tolerancia', ''].map(h => (
+                          <th key={h} style={{ padding: '6px 8px', textAlign: 'left', fontWeight: 600, borderBottom: '1px solid var(--border)' }}>{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {measuringRanges.map((row, i) => (
+                        <tr key={i} style={{ borderBottom: '1px solid var(--border)' }}>
+                          {['parameter', 'range', 'precision', 'tolerance'].map(field => (
+                            <td key={field} style={{ padding: '4px 6px' }}>
+                              <input
+                                type="text"
+                                value={row[field] || ''}
+                                onChange={e => updateMeasuringRange(i, field, e.target.value)}
+                                style={{ width: '100%', border: '1px solid var(--border)', borderRadius: '4px', padding: '4px 6px', fontSize: '0.78rem', outline: 'none' }}
+                              />
+                            </td>
+                          ))}
+                          <td style={{ padding: '4px 6px', textAlign: 'center' }}>
+                            {measuringRanges.length > 1 && (
+                              <button type="button" onClick={() => removeMeasuringRange(i)} style={{ background: 'none', border: 'none', color: '#e11d48', cursor: 'pointer', fontSize: '1rem', lineHeight: 1 }}>×</button>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
+              ) : (
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '12px', marginBottom: '16px' }}>
+                  <div>
+                    <label className="input-label" style={{ fontSize: '0.85rem' }}>Rango de Medición / Uso</label>
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      <input type="text" className="input-field" placeholder="Valor (ej. 0-100)" value={rangeVal} onChange={e => setRangeVal(e.target.value)} style={{ flex: 2, margin: 0 }} />
+                      <input type="text" className="input-field" placeholder="Unidad (ej. °C)" value={rangeUnit} onChange={e => setRangeUnit(e.target.value)} style={{ flex: 1, margin: 0 }} />
+                      <div style={{ display: 'flex', alignItems: 'center', fontWeight: 'bold', color: 'var(--text-muted)' }}>+/-</div>
+                      <input type="text" className="input-field" placeholder="Dif. (ej. 2)" value={rangeDiff} onChange={e => setRangeDiff(e.target.value)} style={{ flex: 1, margin: 0 }} />
+                    </div>
+                  </div>
 
-                <div>
-                  <label className="input-label" style={{ fontSize: '0.85rem' }}>Tolerancia Permitida HSLAB (Valor Absoluto)</label>
-                  <div style={{ display: 'flex', gap: '8px' }}>
-                    <input type="text" className="input-field" placeholder="Valor (ej. 0.5)" value={tolVal} onChange={e => setTolVal(e.target.value)} style={{ flex: 2, margin: 0 }} />
-                    <input type="text" className="input-field" placeholder="Unidad (ej. °C)" value={tolUnit} onChange={e => setTolUnit(e.target.value)} style={{ flex: 1, margin: 0 }} />
+                  <div>
+                    <label className="input-label" style={{ fontSize: '0.85rem' }}>Tolerancia Permitida HSLAB (Valor Absoluto)</label>
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      <input type="text" className="input-field" placeholder="Valor (ej. 0.5)" value={tolVal} onChange={e => setTolVal(e.target.value)} style={{ flex: 2, margin: 0 }} />
+                      <input type="text" className="input-field" placeholder="Unidad (ej. °C)" value={tolUnit} onChange={e => setTolUnit(e.target.value)} style={{ flex: 1, margin: 0 }} />
+                    </div>
                   </div>
                 </div>
-              </div>
+              )}
 
               {/* CALIBRACIÓN */}
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '24px', marginBottom: '8px' }}>
