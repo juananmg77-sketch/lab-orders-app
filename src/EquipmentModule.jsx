@@ -691,6 +691,20 @@ export default function EquipmentModule({ session, onLogout, globalLab, onBackTo
                           <td>
                             <div style={{ fontWeight: 'bold' }}>{eq.name}</div>
                             <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{eq.model || 'Sin especificar'}</div>
+                            {eq.standard_complies === 'Limitado' && (
+                              <span
+                                title={eq.standard_complies_note || 'Limitación de uso — ver ficha'}
+                                style={{
+                                  display: 'inline-flex', alignItems: 'center', gap: '3px',
+                                  marginTop: '4px', padding: '2px 7px', borderRadius: '20px',
+                                  fontSize: '0.7rem', fontWeight: 700,
+                                  backgroundColor: '#FEF3C7', color: '#92400E',
+                                  cursor: 'default'
+                                }}
+                              >
+                                ⚠ Uso Limitado
+                              </span>
+                            )}
                           </td>
                           <td style={{ fontSize: '0.9rem' }}>{eq.serial_number || '-'}</td>
                           {selectedCategory === 'Equipos Consultores Externos' && (
