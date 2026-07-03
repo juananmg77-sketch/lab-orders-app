@@ -387,7 +387,7 @@ export default function EquipmentModule({ session, onLogout, globalLab, onBackTo
       </aside>
 
       {/* Main Content */}
-      <main className="main-content" style={{ display: 'flex', flexDirection: 'column', padding: activeTab === 'calendario' ? '0' : '32px', overflow: 'hidden' }}>
+      <main className="main-content" style={{ display: 'flex', flexDirection: 'column', padding: activeTab === 'calendario' ? '0' : '32px' }}>
         
         {(activeTab === 'inventario' || activeTab === 'consultores') && (
           <>
