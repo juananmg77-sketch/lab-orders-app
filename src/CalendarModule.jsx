@@ -80,20 +80,44 @@ export default function CalendarModule({ session, globalLab, onBackToHub, onSele
   const allEvents = events;
 
   function eventsForDay(dateStr) {
-    return allEvents.filter(e => e.date === dateStr);
+    return allEvents.filter(e => {
+      const hasRange = e.end_date && e.end_date > e.date;
+      if (!hasRange) return e.date === dateStr;
+      return e.date <= dateStr && e.end_date >= dateStr;
+    });
   }
 
   function upcomingEvents() {
     const t = today();
-    return allEvents
-      .filter(e => e.date >= t && e.status !== 'cancelado')
-      .sort((a, b) => a.date.localeCompare(b.date))
-      .slice(0, 50);
+    const expanded = [];
+    allEvents
+      .filter(e => e.status !== 'cancelado')
+      .forEach(e => {
+        const hasRange = e.end_date && e.end_date > e.date;
+        if (!hasRange) {
+          if (e.date >= t) expanded.push({ ...e, _displayDate: e.date });
+          return;
+        }
+        let d = new Date(e.date + 'T00:00:00');
+        const end = new Date(e.end_date + 'T00:00:00');
+        while (d <= end) {
+          const ds = d.toISOString().slice(0, 10);
+          if (ds >= t) expanded.push({ ...e, _displayDate: ds });
+          d.setDate(d.getDate() + 1);
+        }
+      });
+    return expanded
+      .sort((a, b) => a._displayDate.localeCompare(b._displayDate))
+      .slice(0, 60);
   }
 
   function overdueEvents() {
     const t = today();
-    return allEvents.filter(e => e.date < t && e.status === 'pendiente');
+    return allEvents.filter(e => {
+      if (e.status !== 'pendiente') return false;
+      const effectiveEnd = e.end_date || e.date;
+      return effectiveEnd < t;
+    });
   }
 
   function openNewForm(date) {
@@ -327,14 +351,14 @@ export default function CalendarModule({ session, globalLab, onBackToHub, onSele
                   <AlertTriangle size={15} /> Vencidos ({overdue.length})
                 </h3>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                  {overdue.map(ev => <AgendaRow key={ev.id} ev={ev} onEdit={openEdit} onDelete={deleteEvent} onToggle={toggleDone} onOpenEquipment={onOpenEquipment} onGoEquip={onSelectModule} />)}
+                  {overdue.map(ev => <AgendaRow key={`${ev.id}_overdue`} ev={ev} onEdit={openEdit} onDelete={deleteEvent} onToggle={toggleDone} onOpenEquipment={onOpenEquipment} onGoEquip={onSelectModule} />)}
                 </div>
               </div>
             )}
             <h3 style={{ margin: '0 0 10px', fontSize: '0.9rem', fontWeight: 700, color: 'var(--secondary)' }}>Próximos eventos</h3>
             {upcomingEvents().length === 0 && <p style={{ color: 'var(--text-muted)' }}>Sin eventos pendientes.</p>}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-              {upcomingEvents().map(ev => <AgendaRow key={ev.id} ev={ev} onEdit={openEdit} onDelete={deleteEvent} onToggle={toggleDone} onOpenEquipment={onOpenEquipment} onGoEquip={onSelectModule} />)}
+              {upcomingEvents().map(ev => <AgendaRow key={`${ev.id}_${ev._displayDate}`} ev={ev} onEdit={openEdit} onDelete={deleteEvent} onToggle={toggleDone} onOpenEquipment={onOpenEquipment} onGoEquip={onSelectModule} />)}
             </div>
           </div>
         )}
@@ -451,7 +475,10 @@ function AgendaRow({ ev, onEdit, onDelete, onToggle, onGoEquip, onOpenEquipment 
         <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
           <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
             <Clock size={11} style={{ verticalAlign: 'middle', marginRight: '3px' }} />
-            {new Date(ev.date + 'T12:00:00').toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' })}
+            {ev.end_date && ev.end_date > ev.date
+              ? `${new Date(ev.date + 'T12:00:00').toLocaleDateString('es-ES', { day: '2-digit', month: 'short' })} – ${new Date(ev.end_date + 'T12:00:00').toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' })}`
+              : new Date(ev.date + 'T12:00:00').toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' })
+            }
           </span>
           <span style={{ fontSize: '0.72rem', fontWeight: 600, color: badge.color, background: badge.bg, borderRadius: '4px', padding: '1px 5px' }}>{badge.label}</span>
           {ev.assigned_to && <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>👤 {ev.assigned_to}</span>}
