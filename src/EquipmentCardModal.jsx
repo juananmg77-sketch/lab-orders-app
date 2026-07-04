@@ -145,6 +145,8 @@ export default function EquipmentCardModal({ isOpen, onClose, equipment, onSave,
   const incidentFileRef = useRef(null);
   const [incidentSectionOpen, setIncidentSectionOpen] = useState(false);
   const [incidentOptionalOpen, setIncidentOptionalOpen] = useState(false);
+  const [auditHistory, setAuditHistory] = useState([]);
+  const [historyOpen, setHistoryOpen] = useState(false);
 
   // Helper functions to manage combined string fields for Rango and Tolerancia
   const [rangeVal, setRangeVal] = useState('');
@@ -186,11 +188,13 @@ const inferCategory = (eq) => {
   useEffect(() => {
     if (equipment?.id && isOpen) {
       supabase.from('equipment_incidents').select('*').eq('equipment_id', equipment.id).order('incident_date', { ascending: false }).then(({ data }) => setIncidents(data || []));
+      supabase.from('record_amendments').select('*').eq('table_name', 'equipments').eq('record_id', equipment.id).order('amended_at', { ascending: false }).then(({ data }) => setAuditHistory(data || []));
       const mode = getIncidentMode(equipment);
       setIncidentSectionOpen(mode === 'full');
       setIncidentOptionalOpen(false);
     } else {
       setIncidents([]);
+      setAuditHistory([]);
       setIncidentSectionOpen(false);
       setIncidentOptionalOpen(false);
     }
@@ -198,6 +202,7 @@ const inferCategory = (eq) => {
     setEditingIncident(null);
     setIncidentForm(emptyIncident());
     setIncidentFile(null);
+    setHistoryOpen(false);
   }, [equipment?.id, isOpen]);
 
   const saveIncident = async () => {
@@ -1224,6 +1229,79 @@ const inferCategory = (eq) => {
               </div>
             );
           })()}
+
+          {/* ── Historial de cambios (ISO 17025 § 7.11.7) ── */}
+          {equipment?.id && (
+            <div style={{ marginTop: '32px', border: '1px solid #e2e8f0', borderRadius: '10px', overflow: 'hidden' }}>
+              <button
+                type="button"
+                onClick={() => setHistoryOpen(o => !o)}
+                style={{ width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 18px', background: '#f8fafc', border: 'none', cursor: 'pointer', fontWeight: 600, fontSize: '0.88rem', color: '#475569' }}
+              >
+                <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  🕓 Historial de cambios
+                  {auditHistory.length > 0 && (
+                    <span style={{ fontSize: '0.72rem', background: '#dbeafe', color: '#1d4ed8', borderRadius: '999px', padding: '2px 8px', fontWeight: 700 }}>{auditHistory.length}</span>
+                  )}
+                </span>
+                {historyOpen ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
+              </button>
+              {historyOpen && (
+                <div style={{ padding: '16px 18px' }}>
+                  {auditHistory.length === 0 ? (
+                    <div style={{ fontSize: '0.82rem', color: 'var(--text-muted)', textAlign: 'center', padding: '12px', background: '#f8fafc', borderRadius: '8px' }}>
+                      Sin cambios registrados desde la activación del sistema de trazabilidad
+                    </div>
+                  ) : (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                      {auditHistory.map(entry => {
+                        const FIELD_LABELS = {
+                          name: 'Nombre', status: 'Estado', model: 'Modelo', serial_number: 'Nº Serie',
+                          assigned_to: 'Asignado a', delegacion: 'Delegación',
+                          measuring_range: 'Rango de medición', measuring_ranges: 'Rangos (multi-param.)',
+                          tolerance: 'Tolerancia', intended_use: 'Uso previsto',
+                          calibration_freq: 'Frec. calibración', calibration_type: 'Tipo calibración',
+                          cal_report_ref: 'Informe calibración', cal_valid_until: 'Calibración válida hasta',
+                          verification_freq: 'Frec. verificación', ver_report_ref: 'Informe verificación',
+                          ver_valid_until: 'Verificación válida hasta',
+                          standard_complies: 'Cumple norma', standard_complies_note: 'Nota limitación',
+                          manual_ref: 'Manual'
+                        };
+                        const fmt = v => {
+                          if (v === null || v === undefined) return '—';
+                          if (typeof v === 'object') return JSON.stringify(v);
+                          return String(v);
+                        };
+                        const changedFields = Object.keys(entry.previous_values || {});
+                        return (
+                          <div key={entry.id} style={{ border: '1px solid #e2e8f0', borderRadius: '8px', overflow: 'hidden', fontSize: '0.8rem' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 12px', background: '#f1f5f9', borderBottom: '1px solid #e2e8f0' }}>
+                              <span style={{ fontWeight: 600, color: '#334155' }}>
+                                {new Date(entry.amended_at).toLocaleString('es-ES', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                              </span>
+                              <span style={{ color: '#64748b' }}>
+                                {entry.amended_by}
+                                {entry.reason && <span style={{ marginLeft: '8px', fontStyle: 'italic', color: '#94a3b8' }}>— {entry.reason}</span>}
+                              </span>
+                            </div>
+                            <div style={{ padding: '8px 12px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                              {changedFields.map(field => (
+                                <div key={field} style={{ display: 'grid', gridTemplateColumns: '160px 1fr 1fr', gap: '8px', alignItems: 'start', paddingBottom: '4px', borderBottom: '1px solid #f1f5f9' }}>
+                                  <span style={{ fontWeight: 600, color: '#475569' }}>{FIELD_LABELS[field] || field}</span>
+                                  <span style={{ color: '#dc2626', textDecoration: 'line-through', wordBreak: 'break-word' }}>{fmt((entry.previous_values || {})[field])}</span>
+                                  <span style={{ color: '#16a34a', wordBreak: 'break-word' }}>{fmt((entry.new_values || {})[field])}</span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
 
           <div style={{ borderTop: '1px solid var(--border)', paddingTop: '24px', marginTop: '32px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '16px' }}>
             <div>
