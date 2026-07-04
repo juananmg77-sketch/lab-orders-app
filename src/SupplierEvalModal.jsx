@@ -97,6 +97,12 @@ export default function SupplierEvalModal({ isOpen, onClose, supplier, lab, onSa
     setHistory(data || []);
   };
 
+  const deleteEvaluation = async (id) => {
+    if (!confirm('¿Eliminar esta evaluación? Esta acción no se puede deshacer.')) return;
+    await supabase.from('supplier_evaluations').delete().eq('id', id);
+    setHistory(prev => prev.filter(e => e.id !== id));
+  };
+
   const fetchIncidents = async (period) => {
     setLoadingIncidents(true);
     const { from, to } = periodToDateRange(period);
@@ -313,6 +319,13 @@ export default function SupplierEvalModal({ isOpen, onClose, supplier, lab, onSa
                       </div>
                     ))}
                   </div>
+                  <button
+                    title="Eliminar evaluación"
+                    onClick={() => deleteEvaluation(ev.id)}
+                    style={{ background:'none', border:'none', cursor:'pointer', color:'#dc2626', padding:'4px', flexShrink:0 }}
+                  >
+                    🗑
+                  </button>
                 </div>
               ))}
             </div>
