@@ -7,7 +7,6 @@ const CATEGORIES = [
   { id: 'Instrucción Técnica', label: 'Instrucción Técnica',          sub: 'Instrucciones de trabajo específicas',  icon: ClipboardList, color: '#0f6e56', bg: '#d1fae5' },
   { id: 'Registro',            label: 'Registro',                     sub: 'Formularios y registros de datos',      icon: FileText,      color: '#92400e', bg: '#fef3c7' },
   { id: 'Informe',             label: 'Informe',                      sub: 'Informes técnicos y de resultados',     icon: FlaskConical,  color: '#6d28d9', bg: '#ede9fe' },
-  { id: 'Manual de Equipo',    label: 'Manual de Equipo',             sub: 'Documentación técnica de equipos',      icon: Wrench,        color: '#be185d', bg: '#fce7f3' },
   { id: 'Certificado',         label: 'Certificado',                  sub: 'Certificados y acreditaciones',         icon: Award,         color: '#065f46', bg: '#d1fae5' },
   { id: 'Otro',                label: 'Otro',                         sub: 'Resto de documentación',                icon: File,          color: '#374151', bg: '#f3f4f6' },
 ];
