@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { ArrowLeft, Upload, Search, FileText, Download, Eye, Trash2, X, FolderOpen, ChevronRight, File, BookOpen, ClipboardList, FlaskConical, Award, History, GitBranch, Pencil } from 'lucide-react';
+import { ArrowLeft, Upload, Search, FileText, Download, Eye, Trash2, X, FolderOpen, ChevronRight, File, BookOpen, ClipboardList, FlaskConical, Award, History, GitBranch, Pencil, Globe, ListPlus, CheckCircle2, AlertCircle, Loader2 } from 'lucide-react';
 import { supabase } from './supabaseClient';
 
 const CATEGORIES = [
@@ -7,11 +7,13 @@ const CATEGORIES = [
   { id: 'Proceso',     label: 'Proceso',     sub: 'Procedimientos del sistema de gestión',  icon: ClipboardList, color: '#0f6e56', bg: '#d1fae5' },
   { id: 'Registro',    label: 'Registro',    sub: 'Formularios y registros de datos',       icon: FileText,      color: '#92400e', bg: '#fef3c7' },
   { id: 'Informe',     label: 'Informe',     sub: 'Informes técnicos y de resultados',      icon: FlaskConical,  color: '#6d28d9', bg: '#ede9fe' },
-  { id: 'Certificado', label: 'Certificado', sub: 'Certificados y acreditaciones',          icon: Award,         color: '#065f46', bg: '#d1fae5' },
-  { id: 'Otro',        label: 'Otro',        sub: 'Resto de documentación',                 icon: File,          color: '#374151', bg: '#f3f4f6' },
+  { id: 'Certificado', label: 'Certificado',          sub: 'Certificados y acreditaciones',                       icon: Award,  color: '#065f46', bg: '#d1fae5' },
+  { id: 'Normativa',   label: 'Normativa / Doc. Externa', sub: 'R.D., Normas UNE, Guías ENAC y doc. externa',      icon: Globe,  color: '#0369a1', bg: '#e0f2fe' },
+  { id: 'Otro',        label: 'Otro',                 sub: 'Resto de documentación',                              icon: File,   color: '#374151', bg: '#f3f4f6' },
 ];
 
 const BUCKET = 'documents';
+const PC14_SUBCAT = 'PC-14 GESTION DE LA INFORMACIÓN DOCUMENTADA';
 
 // ── PROCESS MAP ─────────────────────────────────────────────────────────────
 const NOTCH = 14; // px – chevron arrow depth
@@ -119,6 +121,9 @@ export default function DocumentsModule({ session, onBackToHub, role = 'operatio
   const [editDoc, setEditDoc]             = useState(null);
   const [editForm, setEditForm]           = useState({ name: '', version: '', document_date: '' });
   const [editSaving, setEditSaving]       = useState(false);
+  const [showBulkUpload, setShowBulkUpload] = useState(false);
+  const [bulkFiles, setBulkFiles]           = useState([]);
+  const [bulkUploading, setBulkUploading]   = useState(false);
   const fileRef = useRef(null);
 
   const toggleGroup   = (key) => setCollapsed(prev => ({ ...prev, [key]: !prev[key] }));
@@ -312,6 +317,47 @@ export default function DocumentsModule({ session, onBackToHub, role = 'operatio
     await fetchDocs();
   };
 
+  const addBulkFiles = (fileList) => {
+    const toAdd = Array.from(fileList)
+      .filter(f => f.type === 'application/pdf' || f.name.toLowerCase().endsWith('.pdf'))
+      .map(f => ({
+        id: `${f.name}_${f.size}_${Date.now()}_${Math.random()}`,
+        file: f,
+        name: f.name.replace(/\.pdf$/i, '').replace(/_/g, ' '),
+        status: 'pending',
+        error: null,
+      }));
+    setBulkFiles(prev => [...prev, ...toAdd]);
+  };
+
+  const handleBulkUpload = async () => {
+    setBulkUploading(true);
+    const pending = bulkFiles.filter(f => f.status === 'pending');
+    for (const bf of pending) {
+      setBulkFiles(prev => prev.map(f => f.id === bf.id ? { ...f, status: 'uploading' } : f));
+      try {
+        const path = `Normativa/${Date.now()}_${bf.file.name}`;
+        const { error: storageErr } = await supabase.storage.from(BUCKET).upload(path, bf.file);
+        if (storageErr) throw storageErr;
+        const { error: dbErr } = await supabase.from('documents').insert({
+          name:        bf.name.trim() || bf.file.name,
+          category:    'Normativa',
+          subcategory: PC14_SUBCAT,
+          file_path:   path,
+          file_name:   bf.file.name,
+          file_size:   bf.file.size,
+          uploaded_by: userEmail,
+        });
+        if (dbErr) throw dbErr;
+        setBulkFiles(prev => prev.map(f => f.id === bf.id ? { ...f, status: 'done' } : f));
+      } catch (err) {
+        setBulkFiles(prev => prev.map(f => f.id === bf.id ? { ...f, status: 'error', error: err.message } : f));
+      }
+    }
+    setBulkUploading(false);
+    await fetchDocs();
+  };
+
   const gridProps = {
     onView:          handleView,
     onDownload:      isAdmin ? handleDownload : null,
@@ -373,6 +419,7 @@ export default function DocumentsModule({ session, onBackToHub, role = 'operatio
               gridProps={gridProps}
               isAdmin={isAdmin}
               onUploadForProcess={isAdmin ? handleUploadForProcess : null}
+              onBulkUpload={isAdmin ? () => { setBulkFiles([]); setShowBulkUpload(true); } : null}
             />
           )}
 
@@ -646,6 +693,18 @@ export default function DocumentsModule({ session, onBackToHub, role = 'operatio
         </div>
       )}
 
+      {/* ── BULK UPLOAD MODAL ── */}
+      {showBulkUpload && (
+        <BulkUploadModal
+          bulkFiles={bulkFiles}
+          setBulkFiles={setBulkFiles}
+          bulkUploading={bulkUploading}
+          onAddFiles={addBulkFiles}
+          onUpload={handleBulkUpload}
+          onClose={() => { if (!bulkUploading) { setShowBulkUpload(false); setBulkFiles([]); } }}
+        />
+      )}
+
       {/* ── DELETE CONFIRM ── */}
       {deleteId && (() => {
         const doc = docs.find(d => d.id === deleteId);
@@ -683,7 +742,7 @@ const ANÁLISIS_CODE = 'PC-LAB-09-A';
 const ANÁLISIS_COLOR = '#c2680a';
 const ANÁLISIS_BG    = '#fff8ee';
 
-function ProcessMapView({ activeDocs, gridProps, isAdmin, onUploadForProcess }) {
+function ProcessMapView({ activeDocs, gridProps, isAdmin, onUploadForProcess, onBulkUpload }) {
   const [expandedProc, setExpandedProc] = useState(null);
 
   const docsBySubcat = useMemo(() => {
@@ -897,6 +956,14 @@ function ProcessMapView({ activeDocs, gridProps, isAdmin, onUploadForProcess }) 
                             {procDocs.length} doc{procDocs.length !== 1 ? 's' : ''}
                           </span>
                         )}
+                        {onBulkUpload && expandedProc.code === 'PC-14' && (
+                          <button
+                            onClick={onBulkUpload}
+                            style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '4px 11px', background: '#0369a1', color: 'white', border: 'none', borderRadius: 6, fontSize: '0.75rem', fontWeight: 600, cursor: 'pointer' }}
+                          >
+                            <ListPlus size={12} /> Carga masiva normativa
+                          </button>
+                        )}
                         {onUploadForProcess && expandedProc.subcat && (
                           <button
                             onClick={() => onUploadForProcess(expandedProc.subcat)}
@@ -1080,6 +1147,103 @@ function ActionBtn({ icon: Icon, title, onClick, color, active }) {
     >
       <Icon size={14} color={color} />
     </button>
+  );
+}
+
+function BulkUploadModal({ bulkFiles, setBulkFiles, bulkUploading, onAddFiles, onUpload, onClose }) {
+  const dropRef = useRef(null);
+  const inputRef = useRef(null);
+  const pending  = bulkFiles.filter(f => f.status === 'pending').length;
+  const done     = bulkFiles.filter(f => f.status === 'done').length;
+  const errors   = bulkFiles.filter(f => f.status === 'error').length;
+  const allDone  = bulkFiles.length > 0 && done + errors === bulkFiles.length;
+
+  const onDrop = (e) => {
+    e.preventDefault();
+    onAddFiles(e.dataTransfer.files);
+  };
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+      <div style={{ background: 'white', borderRadius: 14, width: '100%', maxWidth: 680, maxHeight: '90vh', display: 'flex', flexDirection: 'column', boxShadow: '0 20px 60px rgba(0,0,0,0.2)' }}>
+
+        {/* Header */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '16px 20px', borderBottom: '1px solid var(--border)' }}>
+          <Globe size={20} color="#0369a1" />
+          <div style={{ flex: 1 }}>
+            <div style={{ fontWeight: 700, fontSize: '1rem', color: '#0369a1' }}>Carga masiva — Normativa / Documentación Externa</div>
+            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>R.D., Normas UNE, Guías ENAC… → se asignarán a PC-14</div>
+          </div>
+          {!bulkUploading && <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer' }}><X size={18} /></button>}
+        </div>
+
+        {/* Drop zone */}
+        <div
+          ref={dropRef}
+          onDragOver={e => e.preventDefault()}
+          onDrop={onDrop}
+          onClick={() => inputRef.current?.click()}
+          style={{ margin: '16px 20px 0', border: '2px dashed #93c5fd', borderRadius: 10, padding: '18px', textAlign: 'center', cursor: 'pointer', background: '#f0f9ff', transition: 'background 0.15s' }}
+          onMouseOver={e => e.currentTarget.style.background = '#dbeafe'}
+          onMouseOut={e => e.currentTarget.style.background = '#f0f9ff'}
+        >
+          <Upload size={22} color="#0369a1" style={{ marginBottom: 6 }} />
+          <div style={{ fontSize: '0.85rem', color: '#0369a1', fontWeight: 600 }}>Arrastra PDFs aquí o haz clic para seleccionar</div>
+          <div style={{ fontSize: '0.73rem', color: '#64748b', marginTop: 3 }}>Solo archivos PDF · Puedes seleccionar varios a la vez</div>
+          <input ref={inputRef} type="file" multiple accept=".pdf,application/pdf" style={{ display: 'none' }} onChange={e => { onAddFiles(e.target.files); e.target.value = ''; }} />
+        </div>
+
+        {/* File list */}
+        {bulkFiles.length > 0 && (
+          <div style={{ flex: 1, overflowY: 'auto', margin: '12px 20px 0', border: '1px solid var(--border)', borderRadius: 8 }}>
+            {/* Counter row */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 80px', padding: '6px 12px', background: '#f8fafc', borderBottom: '1px solid var(--border)', fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 600 }}>
+              <span>NOMBRE DEL DOCUMENTO</span>
+              <span style={{ textAlign: 'center' }}>ESTADO</span>
+            </div>
+            {bulkFiles.map((bf) => (
+              <div key={bf.id} style={{ display: 'grid', gridTemplateColumns: '1fr 80px', alignItems: 'center', padding: '7px 12px', borderBottom: '1px solid #f1f5f9', background: bf.status === 'done' ? '#f0fdf4' : bf.status === 'error' ? '#fff1f2' : 'white' }}>
+                <input
+                  value={bf.name}
+                  disabled={bf.status !== 'pending'}
+                  onChange={e => setBulkFiles(prev => prev.map(f => f.id === bf.id ? { ...f, name: e.target.value } : f))}
+                  style={{ fontSize: '0.82rem', border: bf.status === 'pending' ? '1px solid #e2e8f0' : 'none', borderRadius: 5, padding: '3px 7px', background: bf.status === 'pending' ? 'white' : 'transparent', color: bf.status === 'error' ? '#9f1239' : 'var(--text)', width: '100%', outline: 'none' }}
+                />
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  {bf.status === 'pending'   && <span style={{ fontSize: '0.7rem', color: '#64748b' }}>Pendiente</span>}
+                  {bf.status === 'uploading' && <Loader2 size={15} color="#0369a1" style={{ animation: 'spin 1s linear infinite' }} />}
+                  {bf.status === 'done'      && <CheckCircle2 size={16} color="#16a34a" />}
+                  {bf.status === 'error'     && <span title={bf.error}><AlertCircle size={16} color="#dc2626" /></span>}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Footer */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '14px 20px', borderTop: bulkFiles.length > 0 ? '1px solid var(--border)' : 'none', marginTop: bulkFiles.length === 0 ? 16 : 0 }}>
+          <div style={{ flex: 1, fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+            {bulkFiles.length === 0 && 'Ningún archivo seleccionado'}
+            {bulkFiles.length > 0 && !allDone && `${bulkFiles.length} archivo${bulkFiles.length > 1 ? 's' : ''} · ${pending} pendiente${pending !== 1 ? 's' : ''}`}
+            {allDone && <span style={{ color: errors > 0 ? '#dc2626' : '#16a34a', fontWeight: 600 }}>{done} subido{done !== 1 ? 's' : ''}{errors > 0 ? ` · ${errors} con error` : ' correctamente ✓'}</span>}
+          </div>
+          {!bulkUploading && !allDone && <button className="btn btn-secondary" onClick={onClose}>Cancelar</button>}
+          {allDone
+            ? <button className="btn btn-primary" onClick={onClose}>Cerrar</button>
+            : (
+              <button
+                onClick={onUpload}
+                disabled={bulkUploading || pending === 0}
+                style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 18px', background: pending > 0 ? '#0369a1' : '#94a3b8', color: 'white', border: 'none', borderRadius: 8, fontWeight: 700, fontSize: '0.85rem', cursor: pending > 0 ? 'pointer' : 'not-allowed' }}
+              >
+                {bulkUploading ? <><Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> Subiendo…</> : <><Upload size={14} /> Subir {pending > 0 ? `${pending} archivo${pending > 1 ? 's' : ''}` : 'archivos'}</>}
+              </button>
+            )
+          }
+        </div>
+      </div>
+      <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
+    </div>
   );
 }
 
