@@ -1009,8 +1009,20 @@ function ProcessMapView({ activeDocs, gridProps, isAdmin, onUploadForProcess, on
 const GRID_COLS = '1fr 80px 110px 60px 216px';
 
 function DocGrid({ docs, onView, onDownload, onDelete, onNewVersion, onEdit, historyMap, expandedHistory, onToggleHistory }) {
+  // Group by category preserving CATEGORIES order
+  const groups = CATEGORIES
+    .map(cat => ({ cat, items: docs.filter(d => d.category === cat.id) }))
+    .filter(g => g.items.length > 0);
+  // Catch docs with unknown/null category
+  const knownIds = new Set(CATEGORIES.map(c => c.id));
+  const others = docs.filter(d => !knownIds.has(d.category));
+  if (others.length > 0) groups.push({ cat: getCatMeta(null), items: others });
+
+  const multiGroup = groups.length > 1;
+
   return (
     <div style={{ background: 'white', overflow: 'hidden' }}>
+      {/* Column header */}
       <div style={{ display: 'grid', gridTemplateColumns: GRID_COLS, padding: '7px 14px', background: '#f8fafc', borderBottom: '1px solid var(--border)', fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
         <span>Documento</span>
         <span style={{ textAlign: 'center' }}>Versión</span>
@@ -1018,20 +1030,31 @@ function DocGrid({ docs, onView, onDownload, onDelete, onNewVersion, onEdit, his
         <span style={{ textAlign: 'center' }}>Tamaño</span>
         <span />
       </div>
-      {docs.map((doc, i) => (
-        <DocRow
-          key={doc.id}
-          doc={doc}
-          onView={onView}
-          onDownload={onDownload}
-          onDelete={onDelete}
-          onNewVersion={onNewVersion}
-          onEdit={onEdit}
-          history={historyMap?.[doc.id] || []}
-          isHistoryOpen={expandedHistory?.has(doc.id)}
-          onToggleHistory={onToggleHistory}
-          last={i === docs.length - 1}
-        />
+      {groups.map(({ cat, items }) => (
+        <React.Fragment key={cat.id}>
+          {multiGroup && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '5px 14px', background: cat.bg, borderBottom: `1px solid ${cat.color}22`, borderTop: '1px solid var(--border)' }}>
+              <cat.icon size={12} color={cat.color} />
+              <span style={{ fontSize: '0.7rem', fontWeight: 700, color: cat.color, textTransform: 'uppercase', letterSpacing: '0.06em' }}>{cat.label}</span>
+              <span style={{ fontSize: '0.68rem', color: cat.color, opacity: 0.7 }}>· {items.length}</span>
+            </div>
+          )}
+          {items.map((doc, i) => (
+            <DocRow
+              key={doc.id}
+              doc={doc}
+              onView={onView}
+              onDownload={onDownload}
+              onDelete={onDelete}
+              onNewVersion={onNewVersion}
+              onEdit={onEdit}
+              history={historyMap?.[doc.id] || []}
+              isHistoryOpen={expandedHistory?.has(doc.id)}
+              onToggleHistory={onToggleHistory}
+              last={i === items.length - 1 && !multiGroup}
+            />
+          ))}
+        </React.Fragment>
       ))}
     </div>
   );
