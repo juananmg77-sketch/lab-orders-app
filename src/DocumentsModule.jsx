@@ -324,6 +324,8 @@ export default function DocumentsModule({ session, onBackToHub, role = 'operatio
         id: `${f.name}_${f.size}_${Date.now()}_${Math.random()}`,
         file: f,
         name: f.name.replace(/\.pdf$/i, '').replace(/_/g, ' '),
+        version: '',
+        date: '',
         status: 'pending',
         error: null,
       }));
@@ -340,13 +342,15 @@ export default function DocumentsModule({ session, onBackToHub, role = 'operatio
         const { error: storageErr } = await supabase.storage.from(BUCKET).upload(path, bf.file);
         if (storageErr) throw storageErr;
         const { error: dbErr } = await supabase.from('documents').insert({
-          name:        bf.name.trim() || bf.file.name,
-          category:    'Normativa',
-          subcategory: PC14_SUBCAT,
-          file_path:   path,
-          file_name:   bf.file.name,
-          file_size:   bf.file.size,
-          uploaded_by: userEmail,
+          name:          bf.name.trim() || bf.file.name,
+          category:      'Normativa',
+          subcategory:   PC14_SUBCAT,
+          version:       bf.version.trim() || null,
+          document_date: bf.date || null,
+          file_path:     path,
+          file_name:     bf.file.name,
+          file_size:     bf.file.size,
+          uploaded_by:   userEmail,
         });
         if (dbErr) throw dbErr;
         setBulkFiles(prev => prev.map(f => f.id === bf.id ? { ...f, status: 'done' } : f));
@@ -1197,17 +1201,33 @@ function BulkUploadModal({ bulkFiles, setBulkFiles, bulkUploading, onAddFiles, o
         {bulkFiles.length > 0 && (
           <div style={{ flex: 1, overflowY: 'auto', margin: '12px 20px 0', border: '1px solid var(--border)', borderRadius: 8 }}>
             {/* Counter row */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 80px', padding: '6px 12px', background: '#f8fafc', borderBottom: '1px solid var(--border)', fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 600 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 90px 120px 64px', padding: '6px 12px', background: '#f8fafc', borderBottom: '1px solid var(--border)', fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 600 }}>
               <span>NOMBRE DEL DOCUMENTO</span>
+              <span style={{ textAlign: 'center' }}>VERSIÓN</span>
+              <span style={{ textAlign: 'center' }}>FECHA</span>
               <span style={{ textAlign: 'center' }}>ESTADO</span>
             </div>
             {bulkFiles.map((bf) => (
-              <div key={bf.id} style={{ display: 'grid', gridTemplateColumns: '1fr 80px', alignItems: 'center', padding: '7px 12px', borderBottom: '1px solid #f1f5f9', background: bf.status === 'done' ? '#f0fdf4' : bf.status === 'error' ? '#fff1f2' : 'white' }}>
+              <div key={bf.id} style={{ display: 'grid', gridTemplateColumns: '1fr 90px 120px 64px', alignItems: 'center', padding: '6px 12px', borderBottom: '1px solid #f1f5f9', background: bf.status === 'done' ? '#f0fdf4' : bf.status === 'error' ? '#fff1f2' : 'white' }}>
                 <input
                   value={bf.name}
                   disabled={bf.status !== 'pending'}
                   onChange={e => setBulkFiles(prev => prev.map(f => f.id === bf.id ? { ...f, name: e.target.value } : f))}
-                  style={{ fontSize: '0.82rem', border: bf.status === 'pending' ? '1px solid #e2e8f0' : 'none', borderRadius: 5, padding: '3px 7px', background: bf.status === 'pending' ? 'white' : 'transparent', color: bf.status === 'error' ? '#9f1239' : 'var(--text)', width: '100%', outline: 'none' }}
+                  style={{ fontSize: '0.82rem', border: bf.status === 'pending' ? '1px solid #e2e8f0' : 'none', borderRadius: 5, padding: '3px 6px', background: bf.status === 'pending' ? 'white' : 'transparent', color: bf.status === 'error' ? '#9f1239' : 'var(--text)', width: '100%', outline: 'none' }}
+                />
+                <input
+                  value={bf.version}
+                  disabled={bf.status !== 'pending'}
+                  onChange={e => setBulkFiles(prev => prev.map(f => f.id === bf.id ? { ...f, version: e.target.value } : f))}
+                  placeholder="v1.0"
+                  style={{ fontSize: '0.8rem', border: bf.status === 'pending' ? '1px solid #e2e8f0' : 'none', borderRadius: 5, padding: '3px 6px', background: bf.status === 'pending' ? 'white' : 'transparent', width: '100%', outline: 'none', textAlign: 'center' }}
+                />
+                <input
+                  type="date"
+                  value={bf.date}
+                  disabled={bf.status !== 'pending'}
+                  onChange={e => setBulkFiles(prev => prev.map(f => f.id === bf.id ? { ...f, date: e.target.value } : f))}
+                  style={{ fontSize: '0.78rem', border: bf.status === 'pending' ? '1px solid #e2e8f0' : 'none', borderRadius: 5, padding: '3px 4px', background: bf.status === 'pending' ? 'white' : 'transparent', width: '100%', outline: 'none' }}
                 />
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   {bf.status === 'pending'   && <span style={{ fontSize: '0.7rem', color: '#64748b' }}>Pendiente</span>}
