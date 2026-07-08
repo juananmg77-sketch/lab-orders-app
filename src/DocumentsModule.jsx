@@ -41,7 +41,7 @@ const PROCESS_MAP = [
       { code: 'PC-LAB-08',   label: 'Compras y\nSubcontratación',           subcat: 'PC-LAB-08 COMPRAS y SUBCONTRATACIÓN' },
       { code: 'PC-LAB-09',   label: 'Muestreo, Transporte\ny Recepción',    subcat: 'PC-LAB-09 MUESTREO- TRANSPORTE Y RECEPCIÓN' },
       { code: 'PC-LAB-09-A', label: 'Análisis\nde Muestras',                subcat: 'PC-LAB-09-A ANÁLISIS' },
-      { code: 'PC-10',       label: 'Verificación y\nCalibración Equipos',  subcat: 'PC-10 MANTENIMIENTO Y VERIFICACIÓN DE EQUIPOS' },
+      { code: 'PC-LAB-10',   label: 'Verificación y\nCalibración Equipos',  subcat: 'PC-10 MANTENIMIENTO Y VERIFICACIÓN DE EQUIPOS' },
       { code: 'PC-11',       label: 'NC / AC y Riesgos\na la Imparcialidad',subcat: 'PC-11 GESTION DE NC' },
     ],
   },
@@ -73,7 +73,7 @@ const PROCESS_LABELS = {
   'PC-02 GESTIÓN DE RIESGOS Y OPORTUNIDADES':       'PC-02 · Gestión de Riesgos y Oportunidades',
   'PC-03 AUDITORÍAS e INTERCOMPARATIVOS':            'PC-03 · Auditorías e Intercomparativos',
   'PC-04 SATISFACCIÓN DEL CLIENTE':                  'PC-04 · Satisfacción del Cliente',
-  'PC-10 MANTENIMIENTO Y VERIFICACIÓN DE EQUIPOS':   'PC-10 · Mantenimiento y Verificación de Equipos',
+  'PC-10 MANTENIMIENTO Y VERIFICACIÓN DE EQUIPOS':   'PC-LAB-10 · Mantenimiento y Verificación de Equipos',
   'PC-11 GESTION DE NC':                             'PC-11 · Gestión de No Conformidades',
   'PC-12 RRHH FORMACION Y GESTIÓN DEL CONOCIMIENTO': 'PC-12 · RRHH, Formación y Gestión del Conocimiento',
   'PC-13 INFRAESTRUCTURA y L+D':                     'PC-13 · Infraestructura y Ambiente de Trabajo',
@@ -314,13 +314,13 @@ export default function DocumentsModule({ session, onBackToHub, role = 'operatio
 
   const gridProps = {
     onView:          handleView,
-    onDownload:      handleDownload,
+    onDownload:      isAdmin ? handleDownload : null,
     onDelete:        isAdmin ? setDeleteId : null,
     onNewVersion:    isAdmin ? handleNewVersion : null,
     onEdit:          isAdmin ? openEdit : null,
     historyMap,
     expandedHistory,
-    onToggleHistory: toggleHistory,
+    onToggleHistory: isAdmin ? toggleHistory : null,
   };
 
   return (
@@ -1006,7 +1006,7 @@ function DocRow({ doc, onView, onDownload, onDelete, onNewVersion, onEdit, histo
         </div>
         {/* Actions */}
         <div style={{ display: 'flex', gap: '4px', justifyContent: 'flex-end', paddingLeft: '8px' }}>
-          {hasHistory && (
+          {hasHistory && onToggleHistory && (
             <ActionBtn
               icon={History}
               title={`Historial · ${history.length} versión${history.length > 1 ? 'es' : ''} anterior${history.length > 1 ? 'es' : ''}`}
@@ -1016,7 +1016,7 @@ function DocRow({ doc, onView, onDownload, onDelete, onNewVersion, onEdit, histo
             />
           )}
           <ActionBtn icon={Eye}      title="Ver"           onClick={() => onView(doc)}     color="var(--primary)" />
-          <ActionBtn icon={Download} title="Descargar"     onClick={() => onDownload(doc)} color="#0f6e56" />
+          {onDownload && <ActionBtn icon={Download} title="Descargar" onClick={() => onDownload(doc)} color="#0f6e56" />}
           {onEdit && (
             <ActionBtn icon={Pencil} title="Editar nombre / versión / fecha" onClick={() => onEdit(doc)} color="#f59e0b" />
           )}
@@ -1063,7 +1063,7 @@ function HistoryRow({ doc, onView, onDownload, last }) {
       </div>
       <div style={{ display: 'flex', gap: '4px', justifyContent: 'flex-end', paddingLeft: '8px' }}>
         <ActionBtn icon={Eye}      title="Ver versión obsoleta"       onClick={() => onView(doc)}     color="#9ca3af" />
-        <ActionBtn icon={Download} title="Descargar versión obsoleta" onClick={() => onDownload(doc)} color="#9ca3af" />
+        {onDownload && <ActionBtn icon={Download} title="Descargar versión obsoleta" onClick={() => onDownload(doc)} color="#9ca3af" />}
       </div>
     </div>
   );
