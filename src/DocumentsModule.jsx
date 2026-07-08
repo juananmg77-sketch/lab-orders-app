@@ -129,7 +129,7 @@ export default function DocumentsModule({ session, onBackToHub, role = 'operatio
   });
 
   const userEmail = session?.user?.email || 'desconocido';
-  const isAdmin   = ['admin', 'lab'].includes(role);
+  const isAdmin   = role === 'admin';
 
   const fetchDocs = useCallback(async () => {
     setLoading(true);
