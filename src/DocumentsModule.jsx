@@ -367,6 +367,7 @@ export default function DocumentsModule({ session, onBackToHub, role = 'operatio
 
   const gridProps = {
     onView:          handleView,
+    onViewObsolete:  isAdmin ? handleView : null,
     onDownload:      isAdmin ? handleDownload : null,
     onDelete:        isAdmin ? setDeleteId : null,
     onNewVersion:    isAdmin ? handleNewVersion : null,
@@ -1011,7 +1012,7 @@ function ProcessMapView({ activeDocs, gridProps, isAdmin, onUploadForProcess, on
 
 const GRID_COLS = '1fr 80px 110px 60px 216px';
 
-function DocGrid({ docs, onView, onDownload, onDelete, onNewVersion, onEdit, historyMap, expandedHistory, onToggleHistory }) {
+function DocGrid({ docs, onView, onViewObsolete, onDownload, onDelete, onNewVersion, onEdit, historyMap, expandedHistory, onToggleHistory }) {
   // Group by category preserving CATEGORIES order
   const groups = CATEGORIES
     .map(cat => ({ cat, items: docs.filter(d => d.category === cat.id) }))
@@ -1047,6 +1048,7 @@ function DocGrid({ docs, onView, onDownload, onDelete, onNewVersion, onEdit, his
               key={doc.id}
               doc={doc}
               onView={onView}
+              onViewObsolete={onViewObsolete}
               onDownload={onDownload}
               onDelete={onDelete}
               onNewVersion={onNewVersion}
@@ -1063,7 +1065,7 @@ function DocGrid({ docs, onView, onDownload, onDelete, onNewVersion, onEdit, his
   );
 }
 
-function DocRow({ doc, onView, onDownload, onDelete, onNewVersion, onEdit, history, isHistoryOpen, onToggleHistory, last }) {
+function DocRow({ doc, onView, onViewObsolete, onDownload, onDelete, onNewVersion, onEdit, history, isHistoryOpen, onToggleHistory, last }) {
   const cat        = getCatMeta(doc.category);
   const Icon       = cat.icon;
   const hasHistory = history.length > 0;
@@ -1129,7 +1131,7 @@ function DocRow({ doc, onView, onDownload, onDelete, onNewVersion, onEdit, histo
         <HistoryRow
           key={h.id}
           doc={h}
-          onView={onView}
+          onView={onViewObsolete}
           onDownload={onDownload}
           last={last && i === history.length - 1}
         />
@@ -1159,7 +1161,7 @@ function HistoryRow({ doc, onView, onDownload, last }) {
         {fmtSize(doc.file_size)}
       </div>
       <div style={{ display: 'flex', gap: '4px', justifyContent: 'flex-end', paddingLeft: '8px' }}>
-        <ActionBtn icon={Eye}      title="Ver versión obsoleta"       onClick={() => onView(doc)}     color="#9ca3af" />
+        {onView && <ActionBtn icon={Eye}      title="Ver versión obsoleta"       onClick={() => onView(doc)}     color="#9ca3af" />}
         {onDownload && <ActionBtn icon={Download} title="Descargar versión obsoleta" onClick={() => onDownload(doc)} color="#9ca3af" />}
       </div>
     </div>
