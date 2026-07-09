@@ -127,7 +127,7 @@ const getIncidentMode = (eq) => {
   return 'none';
 };
 
-export default function EquipmentCardModal({ isOpen, onClose, equipment, onSave, existingEquipments = [], suppliers = [] }) {
+export default function EquipmentCardModal({ isOpen, onClose, equipment, onSave, existingEquipments = [], suppliers = [], globalLab = 'HSLAB Baleares' }) {
   const [formData, setFormData] = useState({});
   const [isSaving, setIsSaving] = useState(false);
   const [requiresCalibration, setRequiresCalibration] = useState(false);
@@ -261,7 +261,7 @@ const inferCategory = (eq) => {
       setFormData({
         ...equipment,
         macro_category: inferCategory(equipment),
-        lab: equipment.lab || 'HSLAB Baleares',
+        lab: equipment.lab || globalLab || 'HSLAB Baleares',
         status: equipment.status || 'ALTA',
         purchase_supplier: equipment.purchase_supplier || '',
         invoice_number:    equipment.invoice_number    || '',
@@ -446,7 +446,7 @@ const inferCategory = (eq) => {
       verification_freq: requiresVerification ? formData.verification_freq : null,
       ver_report_ref: requiresVerification ? formData.ver_report_ref : null,
       ver_valid_until: requiresVerification ? formData.ver_valid_until || null : null,
-      lab: formData.lab || 'HSLAB Baleares',
+      lab: formData.lab || globalLab || 'HSLAB Baleares',
       delegacion: formData.macro_category === 'Equipos Consultores Externos' ? (formData.delegacion || 'Baleares') : null,
 
       // Adquisición
@@ -763,29 +763,27 @@ const inferCategory = (eq) => {
                 </div>
               )}
 
+              <div className="input-group" style={{ marginTop: '16px' }}>
+                <label className="input-label" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <FileText size={14} /> Manual de Instrucciones del Equipo
+                </label>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <input type="text" className="input-field" name="manual_ref" value={formData.manual_ref || ''} onChange={handleChange} placeholder="Link de Drive al Manual PDF / Instrucciones" style={{ margin: 0 }} />
+                  {formData.manual_ref && (
+                    <a href={ensureAbsoluteUrl(formData.manual_ref)} target="_blank" rel="noreferrer" className="btn btn-secondary" style={{ padding: '8px 12px', display: 'flex', alignItems: 'center' }} title="Abrir Manual">
+                      <ExternalLink size={18} />
+                    </a>
+                  )}
+                </div>
+              </div>
+
               {!isConsultor && (
-                <>
-                  <div className="input-group" style={{ marginTop: '16px' }}>
-                    <label className="input-label" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                      <FileText size={14} /> Manual de Instrucciones del Equipo
-                    </label>
-                    <div style={{ display: 'flex', gap: '8px' }}>
-                      <input type="text" className="input-field" name="manual_ref" value={formData.manual_ref || ''} onChange={handleChange} placeholder="Link de Drive al Manual PDF / Instrucciones" style={{ margin: 0 }} />
-                      {formData.manual_ref && (
-                        <a href={ensureAbsoluteUrl(formData.manual_ref)} target="_blank" rel="noreferrer" className="btn btn-secondary" style={{ padding: '8px 12px', display: 'flex', alignItems: 'center' }} title="Abrir Manual">
-                          <ExternalLink size={18} />
-                        </a>
-                      )}
-                    </div>
-                  </div>
-                  
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '12px', backgroundColor: formData.iso_17025 ? '#e0e7ff' : '#f1f5f9', borderRadius: '8px', border: '1px solid', borderColor: formData.iso_17025 ? '#a5b4fc' : '#e2e8f0', marginTop: '16px' }}>
-                    <input type="checkbox" id="isoCheck" name="iso_17025" checked={formData.iso_17025 || false} onChange={handleChange} style={{ width: '20px', height: '20px', cursor: 'pointer' }} />
-                    <label htmlFor="isoCheck" style={{ fontWeight: 600, color: formData.iso_17025 ? '#4338ca' : 'var(--text)', cursor: 'pointer' }}>
-                      Aplica ISO 17025 (Alcance de acreditación)
-                    </label>
-                  </div>
-                </>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '12px', backgroundColor: formData.iso_17025 ? '#e0e7ff' : '#f1f5f9', borderRadius: '8px', border: '1px solid', borderColor: formData.iso_17025 ? '#a5b4fc' : '#e2e8f0', marginTop: '16px' }}>
+                  <input type="checkbox" id="isoCheck" name="iso_17025" checked={formData.iso_17025 || false} onChange={handleChange} style={{ width: '20px', height: '20px', cursor: 'pointer' }} />
+                  <label htmlFor="isoCheck" style={{ fontWeight: 600, color: formData.iso_17025 ? '#4338ca' : 'var(--text)', cursor: 'pointer' }}>
+                    Aplica ISO 17025 (Alcance de acreditación)
+                  </label>
+                </div>
               )}
             </div>
 
