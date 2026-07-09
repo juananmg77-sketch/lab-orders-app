@@ -2425,9 +2425,11 @@ function PurchasingModule({ session, onLogout, globalLab, onBackToHub, role = 'o
                       {/* Responsable */}
                       <div className="input-group">
                         <label className="input-label">Responsable apertura</label>
-                        <input className="input-field" value={prodForm.responsible}
-                          onChange={e => setProdForm(f => ({ ...f, responsible: e.target.value }))}
-                          placeholder="Nombre del responsable" />
+                        <select className="input-field" value={prodForm.responsible}
+                          onChange={e => setProdForm(f => ({ ...f, responsible: e.target.value }))}>
+                          <option value="">— Seleccionar —</option>
+                          {['MGR','MCL','MEC','COO','TPM','ARC','HJM'].map(t => <option key={t} value={t}>{t}</option>)}
+                        </select>
                       </div>
                     </div>
 
@@ -2579,7 +2581,10 @@ function PurchasingModule({ session, onLogout, globalLab, onBackToHub, role = 'o
                     {/* Responsable */}
                     <div className="input-group">
                       <label className="input-label">Responsable</label>
-                      <input className="input-field" value={prodForm.responsible} onChange={e => setProdForm(f => ({ ...f, responsible: e.target.value }))} placeholder="Nombre o iniciales" />
+                      <select className="input-field" value={prodForm.responsible} onChange={e => setProdForm(f => ({ ...f, responsible: e.target.value }))}>
+                        <option value="">— Seleccionar —</option>
+                        {['MGR','MCL','MEC','COO','TPM','ARC','HJM'].map(t => <option key={t} value={t}>{t}</option>)}
+                      </select>
                     </div>
 
                     {/* Botones acción */}
@@ -2728,7 +2733,7 @@ function PurchasingModule({ session, onLogout, globalLab, onBackToHub, role = 'o
             </div>
 
             {/* Tabla */}
-            <div className="card table-wrapper">
+            <div className="card table-wrapper" style={{ padding: '12px 8px' }}>
               {productionLoading ? (
                 <div style={{ textAlign: 'center', padding: '60px', color: 'var(--text-muted)' }}>Cargando…</div>
               ) : filteredProd.length === 0 ? (
@@ -2740,7 +2745,7 @@ function PurchasingModule({ session, onLogout, globalLab, onBackToHub, role = 'o
                   </button>
                 </div>
               ) : (
-                <table>
+                <table style={{ width: 'auto', minWidth: '100%' }}>
                   <thead>
                     <tr>
                       <th>Nº Lote</th>
@@ -2776,6 +2781,7 @@ function PurchasingModule({ session, onLogout, globalLab, onBackToHub, role = 'o
                           <td style={{ whiteSpace: 'nowrap', color: inactive ? 'var(--text-muted)' : 'inherit' }}>{fmtD(p.preparation_date)}</td>
                           <td style={{ whiteSpace: 'nowrap' }}>
                             {p.expiry_date ? (() => {
+                              if (inactive) return <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{fmtD(p.expiry_date)}</span>;
                               const today2 = new Date().toISOString().slice(0,10);
                               const soon = new Date(); soon.setDate(soon.getDate() + 14);
                               const soonStr = soon.toISOString().slice(0,10);
@@ -2841,7 +2847,7 @@ function PurchasingModule({ session, onLogout, globalLab, onBackToHub, role = 'o
                                 </button>
                               </div>
                             ) : (
-                              <span style={{ cursor: 'pointer', fontSize: '0.82rem', color: inactive ? '#b91c1c' : (p.date_end ? 'inherit' : 'var(--text-muted)'), fontWeight: inactive ? 600 : 'inherit' }}
+                              <span style={{ cursor: 'pointer', fontSize: '0.82rem', color: p.date_end ? (inactive ? 'var(--text-muted)' : 'inherit') : 'var(--text-muted)' }}
                                 onClick={() => setInlineProdDate({ id: p.id, date_start: p.date_start || '', date_end: p.date_end || '' })}>
                                 {p.date_end ? fmtD(p.date_end) : <span style={{ fontSize: '0.75rem' }}>— Editar</span>}
                               </span>
@@ -3258,7 +3264,10 @@ function PurchasingModule({ session, onLogout, globalLab, onBackToHub, role = 'o
                     </div>
                     <div className="input-group">
                       <label className="input-label">Recibido por</label>
-                      <input className="input-field" placeholder="Nombre del responsable" value={lotForm.received_by} onChange={e => setLotForm(f => ({ ...f, received_by: e.target.value }))} />
+                      <select className="input-field" value={lotForm.received_by} onChange={e => setLotForm(f => ({ ...f, received_by: e.target.value }))}>
+                        <option value="">— Seleccionar —</option>
+                        {['MGR','MCL','MEC','COO','TPM','ARC','HJM'].map(t => <option key={t} value={t}>{t}</option>)}
+                      </select>
                     </div>
                     <div className="input-group">
                       <label className="input-label">Notas</label>

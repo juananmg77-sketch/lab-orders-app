@@ -227,11 +227,14 @@ export default function DocumentsModule({ session, onBackToHub, role = 'operatio
     setShowUpload(true);
   };
 
+  const sanitizeFileName = (name) =>
+    name.normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-zA-Z0-9._\-]/g, '_');
+
   const handleUpload = async () => {
     if (!selectedFile || !form.name || !form.category) return;
     setUploading(true);
     try {
-      const path = `${form.category}/${Date.now()}_${selectedFile.name}`;
+      const path = `${form.category}/${Date.now()}_${sanitizeFileName(selectedFile.name)}`;
       const { error: storageErr } = await supabase.storage.from(BUCKET).upload(path, selectedFile);
       if (storageErr) throw storageErr;
 
@@ -338,7 +341,7 @@ export default function DocumentsModule({ session, onBackToHub, role = 'operatio
     for (const bf of pending) {
       setBulkFiles(prev => prev.map(f => f.id === bf.id ? { ...f, status: 'uploading' } : f));
       try {
-        const path = `Normativa/${Date.now()}_${bf.file.name}`;
+        const path = `Normativa/${Date.now()}_${sanitizeFileName(bf.file.name)}`;
         const { error: storageErr } = await supabase.storage.from(BUCKET).upload(path, bf.file);
         if (storageErr) throw storageErr;
         const { error: dbErr } = await supabase.from('documents').insert({
