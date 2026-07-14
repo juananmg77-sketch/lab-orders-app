@@ -449,6 +449,10 @@ const inferCategory = (eq) => {
       lab: formData.lab || globalLab || 'HSLAB Baleares',
       delegacion: formData.macro_category === 'Equipos Consultores Externos' ? (formData.delegacion || 'Baleares') : null,
 
+      // Check diario
+      daily_check: formData.daily_check || false,
+      daily_check_ref: formData.daily_check_ref || null,
+
       // Adquisición
       purchase_supplier: formData.purchase_supplier || null,
       invoice_number:    formData.invoice_number    || null,
@@ -1001,7 +1005,30 @@ const inferCategory = (eq) => {
                 </div>
               )}
 
+              {/* ── Check Diario ── */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '16px', marginBottom: '8px' }}>
+                <input type="checkbox" id="dailyCheck" name="daily_check" checked={formData.daily_check || false} onChange={handleChange} style={{ transform: 'scale(1.2)', cursor: 'pointer' }} />
+                <label htmlFor="dailyCheck" style={{ fontWeight: 'bold', color: '#166534', cursor: 'pointer' }}>Requiere Check / Verificación Diaria (registro en papel)</label>
+              </div>
+
+              {formData.daily_check && (
+                <div style={{ backgroundColor: '#f0fdf4', padding: '16px', borderRadius: '8px', border: '1px solid #86efac' }}>
+                  <div className="input-group" style={{ marginBottom: 0 }}>
+                    <label className="input-label">Referencia del registro / instrucción de trabajo</label>
+                    <input
+                      type="text"
+                      className="input-field"
+                      name="daily_check_ref"
+                      value={formData.daily_check_ref || ''}
+                      onChange={handleChange}
+                      placeholder="Ej. IT-LAB-01, Hoja de control diario básculas..."
+                    />
+                  </div>
+                </div>
+              )}
+
             </div>
+
           </div>
 
           {/* ── Sección 3: Adquisición ─────────────────────────────── */}

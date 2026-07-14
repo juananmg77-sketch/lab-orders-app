@@ -93,9 +93,11 @@ const PRODUCTION_MEDIA = [
   { code:'ÁCIDO',     name:'Ácido Buffer Legionella',     qty_g_per_l:null, color:'#dc2626', commercial:true,
     base_articles:['LAB-082'], supplement: null },
   { code:'SAL',       name:'Brilliance Salmonella Agar', qty_g_per_l:null, color:'#ea580c', commercial:true,
-    base_articles:['LAB-075'], supplement: null },
+    base_articles:['LAB-075','REF-87192'], supplement: null },
   { code:'LIS',       name:'Brilliance Listeria Agar',   qty_g_per_l:null, color:'#16a34a', commercial:true,
-    base_articles:['LAB-074'], supplement: null },
+    base_articles:['LAB-074','REF-34151'], supplement: null },
+  { code:'CN-ISO',    name:'CN Pseudomonas ISO',          qty_g_per_l:null, color:'#0284c7', commercial:true,
+    base_articles:['REF-33823'], supplement: null },
   { code:'LATEX',     name:'Legionella Latex Test KIT 3', qty_g_per_l:null, color:'#b45309', commercial:true,
     base_articles:['LAB-080'], supplement: null },
 ];

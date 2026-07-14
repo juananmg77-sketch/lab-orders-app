@@ -4,11 +4,14 @@ import logo from './assets/logo.png';
 
 export default function Hub({ session, globalLab, setGlobalLab, onSelectModule, onLogout, role = 'operations' }) {
   const userEmail = session?.user?.email;
-  
+
   // Regla específica: lab@hsconsulting.es solo accede a Baleares
-  const allowedLabs = (userEmail === 'lab@hsconsulting.es') 
-    ? ['HSLAB Baleares'] 
-    : ['HSLAB Baleares', 'HSLAB Canarias'];
+  const allowedLabs = React.useMemo(() =>
+    userEmail === 'lab@hsconsulting.es'
+      ? ['HSLAB Baleares']
+      : ['HSLAB Baleares', 'HSLAB Canarias'],
+    [userEmail]
+  );
 
   const showPurchasing = ['admin', 'lab'].includes(role);
   const showEquipment = ['admin', 'lab', 'operations'].includes(role);
@@ -225,7 +228,7 @@ export default function Hub({ session, globalLab, setGlobalLab, onSelectModule, 
             </div>
           )}
 
-          {/* Module 3b: Previsión Legionella (Admin + Lab) */}
+          {/* Module 3b: Previsión Muestreos (Admin + Lab) */}
           {['admin', 'lab'].includes(role) && (
             <div
               onClick={() => onSelectModule('legionella')}
@@ -249,7 +252,7 @@ export default function Hub({ session, globalLab, setGlobalLab, onSelectModule, 
               <div style={{ width: '80px', height: '80px', borderRadius: '40px', backgroundColor: '#ECFEFF', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '24px' }}>
                 <FlaskConical size={40} color="#0891B2" />
               </div>
-              <h2 style={{ fontSize: '1.5rem', color: 'var(--secondary)', margin: '0 0 12px 0' }}>Previsión Legionella</h2>
+              <h2 style={{ fontSize: '1.5rem', color: 'var(--secondary)', margin: '0 0 12px 0' }}>Previsión Muestreos</h2>
               <p style={{ color: 'var(--text-muted)', margin: 0, lineHeight: 1.5 }}>
                 Cálculo mensual de las entradas de muestras en Laboratorio.
               </p>

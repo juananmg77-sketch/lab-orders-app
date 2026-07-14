@@ -645,8 +645,10 @@ export default function EquipmentModule({ session, onLogout, globalLab, onBackTo
                       <th style={{ width: '150px' }}>S/N</th>
                       {selectedCategory === 'Equipos Consultores Externos' && <th style={{ width: '130px' }}>Delegación</th>}
                       {selectedCategory === 'Equipos Consultores Externos' && <th style={{ width: '140px' }}>Laboratorio</th>}
+                      {selectedCategory === 'Equipos Consultores Externos' && <th style={{ width: '160px' }}>Consultor</th>}
                       <th style={{ width: '100px' }}>Estado</th>
                       <th style={{ width: '90px', textAlign: 'center' }}>ISO 17025</th>
+                      <th style={{ width: '90px', textAlign: 'center' }}>Check diario</th>
                       <th style={{ width: '130px' }}>Calibración</th>
                       <th style={{ width: '130px' }}>Verificación</th>
                       <th style={{ width: '80px', textAlign: 'center' }}>Acciones</th>
@@ -729,6 +731,11 @@ export default function EquipmentModule({ session, onLogout, globalLab, onBackTo
                               </span>
                             </td>
                           )}
+                          {selectedCategory === 'Equipos Consultores Externos' && (
+                            <td style={{ fontSize: '0.85rem', color: eq.assigned_to ? 'var(--secondary)' : '#94a3b8', fontStyle: eq.assigned_to ? 'normal' : 'italic' }}>
+                              {eq.assigned_to || 'Sin asignar'}
+                            </td>
+                          )}
                           <td>
                             <span className="badge" style={
                               isBaja    ? { backgroundColor: '#FEE2E2', color: '#991B1B' } :
@@ -756,6 +763,23 @@ export default function EquipmentModule({ session, onLogout, globalLab, onBackTo
                             >
                               {eq.iso_17025 ? '✓ SÍ' : '— NO'}
                             </button>
+                          </td>
+                          {/* ── Columna Check Diario ── */}
+                          <td style={{ textAlign: 'center' }}>
+                            {eq.daily_check ? (
+                              <span
+                                title={eq.daily_check_ref || 'Verificación diaria en papel'}
+                                style={{
+                                  display: 'inline-flex', alignItems: 'center', gap: '3px',
+                                  padding: '3px 8px', borderRadius: '20px', fontSize: '0.72rem', fontWeight: 700,
+                                  backgroundColor: '#f0fdf4', color: '#166534', cursor: 'default'
+                                }}
+                              >
+                                ✓ Diario
+                              </span>
+                            ) : (
+                              <span style={{ color: '#cbd5e1', fontSize: '0.8rem' }}>—</span>
+                            )}
                           </td>
                           {/* ── Columna Calibración ── */}
                           <td style={{ fontSize: '0.85rem', fontWeight: 600 }}>
@@ -877,6 +901,7 @@ export default function EquipmentModule({ session, onLogout, globalLab, onBackTo
           onSave={fetchEquipments}
           existingEquipments={equipments}
           suppliers={suppliers}
+          globalLab={globalLab}
         />
 
         {/* Floating Bulk Action Bar */}

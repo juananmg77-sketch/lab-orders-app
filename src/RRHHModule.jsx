@@ -160,6 +160,7 @@ export default function RRHHModule({ onBackToHub }) {
   // Dashboard: filtros zona
   const [consultZone, setConsultZone] = useState('Todos');
   const [labZone, setLabZone] = useState('Todos');
+  const [showBajas, setShowBajas] = useState({ Consultoría: false, Laboratorio: false, Dirección: false, Operaciones: false });
 
   // Empleado seleccionado (detalle)
   const [selectedEmployee, setSelectedEmployee] = useState(null);
@@ -1698,15 +1699,26 @@ export default function RRHHModule({ onBackToHub }) {
   }
 
   // ── Valores derivados para el dashboard ──────────────────────────────────────
-  const consultList = consultByZone(consultZone);
-  const labList = (() => {
+  const consultZoneAll = consultByZone(consultZone);
+  const consultBajas = consultZoneAll.filter(e => e.status === 'Baja');
+  const consultList = showBajas['Consultoría'] ? consultZoneAll : consultZoneAll.filter(e => e.status !== 'Baja');
+
+  const labZoneAll = (() => {
     const base = byDept('Laboratorio');
     if (labZone === 'Baleares') return base.filter(e => e.delegacion === 'Baleares');
     if (labZone === 'Canarias') return base.filter(e => CANARIAS_DELEG.includes(e.delegacion));
     return base;
   })();
-  const dirList = byDept('Dirección');
-  const opList = byDept('Operaciones');
+  const labBajas = labZoneAll.filter(e => e.status === 'Baja');
+  const labList = showBajas['Laboratorio'] ? labZoneAll : labZoneAll.filter(e => e.status !== 'Baja');
+
+  const dirAll = byDept('Dirección');
+  const dirBajas = dirAll.filter(e => e.status === 'Baja');
+  const dirList = showBajas['Dirección'] ? dirAll : dirAll.filter(e => e.status !== 'Baja');
+
+  const opAll = byDept('Operaciones');
+  const opBajas = opAll.filter(e => e.status === 'Baja');
+  const opList = showBajas['Operaciones'] ? opAll : opAll.filter(e => e.status !== 'Baja');
 
   // ── RENDER: Candidatos ───────────────────────────────────────────────────────
   if (view === 'candidates') {
@@ -1864,8 +1876,15 @@ export default function RRHHModule({ onBackToHub }) {
               <Briefcase size={18} color="#185FA5" />
               <span style={{ fontWeight: 700, fontSize: '1rem', color: 'var(--secondary)', marginLeft: '8px' }}>Consultoría</span>
               <span style={{ backgroundColor: '#e6f1fb', color: '#185FA5', fontSize: '0.75rem', padding: '2px 8px', borderRadius: '999px', fontWeight: 600, marginLeft: '8px' }}>
-                {byDept('Consultoría').length}
+                {consultList.length}
               </span>
+              {consultBajas.length > 0 && (
+                <button onClick={() => setShowBajas(p => ({ ...p, 'Consultoría': !p['Consultoría'] }))}
+                  style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '4px', padding: '3px 10px', borderRadius: '999px', fontSize: '0.75rem', fontWeight: 600, cursor: 'pointer', border: showBajas['Consultoría'] ? '1px solid #991b1b' : '1px solid var(--border)', backgroundColor: showBajas['Consultoría'] ? '#fee2e2' : 'transparent', color: showBajas['Consultoría'] ? '#991b1b' : 'var(--text-muted)' }}>
+                  <MinusCircle size={12} />
+                  {showBajas['Consultoría'] ? 'Ocultar bajas' : `Ver bajas (${consultBajas.length})`}
+                </button>
+              )}
             </div>
 
             {/* Filtro zona */}
@@ -1878,7 +1897,7 @@ export default function RRHHModule({ onBackToHub }) {
               ))}
             </div>
 
-            <div style={{ padding: '8px', overflowY: 'auto', maxHeight: '340px' }}>
+            <div style={{ padding: '8px', overflowY: 'auto', flex: 1 }}>
               {consultList.map(emp => (
                 <EmpRow key={emp.id} emp={emp} onClick={() => openEmployee(emp)} />
               ))}
@@ -1895,8 +1914,15 @@ export default function RRHHModule({ onBackToHub }) {
                 <FlaskConical size={18} color="#534AB7" />
                 <span style={{ fontWeight: 700, fontSize: '1rem', color: 'var(--secondary)', marginLeft: '8px' }}>Laboratorio</span>
                 <span style={{ backgroundColor: '#eeedfe', color: '#534AB7', fontSize: '0.75rem', padding: '2px 8px', borderRadius: '999px', fontWeight: 600, marginLeft: '8px' }}>
-                  {byDept('Laboratorio').length}
+                  {labList.length}
                 </span>
+                {labBajas.length > 0 && (
+                  <button onClick={() => setShowBajas(p => ({ ...p, 'Laboratorio': !p['Laboratorio'] }))}
+                    style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '4px', padding: '3px 10px', borderRadius: '999px', fontSize: '0.75rem', fontWeight: 600, cursor: 'pointer', border: showBajas['Laboratorio'] ? '1px solid #991b1b' : '1px solid var(--border)', backgroundColor: showBajas['Laboratorio'] ? '#fee2e2' : 'transparent', color: showBajas['Laboratorio'] ? '#991b1b' : 'var(--text-muted)' }}>
+                    <MinusCircle size={12} />
+                    {showBajas['Laboratorio'] ? 'Ocultar bajas' : `Ver bajas (${labBajas.length})`}
+                  </button>
+                )}
               </div>
               <div style={{ padding: '10px 18px', borderBottom: '1px solid var(--border)', display: 'flex', gap: '8px' }}>
                 {[
@@ -1926,6 +1952,13 @@ export default function RRHHModule({ onBackToHub }) {
                 <span style={{ backgroundColor: '#faece7', color: '#993C1D', fontSize: '0.75rem', padding: '2px 8px', borderRadius: '999px', fontWeight: 600, marginLeft: '8px' }}>
                   {dirList.length}
                 </span>
+                {dirBajas.length > 0 && (
+                  <button onClick={() => setShowBajas(p => ({ ...p, 'Dirección': !p['Dirección'] }))}
+                    style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '4px', padding: '3px 10px', borderRadius: '999px', fontSize: '0.75rem', fontWeight: 600, cursor: 'pointer', border: showBajas['Dirección'] ? '1px solid #991b1b' : '1px solid var(--border)', backgroundColor: showBajas['Dirección'] ? '#fee2e2' : 'transparent', color: showBajas['Dirección'] ? '#991b1b' : 'var(--text-muted)' }}>
+                    <MinusCircle size={12} />
+                    {showBajas['Dirección'] ? 'Ocultar bajas' : `Ver bajas (${dirBajas.length})`}
+                  </button>
+                )}
               </div>
               <div style={{ padding: '8px', overflowY: 'auto', maxHeight: '200px' }}>
                 {dirList.map(emp => (
@@ -1943,6 +1976,13 @@ export default function RRHHModule({ onBackToHub }) {
                 <span style={{ backgroundColor: '#ecfeff', color: '#0E7490', fontSize: '0.75rem', padding: '2px 8px', borderRadius: '999px', fontWeight: 600, marginLeft: '8px' }}>
                   {opList.length}
                 </span>
+                {opBajas.length > 0 && (
+                  <button onClick={() => setShowBajas(p => ({ ...p, 'Operaciones': !p['Operaciones'] }))}
+                    style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '4px', padding: '3px 10px', borderRadius: '999px', fontSize: '0.75rem', fontWeight: 600, cursor: 'pointer', border: showBajas['Operaciones'] ? '1px solid #991b1b' : '1px solid var(--border)', backgroundColor: showBajas['Operaciones'] ? '#fee2e2' : 'transparent', color: showBajas['Operaciones'] ? '#991b1b' : 'var(--text-muted)' }}>
+                    <MinusCircle size={12} />
+                    {showBajas['Operaciones'] ? 'Ocultar bajas' : `Ver bajas (${opBajas.length})`}
+                  </button>
+                )}
               </div>
               <div style={{ padding: '8px', overflowY: 'auto', maxHeight: '200px' }}>
                 {opList.map(emp => (

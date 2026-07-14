@@ -24,9 +24,14 @@ export default function App() {
   const [pendingEquipmentData, setPendingEquipmentData] = useState(null);
   const [initialEquipmentId, setInitialEquipmentId] = useState(null);
 
+  // Tracks whether globalLab has been initialised from the user's profile.
+  // Once set, mid-session SIGNED_IN events (Supabase can fire these on token
+  // recovery) must NOT override a lab the user has manually changed.
+  const globalLabInitialized = React.useRef(false);
+
   const labFromDelegacion = (d) => d === 'Canarias' ? 'HSLAB Canarias' : 'HSLAB Baleares';
 
-  const fetchUserRole = async (user) => {
+  const fetchUserRole = async (user, { setLab = false } = {}) => {
     if (!user) return;
     const { data: profile } = await supabase.from('profiles').select('role, delegacion, can_approve').eq('id', user.id).single();
     if (profile?.role) {
@@ -36,8 +41,9 @@ export default function App() {
     }
     setCanApprove(profile?.can_approve !== false);
     const delegacion = profile?.delegacion || user.user_metadata?.delegacion;
-    if (delegacion) {
+    if (delegacion && setLab && !globalLabInitialized.current) {
       setGlobalLab(labFromDelegacion(delegacion));
+      globalLabInitialized.current = true;
     }
   };
 
@@ -65,15 +71,23 @@ export default function App() {
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
-      fetchUserRole(session?.user);
+      // Initial load: set lab from profile (ref not yet set)
+      fetchUserRole(session?.user, { setLab: true });
     });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       setSession(session);
-      // Solo cargar rol/lab en inicio de sesión real, no en TOKEN_REFRESHED
-      // (evita resetear globalLab si el usuario cambió de Baleares a Canarias)
-      if (event === 'SIGNED_IN' || event === 'INITIAL_SESSION' || event === 'USER_UPDATED') {
-        fetchUserRole(session?.user);
+      if (event === 'SIGNED_OUT') {
+        // Reset so the next login picks up the new user's profile lab
+        globalLabInitialized.current = false;
+        setGlobalLab('HSLAB Baleares');
+      } else if (event === 'INITIAL_SESSION' || event === 'SIGNED_IN') {
+        // setLab=true but guarded by globalLabInitialized: only fires once per
+        // session, so mid-session SIGNED_IN events (token recovery) are ignored.
+        fetchUserRole(session?.user, { setLab: true });
+      } else if (event === 'USER_UPDATED') {
+        // Role/approval may change but don't override a manually-selected lab
+        fetchUserRole(session?.user, { setLab: false });
       }
     });
 
