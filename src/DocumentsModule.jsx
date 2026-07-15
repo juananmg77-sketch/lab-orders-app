@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { ArrowLeft, Upload, Search, FileText, Download, Eye, Trash2, X, FolderOpen, ChevronRight, File, BookOpen, ClipboardList, FlaskConical, Award, History, GitBranch, Pencil, Globe, ListPlus, CheckCircle2, AlertCircle, Loader2 } from 'lucide-react';
+import { ArrowLeft, Upload, Search, FileText, Download, Eye, Trash2, X, FolderOpen, ChevronRight, File, BookOpen, ClipboardList, FlaskConical, Award, History, GitBranch, Pencil, Globe, ListPlus, CheckCircle2, AlertCircle, Loader2, ShieldCheck } from 'lucide-react';
 import { supabase } from './supabaseClient';
 
 const CATEGORIES = [
@@ -14,6 +14,7 @@ const CATEGORIES = [
 
 const BUCKET = 'documents';
 const PC14_SUBCAT = 'PC-14 GESTION DE LA INFORMACIÓN DOCUMENTADA';
+const PC13_FICHAS_SUBCAT = 'PC-13 Fichas de Seguridad Química';
 
 // ── PROCESS MAP ─────────────────────────────────────────────────────────────
 const NOTCH = 14; // px – chevron arrow depth
@@ -124,6 +125,9 @@ export default function DocumentsModule({ session, onBackToHub, role = 'operatio
   const [showBulkUpload, setShowBulkUpload] = useState(false);
   const [bulkFiles, setBulkFiles]           = useState([]);
   const [bulkUploading, setBulkUploading]   = useState(false);
+  const [showFichasUpload, setShowFichasUpload] = useState(false);
+  const [fichasFiles, setFichasFiles]           = useState([]);
+  const [fichasUploading, setFichasUploading]   = useState(false);
   const fileRef = useRef(null);
 
   const toggleGroup   = (key) => setCollapsed(prev => ({ ...prev, [key]: !prev[key] }));
@@ -133,8 +137,9 @@ export default function DocumentsModule({ session, onBackToHub, role = 'operatio
     return next;
   });
 
-  const userEmail = session?.user?.email || 'desconocido';
-  const isAdmin   = role === 'admin';
+  const userEmail    = session?.user?.email || 'desconocido';
+  const isAdmin      = role === 'admin';
+  const isLabOrAdmin = isAdmin || role === 'lab';
 
   const fetchDocs = useCallback(async () => {
     setLoading(true);
@@ -365,6 +370,51 @@ export default function DocumentsModule({ session, onBackToHub, role = 'operatio
     await fetchDocs();
   };
 
+  const addFichasFiles = (fileList) => {
+    const toAdd = Array.from(fileList)
+      .filter(f => f.type === 'application/pdf' || f.name.toLowerCase().endsWith('.pdf'))
+      .map(f => ({
+        id: `${f.name}_${f.size}_${Date.now()}_${Math.random()}`,
+        file: f,
+        name: f.name.replace(/\.pdf$/i, '').replace(/_/g, ' '),
+        cas: '',
+        fabricante: '',
+        status: 'pending',
+        error: null,
+      }));
+    setFichasFiles(prev => [...prev, ...toAdd]);
+  };
+
+  const handleFichasUpload = async () => {
+    setFichasUploading(true);
+    const pending = fichasFiles.filter(f => f.status === 'pending');
+    for (const bf of pending) {
+      setFichasFiles(prev => prev.map(f => f.id === bf.id ? { ...f, status: 'uploading' } : f));
+      try {
+        const path = `Normativa/fichas-seguridad/${Date.now()}_${sanitizeFileName(bf.file.name)}`;
+        const { error: storageErr } = await supabase.storage.from(BUCKET).upload(path, bf.file);
+        if (storageErr) throw storageErr;
+        const desc = [bf.cas && `CAS: ${bf.cas}`, bf.fabricante && `Fabricante: ${bf.fabricante}`].filter(Boolean).join(' · ') || null;
+        const { error: dbErr } = await supabase.from('documents').insert({
+          name:        bf.name.trim() || bf.file.name,
+          description: desc,
+          category:    'Normativa',
+          subcategory: PC13_FICHAS_SUBCAT,
+          file_path:   path,
+          file_name:   bf.file.name,
+          file_size:   bf.file.size,
+          uploaded_by: userEmail,
+        });
+        if (dbErr) throw dbErr;
+        setFichasFiles(prev => prev.map(f => f.id === bf.id ? { ...f, status: 'done' } : f));
+      } catch (err) {
+        setFichasFiles(prev => prev.map(f => f.id === bf.id ? { ...f, status: 'error', error: err.message } : f));
+      }
+    }
+    setFichasUploading(false);
+    await fetchDocs();
+  };
+
   const gridProps = {
     onView:          handleView,
     onViewObsolete:  isAdmin ? handleView : null,
@@ -428,6 +478,7 @@ export default function DocumentsModule({ session, onBackToHub, role = 'operatio
               isAdmin={isAdmin}
               onUploadForProcess={isAdmin ? handleUploadForProcess : null}
               onBulkUpload={isAdmin ? () => { setBulkFiles([]); setShowBulkUpload(true); } : null}
+              onFichasBulkUpload={isLabOrAdmin ? () => { setFichasFiles([]); setShowFichasUpload(true); } : null}
             />
           )}
 
@@ -713,6 +764,18 @@ export default function DocumentsModule({ session, onBackToHub, role = 'operatio
         />
       )}
 
+      {/* ── FICHAS DE SEGURIDAD MODAL ── */}
+      {showFichasUpload && (
+        <FichasBulkUploadModal
+          fichasFiles={fichasFiles}
+          setFichasFiles={setFichasFiles}
+          fichasUploading={fichasUploading}
+          onAddFiles={addFichasFiles}
+          onUpload={handleFichasUpload}
+          onClose={() => { if (!fichasUploading) { setShowFichasUpload(false); setFichasFiles([]); } }}
+        />
+      )}
+
       {/* ── DELETE CONFIRM ── */}
       {deleteId && (() => {
         const doc = docs.find(d => d.id === deleteId);
@@ -750,7 +813,7 @@ const ANÁLISIS_CODE = 'PC-LAB-09-A';
 const ANÁLISIS_COLOR = '#c2680a';
 const ANÁLISIS_BG    = '#fff8ee';
 
-function ProcessMapView({ activeDocs, gridProps, isAdmin, onUploadForProcess, onBulkUpload }) {
+function ProcessMapView({ activeDocs, gridProps, isAdmin, onUploadForProcess, onBulkUpload, onFichasBulkUpload }) {
   const [expandedProc, setExpandedProc] = useState(null);
 
   const docsBySubcat = useMemo(() => {
@@ -972,6 +1035,14 @@ function ProcessMapView({ activeDocs, gridProps, isAdmin, onUploadForProcess, on
                             <ListPlus size={12} /> Carga masiva normativa
                           </button>
                         )}
+                        {onFichasBulkUpload && expandedProc.code === 'PC-13' && (
+                          <button
+                            onClick={onFichasBulkUpload}
+                            style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '4px 11px', background: '#0f766e', color: 'white', border: 'none', borderRadius: 6, fontSize: '0.75rem', fontWeight: 600, cursor: 'pointer' }}
+                          >
+                            <ShieldCheck size={12} /> Fichas de Seguridad
+                          </button>
+                        )}
                         {onUploadForProcess && expandedProc.subcat && (
                           <button
                             onClick={() => onUploadForProcess(expandedProc.subcat)}
@@ -991,6 +1062,29 @@ function ProcessMapView({ activeDocs, gridProps, isAdmin, onUploadForProcess, on
                             {expandedProc.subcat ? 'No hay documentos vinculados a este proceso todavía' : 'Proceso pendiente de incorporar al sistema documental'}
                           </div>
                         )}
+                      {expandedProc.code === 'PC-13' && (() => {
+                        const fichasDocs = docsBySubcat['PC-13 Fichas de Seguridad Química'] || [];
+                        return (
+                          <div style={{ borderTop: '2px solid #0f766e33' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 16px', background: '#f0fdf9', borderBottom: fichasDocs.length > 0 ? '1px solid #d1fae5' : 'none' }}>
+                              <ShieldCheck size={14} color="#0f766e" />
+                              <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#0f766e', textTransform: 'uppercase', letterSpacing: '0.05em', flex: 1 }}>
+                                Fichas de Seguridad Química
+                              </span>
+                              <span style={{ fontSize: '0.72rem', background: '#0f766e1a', color: '#0f766e', borderRadius: 20, padding: '1px 9px', fontWeight: 700 }}>
+                                {fichasDocs.length} ficha{fichasDocs.length !== 1 ? 's' : ''}
+                              </span>
+                            </div>
+                            {fichasDocs.length > 0
+                              ? <DocGrid docs={fichasDocs} {...gridProps} />
+                              : (
+                                <div style={{ padding: '20px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.82rem' }}>
+                                  Sin fichas de seguridad subidas todavía · usa el botón <strong>Fichas de Seguridad</strong> para cargar
+                                </div>
+                              )}
+                          </div>
+                        );
+                      })()}
                     </div>
                   );
                 })()}
@@ -1179,6 +1273,115 @@ function ActionBtn({ icon: Icon, title, onClick, color, active }) {
     >
       <Icon size={14} color={color} />
     </button>
+  );
+}
+
+function FichasBulkUploadModal({ fichasFiles, setFichasFiles, fichasUploading, onAddFiles, onUpload, onClose }) {
+  const dropRef  = useRef(null);
+  const inputRef = useRef(null);
+  const pending  = fichasFiles.filter(f => f.status === 'pending').length;
+  const done     = fichasFiles.filter(f => f.status === 'done').length;
+  const errors   = fichasFiles.filter(f => f.status === 'error').length;
+  const allDone  = fichasFiles.length > 0 && done + errors === fichasFiles.length;
+
+  const onDrop = (e) => { e.preventDefault(); onAddFiles(e.dataTransfer.files); };
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+      <div style={{ background: 'white', borderRadius: 14, width: '100%', maxWidth: 740, maxHeight: '90vh', display: 'flex', flexDirection: 'column', boxShadow: '0 20px 60px rgba(0,0,0,0.2)' }}>
+
+        {/* Header */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '16px 20px', borderBottom: '1px solid var(--border)' }}>
+          <ShieldCheck size={20} color="#0f766e" />
+          <div style={{ flex: 1 }}>
+            <div style={{ fontWeight: 700, fontSize: '1rem', color: '#0f766e' }}>Fichas de Seguridad — Carga masiva</div>
+            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Productos químicos usados en laboratorio · PC-13 Infraestructura</div>
+          </div>
+          {!fichasUploading && <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer' }}><X size={18} /></button>}
+        </div>
+
+        {/* Drop zone */}
+        <div
+          ref={dropRef}
+          onDragOver={e => e.preventDefault()}
+          onDrop={onDrop}
+          onClick={() => inputRef.current?.click()}
+          style={{ margin: '16px 20px 0', border: '2px dashed #6ee7d1', borderRadius: 10, padding: '18px', textAlign: 'center', cursor: 'pointer', background: '#f0fdf9', transition: 'background 0.15s' }}
+          onMouseOver={e => e.currentTarget.style.background = '#ccfbf1'}
+          onMouseOut={e => e.currentTarget.style.background = '#f0fdf9'}
+        >
+          <Upload size={22} color="#0f766e" style={{ marginBottom: 6 }} />
+          <div style={{ fontSize: '0.85rem', color: '#0f766e', fontWeight: 600 }}>Arrastra las Fichas de Seguridad (PDF) aquí o haz clic</div>
+          <div style={{ fontSize: '0.73rem', color: '#64748b', marginTop: 3 }}>Solo archivos PDF · Puedes seleccionar varias a la vez</div>
+          <input ref={inputRef} type="file" multiple accept=".pdf,application/pdf" style={{ display: 'none' }} onChange={e => { onAddFiles(e.target.files); e.target.value = ''; }} />
+        </div>
+
+        {/* File list */}
+        {fichasFiles.length > 0 && (
+          <div style={{ flex: 1, overflowY: 'auto', margin: '12px 20px 0', border: '1px solid var(--border)', borderRadius: 8 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 110px 150px 64px', padding: '6px 12px', background: '#f8fafc', borderBottom: '1px solid var(--border)', fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 600 }}>
+              <span>NOMBRE DEL PRODUCTO</span>
+              <span style={{ textAlign: 'center' }}>Nº CAS</span>
+              <span style={{ textAlign: 'center' }}>FABRICANTE</span>
+              <span style={{ textAlign: 'center' }}>ESTADO</span>
+            </div>
+            {fichasFiles.map((bf) => (
+              <div key={bf.id} style={{ display: 'grid', gridTemplateColumns: '1fr 110px 150px 64px', alignItems: 'center', padding: '6px 12px', borderBottom: '1px solid #f1f5f9', background: bf.status === 'done' ? '#f0fdf4' : bf.status === 'error' ? '#fff1f2' : 'white' }}>
+                <input
+                  value={bf.name}
+                  disabled={bf.status !== 'pending'}
+                  onChange={e => setFichasFiles(prev => prev.map(f => f.id === bf.id ? { ...f, name: e.target.value } : f))}
+                  style={{ fontSize: '0.82rem', border: bf.status === 'pending' ? '1px solid #e2e8f0' : 'none', borderRadius: 5, padding: '3px 6px', background: bf.status === 'pending' ? 'white' : 'transparent', color: bf.status === 'error' ? '#9f1239' : 'var(--text)', width: '100%', outline: 'none' }}
+                />
+                <input
+                  value={bf.cas}
+                  disabled={bf.status !== 'pending'}
+                  onChange={e => setFichasFiles(prev => prev.map(f => f.id === bf.id ? { ...f, cas: e.target.value } : f))}
+                  placeholder="ej. 7732-18-5"
+                  style={{ fontSize: '0.78rem', border: bf.status === 'pending' ? '1px solid #e2e8f0' : 'none', borderRadius: 5, padding: '3px 6px', background: bf.status === 'pending' ? 'white' : 'transparent', width: '100%', outline: 'none', textAlign: 'center' }}
+                />
+                <input
+                  value={bf.fabricante}
+                  disabled={bf.status !== 'pending'}
+                  onChange={e => setFichasFiles(prev => prev.map(f => f.id === bf.id ? { ...f, fabricante: e.target.value } : f))}
+                  placeholder="Fabricante"
+                  style={{ fontSize: '0.78rem', border: bf.status === 'pending' ? '1px solid #e2e8f0' : 'none', borderRadius: 5, padding: '3px 6px', background: bf.status === 'pending' ? 'white' : 'transparent', width: '100%', outline: 'none' }}
+                />
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  {bf.status === 'pending'   && <span style={{ fontSize: '0.7rem', color: '#64748b' }}>Pendiente</span>}
+                  {bf.status === 'uploading' && <Loader2 size={15} color="#0f766e" style={{ animation: 'spin 1s linear infinite' }} />}
+                  {bf.status === 'done'      && <CheckCircle2 size={16} color="#16a34a" />}
+                  {bf.status === 'error'     && <span title={bf.error}><AlertCircle size={16} color="#dc2626" /></span>}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Footer */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '14px 20px', borderTop: fichasFiles.length > 0 ? '1px solid var(--border)' : 'none', marginTop: fichasFiles.length === 0 ? 16 : 0 }}>
+          <div style={{ flex: 1, fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+            {fichasFiles.length === 0 && 'Ningún archivo seleccionado'}
+            {fichasFiles.length > 0 && !allDone && `${fichasFiles.length} ficha${fichasFiles.length > 1 ? 's' : ''} · ${pending} pendiente${pending !== 1 ? 's' : ''}`}
+            {allDone && <span style={{ color: errors > 0 ? '#dc2626' : '#16a34a', fontWeight: 600 }}>{done} subida{done !== 1 ? 's' : ''}{errors > 0 ? ` · ${errors} con error` : ' correctamente ✓'}</span>}
+          </div>
+          {!fichasUploading && !allDone && <button className="btn btn-secondary" onClick={onClose}>Cancelar</button>}
+          {allDone
+            ? <button className="btn btn-primary" onClick={onClose}>Cerrar</button>
+            : (
+              <button
+                onClick={onUpload}
+                disabled={fichasUploading || pending === 0}
+                style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 18px', background: pending > 0 ? '#0f766e' : '#94a3b8', color: 'white', border: 'none', borderRadius: 8, fontWeight: 700, fontSize: '0.85rem', cursor: pending > 0 ? 'pointer' : 'not-allowed' }}
+              >
+                {fichasUploading ? <><Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> Subiendo…</> : <><Upload size={14} /> Subir {pending > 0 ? `${pending} ficha${pending > 1 ? 's' : ''}` : 'fichas'}</>}
+              </button>
+            )
+          }
+        </div>
+      </div>
+      <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
+    </div>
   );
 }
 
