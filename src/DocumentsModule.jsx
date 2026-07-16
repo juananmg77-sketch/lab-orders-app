@@ -324,6 +324,12 @@ export default function DocumentsModule({ session, onBackToHub, role = 'operatio
   const handleDelete = async (doc) => {
     await supabase.storage.from(BUCKET).remove([doc.file_path]);
     await supabase.from('documents').update({ is_active: false }).eq('id', doc.id);
+    // Si era la versión actual y tiene predecesora, reactivarla como versión vigente
+    if (!doc.is_obsolete && doc.previous_version_id) {
+      await supabase.from('documents')
+        .update({ is_obsolete: false })
+        .eq('id', doc.previous_version_id);
+    }
     setDeleteId(null);
     await fetchDocs();
   };
