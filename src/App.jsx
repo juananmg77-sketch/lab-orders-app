@@ -8,6 +8,7 @@ import EquipmentModule from './EquipmentModule';
 import UserManagementModule from './UserManagementModule';
 import LegionellaForecastModule from './LegionellaForecastModule';
 import LabelGeneratorModule from './LabelGeneratorModule';
+import LegionellaLabaquaModule from './LegionellaLabaquaModule';
 import TrainingCertificateModule from './TrainingCertificateModule';
 import RRHHModule from './RRHHModule';
 import DocumentsModule from './DocumentsModule';
@@ -181,6 +182,14 @@ export default function App() {
   if (activeModule === 'etiquetas') {
     return (
       <LabelGeneratorModule
+        onBackToHub={() => setActiveModule(null)}
+      />
+    );
+  }
+
+  if (activeModule === 'legionella-labaqua') {
+    return (
+      <LegionellaLabaquaModule
         onBackToHub={() => setActiveModule(null)}
       />
     );
