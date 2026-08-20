@@ -105,14 +105,11 @@ labSuppliers = suppliers.filter(s => (s.lab || 'HSLAB Baleares') === selectedLab
 
 ## Deploy
 
-**El deploy es siempre manual.** No hay CI/CD automático.
+**El deploy es automático** vía Netlify Continuous Deployment conectado al repo de GitHub.
 
-```bash
-# Desde la raíz del proyecto
-npx netlify-cli deploy --prod
-```
+Cada merge a `main` despliega en producción automáticamente en 1-2 minutos. No hay que ejecutar ningún comando manual.
 
-Solo el Owner del proyecto hace deploy a producción.
+> No usar `npx netlify-cli deploy --prod` — sobreescribe el deploy de GitHub con el estado local, que puede estar desactualizado.
 
 ---
 
