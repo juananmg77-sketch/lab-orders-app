@@ -100,6 +100,9 @@ const PRODUCTION_MEDIA = [
     base_articles:['REF-33823'], supplement: null },
   { code:'LATEX',     name:'Legionella Latex Test KIT 3', qty_g_per_l:null, color:'#b45309', commercial:true,
     base_articles:['LAB-080'], supplement: null },
+  // Filtros de membrana 47mm — registro de apertura/uso de caja
+  { code:'FM02-PES',  name:'Filtro Membrana PES 0.2µm 47mm',               qty_g_per_l:null, color:'#0e7490', commercial:true,
+    base_articles:['LAB-73DNRF'], supplement: null },
 ];
 
 const emptyProdIngredient = (role='base') => ({ article_lot_id:'', article_id:'', lot_number_ref:'', description:'', quantity_used:'', unit:'g', role });
