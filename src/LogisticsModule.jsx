@@ -34,7 +34,7 @@ const MALLORCA_ZONES = [
   },
   {
     id: 'tramuntana', name: 'Tramuntana / Sóller', color: '#7c3aed',
-    match: (m) => ['sóller', 'soller', 'valldemossa', 'deià', 'deia', 'banyalbufar', 'esporles', 'fornalutx', 'puigpunyent', 'estellencs'].some(z => m.toLowerCase().includes(z)),
+    match: (m) => ['sóller', 'soller', 'valldemossa', 'deià', 'deia', 'banyalbufar', 'esporles', 'fornalutx', 'puigpunyent', 'estellencs', 'bunyola', 'orient'].some(z => m.toLowerCase().includes(z)),
   },
   {
     id: 'interior', name: 'Interior / Raiguer', color: '#64748b',
