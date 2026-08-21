@@ -98,6 +98,16 @@ const LABEL_TIPOS = ['TAB', 'TAG', 'TTB', 'TTG', 'STB', 'STG', null];
 labSuppliers = suppliers.filter(s => (s.lab || 'HSLAB Baleares') === selectedLab)
 ```
 
+### Módulo Logística — API externa de hoteles
+
+`netlify/functions/hotels-api.js` actúa de proxy server-side hacia `https://ltuukumhzmbyvtvicuze.supabase.co/functions/v1/api-hoteles`.
+La clave `HOTELS_API_KEY` se almacena en Netlify como variable de entorno (no en el bundle de React).
+
+**Para producción:** añadir `HOTELS_API_KEY` en Netlify → Site settings → Environment variables.
+**Para local:** ya está en `.env` (sin prefijo VITE_, solo disponible en la Netlify Function).
+
+El módulo filtra automáticamente a hoteles de Baleares y agrupa por zona geográfica (Mallorca/Ibiza/Menorca + sub-zonas).
+
 ### Prevención de auto-traducción Chrome
 `index.html` tiene `lang="es" translate="no"` y `<meta name="google" content="notranslate">` — **no cambiar** — evita que Chrome traduzca los códigos de medios (TAB, TAG, STB...).
 

@@ -37,5 +37,6 @@ dist-ssr
 !package-lock.json
 !index.html
 !netlify.toml
+!netlify/functions/**
 !README.md
 !.gitignore
