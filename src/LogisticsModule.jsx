@@ -1,6 +1,18 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { MapContainer, TileLayer, CircleMarker, Circle, Popup } from 'react-leaflet';
+import 'leaflet/dist/leaflet.css';
+import { supabase } from './supabaseClient';
 
 const API = '/.netlify/functions/hotels-api';
+
+function distanceKm(lat1, lng1, lat2, lng2) {
+  const R = 6371;
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLng = (lng2 - lng1) * Math.PI / 180;
+  const a = Math.sin(dLat / 2) ** 2 +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLng / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
 
 // Mallorca zone definitions — order matters (first match wins)
 const MALLORCA_ZONES = [
@@ -86,6 +98,7 @@ export default function LogisticsModule({ onBackToHub }) {
   const [tab, setTab] = useState('zonas');
   const [hotels, setHotels] = useState([]);
   const [consultants, setConsultants] = useState([]);
+  const [geocodes, setGeocodes] = useState({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [selectedIsland, setSelectedIsland] = useState('Mallorca');
@@ -94,6 +107,19 @@ export default function LogisticsModule({ onBackToHub }) {
   });
   const [filterText, setFilterText] = useState('');
   const [expandedZone, setExpandedZone] = useState(null);
+  // Map state
+  const [selectedHotel, setSelectedHotel] = useState(null);
+  const [radiusKm, setRadiusKm] = useState(5);
+
+  useEffect(() => {
+    supabase.from('hotel_geocodes').select('hotel_id,lat,lng,accuracy').then(({ data }) => {
+      if (data) {
+        const map = {};
+        data.forEach(g => { map[g.hotel_id] = g; });
+        setGeocodes(map);
+      }
+    });
+  }, []);
 
   useEffect(() => {
     setLoading(true);
@@ -158,6 +184,28 @@ export default function LogisticsModule({ onBackToHub }) {
     return consultants.find(c => c.id === cid);
   };
 
+  // Hotels enriched with coordinates
+  const hotelsWithCoords = useMemo(() =>
+    classifiedHotels.map(h => ({ ...h, ...(geocodes[h.id] || {}) }))
+  , [classifiedHotels, geocodes]);
+
+  const islandHotelsWithCoords = useMemo(() =>
+    hotelsWithCoords.filter(h => h.zone.isla === selectedIsland && h.lat && h.lng)
+  , [hotelsWithCoords, selectedIsland]);
+
+  // Hotels within radius of selected hotel
+  const nearbyHotels = useMemo(() => {
+    if (!selectedHotel?.lat) return [];
+    return islandHotelsWithCoords
+      .filter(h => h.id !== selectedHotel.id)
+      .map(h => ({ ...h, distKm: distanceKm(selectedHotel.lat, selectedHotel.lng, h.lat, h.lng) }))
+      .filter(h => h.distKm <= radiusKm)
+      .sort((a, b) => a.distKm - b.distKm);
+  }, [selectedHotel, radiusKm, islandHotelsWithCoords]);
+
+  // Map center per island
+  const islandCenter = { Mallorca: [39.65, 3.0], Ibiza: [38.91, 1.43], Menorca: [39.95, 4.07] };
+
   const islands = ['Mallorca', 'Ibiza', 'Menorca'];
   const islandCounts = useMemo(() => {
     const m = {};
@@ -218,7 +266,7 @@ export default function LogisticsModule({ onBackToHub }) {
 
       {/* View tabs */}
       <div style={{ backgroundColor: '#fff', borderBottom: '1px solid #e2e8f0', padding: '0 20px', display: 'flex' }}>
-        {[['zonas', 'Zonas'], ['lista', 'Hoteles por zona']].map(([key, label]) => (
+        {[['zonas', 'Zonas'], ['lista', 'Hoteles por zona'], ['mapa', 'Mapa']].map(([key, label]) => (
           <button key={key} onClick={() => setTab(key)} style={{
             padding: '10px 16px', border: 'none',
             borderBottom: tab === key ? '2px solid #0076ce' : '2px solid transparent',
@@ -375,6 +423,151 @@ export default function LogisticsModule({ onBackToHub }) {
                 </div>
               );
             })}
+          </div>
+        )}
+
+        {/* TAB: MAPA */}
+        {tab === 'mapa' && (
+          <div style={{ display: 'flex', height: 'calc(100vh - 160px)', gap: 0, margin: '-20px' }}>
+            {/* Side panel */}
+            <div style={{ width: 300, flexShrink: 0, backgroundColor: '#fff', borderRight: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+              {/* Controls */}
+              <div style={{ padding: '14px 16px', borderBottom: '1px solid #e2e8f0' }}>
+                <div style={{ marginBottom: 12 }}>
+                  <label style={{ fontSize: 12, color: '#64748b', display: 'block', marginBottom: 4 }}>Radio de proximidad</label>
+                  <div style={{ display: 'flex', gap: 6 }}>
+                    {[1, 3, 5, 10, 20].map(r => (
+                      <button key={r} onClick={() => setRadiusKm(r)} style={{
+                        flex: 1, padding: '5px 0', borderRadius: 6, border: '1px solid',
+                        borderColor: radiusKm === r ? '#0076ce' : '#e2e8f0',
+                        backgroundColor: radiusKm === r ? '#0076ce' : '#fff',
+                        color: radiusKm === r ? '#fff' : '#64748b',
+                        fontSize: 12, cursor: 'pointer', fontWeight: radiusKm === r ? 600 : 400,
+                      }}>{r}km</button>
+                    ))}
+                  </div>
+                </div>
+                <p style={{ margin: 0, fontSize: 12, color: '#94a3b8' }}>
+                  {islandHotelsWithCoords.length} hoteles con coordenadas · Clic en un pin para ver cercanos
+                </p>
+              </div>
+
+              {/* Selected hotel info */}
+              {selectedHotel && (
+                <div style={{ padding: '12px 16px', borderBottom: '1px solid #e2e8f0', backgroundColor: '#eff6ff' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                    <div>
+                      <p style={{ margin: 0, fontWeight: 600, fontSize: 13, color: '#1e293b' }}>{selectedHotel.nombre_hotel}</p>
+                      <p style={{ margin: 0, fontSize: 11, color: '#64748b', marginTop: 2 }}>{selectedHotel.municipio}</p>
+                    </div>
+                    <button onClick={() => setSelectedHotel(null)} style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', fontSize: 16, lineHeight: 1 }}>×</button>
+                  </div>
+                  <div style={{ marginTop: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <div style={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: selectedHotel.zone.color }} />
+                    <span style={{ fontSize: 11, color: '#64748b' }}>{selectedHotel.zone.name}</span>
+                  </div>
+                </div>
+              )}
+
+              {/* Nearby hotels list */}
+              <div style={{ flex: 1, overflowY: 'auto', padding: '8px 0' }}>
+                {!selectedHotel && (
+                  <p style={{ textAlign: 'center', color: '#94a3b8', fontSize: 13, marginTop: 40 }}>
+                    Haz clic en un hotel del mapa para ver los hoteles en un radio de {radiusKm}km
+                  </p>
+                )}
+                {selectedHotel && nearbyHotels.length === 0 && (
+                  <p style={{ textAlign: 'center', color: '#94a3b8', fontSize: 13, marginTop: 40 }}>
+                    No hay hoteles en un radio de {radiusKm}km
+                  </p>
+                )}
+                {selectedHotel && nearbyHotels.length > 0 && (
+                  <>
+                    <p style={{ fontSize: 12, color: '#64748b', padding: '4px 16px 8px', margin: 0, fontWeight: 500 }}>
+                      {nearbyHotels.length} hoteles en {radiusKm}km
+                    </p>
+                    {nearbyHotels.map(h => (
+                      <div
+                        key={h.id}
+                        onClick={() => setSelectedHotel(h)}
+                        style={{ padding: '8px 16px', cursor: 'pointer', borderBottom: '1px solid #f1f5f9', display: 'flex', gap: 10, alignItems: 'flex-start' }}
+                        onMouseOver={e => e.currentTarget.style.backgroundColor = '#f8fafc'}
+                        onMouseOut={e => e.currentTarget.style.backgroundColor = ''}
+                      >
+                        <div style={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: h.zone.color, flexShrink: 0, marginTop: 4 }} />
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <p style={{ margin: 0, fontSize: 13, fontWeight: 500, color: '#1e293b', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{h.nombre_hotel}</p>
+                          <p style={{ margin: 0, fontSize: 11, color: '#64748b' }}>{h.municipio}</p>
+                        </div>
+                        <span style={{ fontSize: 11, color: '#0076ce', fontWeight: 600, flexShrink: 0 }}>{h.distKm.toFixed(1)}km</span>
+                      </div>
+                    ))}
+                  </>
+                )}
+              </div>
+            </div>
+
+            {/* Map */}
+            <div style={{ flex: 1, position: 'relative' }}>
+              {Object.keys(geocodes).length === 0 && (
+                <div style={{ position: 'absolute', inset: 0, zIndex: 1000, backgroundColor: 'rgba(255,255,255,0.85)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+                  <div style={spinnerStyle} />
+                  <p style={{ color: '#64748b', fontSize: 13 }}>Cargando coordenadas… La geocodificación puede tardar unos minutos la primera vez.</p>
+                  <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
+                </div>
+              )}
+              <MapContainer
+                key={selectedIsland}
+                center={islandCenter[selectedIsland] || [39.65, 3.0]}
+                zoom={selectedIsland === 'Mallorca' ? 10 : 11}
+                style={{ height: '100%', width: '100%' }}
+                scrollWheelZoom={true}
+              >
+                <TileLayer
+                  attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+                  url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                />
+
+                {/* Radius circle around selected hotel */}
+                {selectedHotel?.lat && (
+                  <Circle
+                    center={[selectedHotel.lat, selectedHotel.lng]}
+                    radius={radiusKm * 1000}
+                    pathOptions={{ color: '#0076ce', fillColor: '#0076ce', fillOpacity: 0.08, weight: 2 }}
+                  />
+                )}
+
+                {/* Hotel markers */}
+                {islandHotelsWithCoords.map(h => {
+                  const isSelected = selectedHotel?.id === h.id;
+                  const isNearby = nearbyHotels.some(n => n.id === h.id);
+                  const opacity = selectedHotel ? (isSelected || isNearby ? 1 : 0.25) : 1;
+                  return (
+                    <CircleMarker
+                      key={h.id}
+                      center={[h.lat, h.lng]}
+                      radius={isSelected ? 10 : isNearby ? 7 : 5}
+                      pathOptions={{
+                        color: isSelected ? '#fff' : h.zone.color,
+                        fillColor: h.zone.color,
+                        fillOpacity: opacity,
+                        weight: isSelected ? 3 : 1.5,
+                        opacity,
+                      }}
+                      eventHandlers={{ click: () => setSelectedHotel(h) }}
+                    >
+                      <Popup>
+                        <div style={{ fontSize: 13 }}>
+                          <strong>{h.nombre_hotel}</strong><br />
+                          <span style={{ color: '#64748b' }}>{h.municipio}</span><br />
+                          <span style={{ fontSize: 11, color: h.zone.color }}>{h.zone.name}</span>
+                        </div>
+                      </Popup>
+                    </CircleMarker>
+                  );
+                })}
+              </MapContainer>
+            </div>
           </div>
         )}
       </div>
