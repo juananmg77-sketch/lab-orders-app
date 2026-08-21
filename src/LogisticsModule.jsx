@@ -26,11 +26,11 @@ const MALLORCA_ZONES = [
   },
   {
     id: 'manacor', name: 'Manacor / Felanitx', color: '#0891b2',
-    match: (m) => ['manacor', 'felanitx', 'porto cristo', 'cales de mallorca', 'portocolom', 'petra', 'vilafranca', 'cala murada', "s'illot", 'cala anguila'].some(z => m.toLowerCase().includes(z)),
+    match: (m) => ['manacor', 'felanitx', 'porto cristo', 'cales de mallorca', 'portocolom', 'petra', 'vilafranca', 'cala murada', "s'illot", 'cala anguila', 'portopetro', 'porto petro'].some(z => m.toLowerCase().includes(z)),
   },
   {
     id: 'migjorn', name: 'Migjorn / Sud', color: '#dc2626',
-    match: (m) => ['santanyí', 'santanyi', 'ses salines', 'campos', 'llucmajor', 'porreres', 'colònia de sant jordi', "cala d'or", 'cala figuera', 'portopetro', 'cala serena', 'cala gran', 'es trenc'].some(z => m.toLowerCase().includes(z)),
+    match: (m) => ['santanyí', 'santanyi', 'ses salines', 'campos', 'llucmajor', 'porreres', 'colònia de sant jordi', "cala d'or", 'cala figuera', 'cala serena', 'cala gran', 'es trenc'].some(z => m.toLowerCase().includes(z)),
   },
   {
     id: 'tramuntana', name: 'Tramuntana / Sóller', color: '#7c3aed',
