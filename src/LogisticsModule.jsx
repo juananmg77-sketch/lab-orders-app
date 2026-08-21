@@ -6,11 +6,15 @@ const API = '/.netlify/functions/hotels-api';
 const MALLORCA_ZONES = [
   {
     id: 'palma', name: 'Palma', color: '#2a78d6',
-    match: (m) => ['palma', 'playa de palma', 'platja de palma', 'el arenal', 'can pastilla', 'son ferriol', 'arenal', "s'arenal"].some(z => m.toLowerCase().includes(z)),
+    match: (m) => {
+      const ml = m.toLowerCase();
+      if (ml.includes('palma nova') || ml.includes('palmanova')) return false;
+      return ['palma', 'playa de palma', 'platja de palma', 'el arenal', 'can pastilla', 'son ferriol', 'arenal', "s'arenal"].some(z => ml.includes(z));
+    },
   },
   {
     id: 'calvia', name: 'Calvià / Andratx', color: '#eb6834',
-    match: (m) => ['calvià', 'calvia', 'peguera', 'palmanova', 'santa ponça', 'santa ponsa', 'andratx', 'magaluf', 'portals', 'camp de mar', "s'arracó", 'torrenova', 'cala fornells', 'cala vinyes', 'illetes'].some(z => m.toLowerCase().includes(z)),
+    match: (m) => ['calvià', 'calvia', 'peguera', 'palma nova', 'palmanova', 'santa ponça', 'santa ponsa', 'andratx', 'magaluf', 'portals', 'camp de mar', "s'arracó", 'torrenova', 'cala fornells', 'cala vinyes', 'illetes'].some(z => m.toLowerCase().includes(z)),
   },
   {
     id: 'nord', name: 'Nord / Alcúdia', color: '#1baf7a',
