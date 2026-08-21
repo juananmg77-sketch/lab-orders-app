@@ -12,8 +12,6 @@ import LegionellaLabaquaModule from './LegionellaLabaquaModule';
 import TrainingCertificateModule from './TrainingCertificateModule';
 import RRHHModule from './RRHHModule';
 import DocumentsModule from './DocumentsModule';
-import LogisticsModule from './LogisticsModule';
-
 
 export default function App() {
   const [session, setSession] = useState(null);
@@ -230,15 +228,6 @@ export default function App() {
     );
   }
 
-
-  if (activeModule === 'logistica') {
-    return (
-      <LogisticsModule
-        onBackToHub={() => setActiveModule(null)}
-        globalLab={globalLab}
-      />
-    );
-  }
 
   // Fallback for modules not yet implemented
   return (
