@@ -14,7 +14,7 @@ const MALLORCA_ZONES = [
   },
   {
     id: 'calvia', name: 'Calvià / Andratx', color: '#eb6834',
-    match: (m) => ['calvià', 'calvia', 'peguera', 'palma nova', 'palmanova', 'santa ponça', 'santa ponsa', 'andratx', 'magaluf', 'portals', 'camp de mar', "s'arracó", 'torrenova', 'cala fornells', 'cala vinyes', 'illetes'].some(z => m.toLowerCase().includes(z)),
+    match: (m) => ['calvià', 'calvia', 'peguera', 'palma nova', 'palmanova', 'santa ponça', 'santa ponsa', 'andratx', 'magaluf', 'portals', 'camp de mar', "s'arracó", 'torrenova', 'cala fornells', 'cala vinyes', 'illetes', 'bendinat'].some(z => m.toLowerCase().includes(z)),
   },
   {
     id: 'nord', name: 'Nord / Alcúdia', color: '#1baf7a',
