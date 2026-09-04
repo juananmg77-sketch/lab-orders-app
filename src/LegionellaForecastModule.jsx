@@ -162,7 +162,7 @@ function csvRowToRecord(row, savedDB) {
   const mes = MES_NORM[mesRaw] || mesRaw;
   const año = parseInt(row['año'] || row['ano'] || 0);
   const region = (row['región'] || row['region'] || '').trim();
-  const disciplina = row['disciplina'] || '';
+  const disciplina = row['disciplina'] || row['tipo de auditoría'] || '';
   const fechaStr = row['fecha'] || '';
   const fechaDate = parseFecha(fechaStr);
   const cat = getDisciplinaCategoria(disciplina);
@@ -189,7 +189,7 @@ function csvRowToRecord(row, savedDB) {
     } else {
       muestrasEst = null; estadoEst = 'SIN DATOS PISCINAS';
     }
-  } else {
+  } else if (cat === 'd3' || cat === 'd3bis') {
     // D3 / D3bis — histórico + normativa
     const { muestras, estado } = estimarMuestras(establecimiento, mes);
     muestrasEst = muestras; estadoEst = estado;
@@ -200,13 +200,16 @@ function csvRowToRecord(row, savedDB) {
         if (c) { muestrasEst = c.total; estadoEst = 'RD 487/2022 (guardado)'; }
       }
     }
+  } else {
+    // Sin muestreo (C1, C5, F12, A03, etc.)
+    muestrasEst = 0; estadoEst = 'Sin muestreo';
   }
 
   return {
     mes,
     año,
     establecimiento,
-    grupo: row['grupo'] || '',
+    grupo: row['grupo'] || row['grupo hotelero'] || '',
     region,
     nodo: REGION_A_NODO[region] || 'Sin clasificar',
     disciplina,
@@ -1209,8 +1212,23 @@ function ImportModal({ onClose, onImported, savedDB }) {
     const importMes = records[0].mes;
     const importAño = records[0].año;
 
-    // ── D02 auto-generados ────────────────────────────────────────────────────
-    // Regla: A01 y A02 implican un D02 el mismo día (si no viene ya explícito)
+    // ── Regla A02 por hotel ───────────────────────────────────────────────────
+    // Si el hotel tiene D2 → A02 es auditoría (ya tiene 0 muestras)
+    // Si el hotel NO tiene D2 → A02 se convierte en D2 (muestreo de piscinas)
+    const estabsConD2 = new Set(
+      records.filter(r => getDisciplinaCategoria(r.disciplina) === 'd02').map(r => r.establecimiento)
+    );
+    records.forEach(r => {
+      if (!/^a02\b/i.test(r.disciplina || '')) return;
+      if (estabsConD2.has(r.establecimiento)) return; // D2 presente → A02 queda como auditoría
+      const pisc = savedDB[r.establecimiento]?.piscinas ?? null;
+      r.muestras_estimadas = pisc;
+      r.estado_estimacion = pisc ? `Piscinas (A02→D2, histórico: ${pisc})` : 'SIN DATOS PISCINAS';
+      r.disciplina = 'D2 Muestreo Piscinas';
+    });
+
+    // ── D02 auto-generados desde A01 ─────────────────────────────────────────
+    // Regla: A01 implica un D02 el mismo día si no viene ya explícito
     const d02Auto = [];
     const d02Keys = new Set();
     const d02Key = r => r.fecha && r.fecha !== '1/1/70'
@@ -1223,14 +1241,12 @@ function ImportModal({ onClose, onImported, savedDB }) {
 
     records.forEach(rec => {
       const cat = getDisciplinaCategoria(rec.disciplina);
-      const isA01 = cat === 'd01';
-      const isA02 = /^a02\b/i.test(rec.disciplina || '');
-      if (!isA01 && !isA02) return;
+      if (cat !== 'd01') return;
       const nomL = (rec.establecimiento || '').toLowerCase();
       if (savedDB[rec.establecimiento]?.solo_auditoria || /iberostar/i.test(rec.establecimiento)) return;
       if (savedDB[rec.establecimiento]?.excluir_d02 || /restaurante|restaurant|\bbar\b/i.test(nomL)) return;
 
-      if (isA01 && rec.nodo !== 'Islas Canarias') {
+      if (rec.nodo !== 'Islas Canarias') {
         const mesIdx = MES_ORDEN.indexOf(rec.mes);
         if (mesIdx < 4 || mesIdx > 9) return;
       }
