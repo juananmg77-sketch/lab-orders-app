@@ -14,7 +14,7 @@ export default function Hub({ session, globalLab, setGlobalLab, onSelectModule, 
   );
 
   const showPurchasing = ['admin', 'lab', 'operations'].includes(role);
-  const showEquipment = ['admin', 'lab', 'operations'].includes(role);
+  const showEquipment = ['admin', 'lab'].includes(role);
   const showUsers = role === 'admin';
   const showRRHH = ['admin', 'operations'].includes(role);
 
@@ -137,14 +137,15 @@ export default function Hub({ session, globalLab, setGlobalLab, onSelectModule, 
             </div>
           )}
 
-          {/* Module 2: Equipos */}
-          <div 
+          {/* Module 2: Equipos (Admin + Lab) */}
+          {showEquipment && (
+          <div
             onClick={() => onSelectModule('equipos')}
-            style={{ 
-              width: '320px', 
-              backgroundColor: 'white', 
-              borderRadius: '20px', 
-              padding: '40px 30px', 
+            style={{
+              width: '320px',
+              backgroundColor: 'white',
+              borderRadius: '20px',
+              padding: '40px 30px',
               boxShadow: '0 10px 30px rgba(0,0,0,0.08)',
               cursor: 'pointer',
               display: 'flex',
@@ -165,6 +166,7 @@ export default function Hub({ session, globalLab, setGlobalLab, onSelectModule, 
               Control de mantenimientos, calibraciones y averías del Inventario Equipos.
             </p>
           </div>
+          )}
 
           {/* Module RRHH */}
           {showRRHH && (
