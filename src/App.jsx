@@ -206,6 +206,7 @@ export default function App() {
     return (
       <RRHHModule
         onBackToHub={() => setActiveModule(null)}
+        role={role}
       />
     );
   }

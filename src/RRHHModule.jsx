@@ -145,7 +145,7 @@ function Avatar({ name, dept, size = 36, photoUrl, onClick }) {
 }
 
 // ── MÓDULO PRINCIPAL ──────────────────────────────────────────────────────────
-export default function RRHHModule({ onBackToHub }) {
+export default function RRHHModule({ onBackToHub, role = 'operations' }) {
   const [view, setView] = useState('dashboard'); // 'dashboard' | 'list' | 'candidates' | 'calendar'
   const [employees, setEmployees] = useState([]);
   const [candidates, setCandidates] = useState([]);
@@ -889,6 +889,7 @@ export default function RRHHModule({ onBackToHub }) {
               <InfoRow icon={<Calendar size={13} />}       label="Alta"           value={fmtDate(selectedEmployee.hire_date)} />
               <InfoRow icon={<FileText size={13} />}       label="Contrato"       value={selectedEmployee.contract_type} />
               <div style={{ borderTop: '1px solid var(--border)', margin: '8px 0' }} />
+              {role === 'admin' && (<>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
                 <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.4px' }}>Datos económicos</span>
                 <button type="button" onClick={() => salaryVisible ? setSalaryVisible(false) : setShowSalaryPrompt(true)}
@@ -901,6 +902,7 @@ export default function RRHHModule({ onBackToHub }) {
               <InfoRow icon={<CreditCard size={13} />}     label="IRPF %"         value={salaryVisible ? (selectedEmployee.irpf_pct ? `${selectedEmployee.irpf_pct}%` : '—') : SALARY_MASK} />
               <InfoRow icon={<Hash size={13} />}           label="Nº SS"          value={salaryVisible ? selectedEmployee.ss_number : SALARY_MASK} />
               <InfoRow icon={<CreditCard size={13} />}     label="IBAN"           value={salaryVisible ? selectedEmployee.bank_iban : SALARY_MASK} />
+              </>)}
             </div>
           </div>
 
@@ -2164,6 +2166,7 @@ function EmployeeFormModal({ open, onClose, formData, setFormData, saving, onSav
         </Field>
       </div>
 
+      {role === 'admin' && (<>
       <SectionHeader label="Datos económicos" />
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', marginBottom: '20px' }}>
         <Field label="Salario bruto anual (€)" half><input type="number" value={formData.salary_gross} onChange={set('salary_gross')} style={inputStyle} placeholder="0.00" /></Field>
@@ -2172,6 +2175,7 @@ function EmployeeFormModal({ open, onClose, formData, setFormData, saving, onSav
         <Field label="Nº Seguridad Social" half><input value={formData.ss_number} onChange={set('ss_number')} style={inputStyle} /></Field>
         <Field label="IBAN bancario"><input value={formData.bank_iban} onChange={set('bank_iban')} style={inputStyle} placeholder="ES00 0000 0000 0000 0000 0000" /></Field>
       </div>
+      </>)}
 
       <SectionHeader label="Observaciones" />
       <div style={{ marginBottom: '24px' }}>
