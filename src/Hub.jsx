@@ -13,10 +13,10 @@ export default function Hub({ session, globalLab, setGlobalLab, onSelectModule, 
     [userEmail]
   );
 
-  const showPurchasing = ['admin', 'lab'].includes(role);
+  const showPurchasing = ['admin', 'lab', 'operations'].includes(role);
   const showEquipment = ['admin', 'lab', 'operations'].includes(role);
   const showUsers = role === 'admin';
-  const showRRHH = role === 'admin';
+  const showRRHH = ['admin', 'operations'].includes(role);
 
   // Si el lab actual no está permitido para este usuario, forzar a Baleares
   React.useEffect(() => {
@@ -228,8 +228,8 @@ export default function Hub({ session, globalLab, setGlobalLab, onSelectModule, 
             </div>
           )}
 
-          {/* Module 3b: Previsión Muestreos (Admin + Lab) */}
-          {['admin', 'lab'].includes(role) && (
+          {/* Module 3b: Previsión Muestreos (Admin + Lab + Operations) */}
+          {['admin', 'lab', 'operations'].includes(role) && (
             <div
               onClick={() => onSelectModule('legionella')}
               style={{
@@ -284,8 +284,8 @@ export default function Hub({ session, globalLab, setGlobalLab, onSelectModule, 
             </div>
           )}
 
-          {/* Module: Generador de Etiquetas (Admin + Lab) */}
-          {['admin', 'lab'].includes(role) && (
+          {/* Module: Generador de Etiquetas (Admin + Lab + Operations) */}
+          {['admin', 'lab', 'operations'].includes(role) && (
             <div
               onClick={() => onSelectModule('etiquetas')}
               style={{

@@ -194,7 +194,7 @@ export default function App() {
     );
   }
 
-  if (activeModule === 'certificados' && ['admin', 'lab'].includes(role)) {
+  if (activeModule === 'certificados' && ['admin', 'lab', 'operations'].includes(role)) {
     return (
       <TrainingCertificateModule
         onBackToHub={() => setActiveModule(null)}
@@ -202,7 +202,7 @@ export default function App() {
     );
   }
 
-  if (activeModule === 'rrhh' && role === 'admin') {
+  if (activeModule === 'rrhh' && ['admin', 'operations'].includes(role)) {
     return (
       <RRHHModule
         onBackToHub={() => setActiveModule(null)}
