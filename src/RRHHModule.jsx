@@ -1262,7 +1262,7 @@ export default function RRHHModule({ onBackToHub, role = 'operations' }) {
           </div>
         </Modal>
 
-        <EmployeeFormModal open={showEmployeeForm} onClose={() => setShowEmployeeForm(false)} formData={formData} setFormData={setFormData} saving={saving} onSave={saveEmployee} isEdit={!!editingEmployee} />
+        <EmployeeFormModal open={showEmployeeForm} onClose={() => setShowEmployeeForm(false)} formData={formData} setFormData={setFormData} saving={saving} onSave={saveEmployee} isEdit={!!editingEmployee} role={role} />
 
         <Modal open={!!editingDoc} onClose={() => setEditingDoc(null)} title="Editar documento" width={520}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
@@ -1695,7 +1695,7 @@ export default function RRHHModule({ onBackToHub, role = 'operations' }) {
           )}
         </main>
 
-        <EmployeeFormModal open={showEmployeeForm} onClose={() => setShowEmployeeForm(false)} formData={formData} setFormData={setFormData} saving={saving} onSave={saveEmployee} isEdit={!!editingEmployee} />
+        <EmployeeFormModal open={showEmployeeForm} onClose={() => setShowEmployeeForm(false)} formData={formData} setFormData={setFormData} saving={saving} onSave={saveEmployee} isEdit={!!editingEmployee} role={role} />
       </div>
     );
   }
@@ -2107,7 +2107,7 @@ function EmptyState({ icon, text }) {
   );
 }
 
-function EmployeeFormModal({ open, onClose, formData, setFormData, saving, onSave, isEdit }) {
+function EmployeeFormModal({ open, onClose, formData, setFormData, saving, onSave, isEdit, role = 'operations' }) {
   const set = (field) => (e) => setFormData(p => ({ ...p, [field]: e.target.value }));
   const positions = POSITIONS_BY_DEPT[formData.department] || [];
 
