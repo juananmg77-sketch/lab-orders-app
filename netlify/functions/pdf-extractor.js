@@ -30,10 +30,10 @@ function detectSheet(punto, descripcion) {
   const t = (punto + ' ' + descripcion).toUpperCase();
   if (/VALPE/.test(t)) return 'Legionella VALPE21';
   if (/DECRETO.*140|140.*2009/.test(t)) return '2.4 Piscina Decreto 140 2009';
-  if (/HIDROMASAJE|JACUZZI|BA[ÑN]ERA/.test(t)) return '2.3 Vaso de hidromasaje';
-  if (/SPA|CUBIERTA|CLIMATIZADA/.test(t)) return '2.2 Piscina tipo Spa';
-  // Exterior con Legionella: 2.1.1 (acreditado) / 2.1.2 (no acreditado) — usamos 2.1.1 por defecto
-  if (/EXTERIOR|ADULTO|INFANTIL|FAMIL|OLYMPIC|FAMILY/.test(t)) return '2.1.1 Piscina Exterior con Legionella';
+  if (/HIDROMASAJE|JACUZZI|YACUZZI|BA[ÑN]ERA/.test(t)) return '2.3 Vaso de hidromasaje';
+  // EXTERIOR antes que SPA para que "Piscina SPA Exterior" → 2.1.1
+  if (/EXTERIOR|ADULTO|INFANTIL|FAMIL|OLYMPIC|FAMILY|CHAPOTEO|SPLASH|CUBIERTA/.test(t)) return '2.1.1 Piscina Exterior con Legionella';
+  if (/SPA|CLIMATIZADA|MAR MUERTO|KNEIPP/.test(t)) return '2.2 Piscina tipo Spa';
   if (/GRIFO|LAVABO|DUCHA|FREGADERO/.test(t)) return '3.13 Control de Grifos';
   if (/PNEUMO/.test(t)) return '3.1.4 Legionella pneumophilla';
   return '3.1 Legionella spp';
