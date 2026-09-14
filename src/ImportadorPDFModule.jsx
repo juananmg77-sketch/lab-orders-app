@@ -96,7 +96,7 @@ const SHEET_CONFIG = {
     },
   },
   '2.1.1 Piscina Exterior con Legionella': {
-    label: 'Piscina Exterior + Legionella (acred.)',
+    label: 'P. Exterior + Legionella',
     color: '#0284c7',
     headers: [
       'Código de analítica','Establecimiento','Lugar','Descripción',
@@ -126,7 +126,7 @@ const SHEET_CONFIG = {
     },
   },
   '2.1.2 Piscina Exterior con Legionella (*)': {
-    label: 'Piscina Exterior + Legionella (no acred.)',
+    label: 'P. Exterior + Leg. (*)',
     color: '#0369a1',
     headers: [
       'Código de analítica','Establecimiento','Lugar','Descripción',
