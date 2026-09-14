@@ -1,5 +1,5 @@
 import React from 'react';
-import { ShoppingCart, LogOut, Settings, Bell, Microscope, Users, FlaskConical, Tag, GraduationCap, UserCog, TestTube2, FolderOpen, Droplets, AlertTriangle } from 'lucide-react';
+import { ShoppingCart, LogOut, Settings, Bell, Microscope, Users, FlaskConical, Tag, GraduationCap, UserCog, TestTube2, FolderOpen, Droplets, AlertTriangle, FileInput } from 'lucide-react';
 import logo from './assets/logo.png';
 
 export default function Hub({ session, globalLab, setGlobalLab, onSelectModule, onLogout, role = 'operations' }) {
@@ -357,6 +357,31 @@ export default function Hub({ session, globalLab, setGlobalLab, onSelectModule, 
               <h2 style={{ fontSize: '1.5rem', color: 'var(--secondary)', margin: '0 0 12px 0' }}>Alertas Patógenos</h2>
               <p style={{ color: 'var(--text-muted)', margin: 0, lineHeight: 1.5 }}>
                 Comunica resultados preliminares con patógenos a los consultores. Sube el CSV diario de HS Manager.
+              </p>
+            </div>
+          )}
+
+          {/* Module: Importador PDF → XLS (Admin + Lab) */}
+          {['admin', 'lab'].includes(role) && (
+            <div
+              onClick={() => onSelectModule('importador-pdf')}
+              style={{
+                width: '320px', backgroundColor: 'white', borderRadius: '20px',
+                padding: '40px 30px', boxShadow: '0 10px 30px rgba(0,0,0,0.08)',
+                cursor: 'pointer', display: 'flex', flexDirection: 'column',
+                alignItems: 'center', textAlign: 'center',
+                borderTop: '6px solid #7c3aed',
+                transition: 'transform 0.3s ease, box-shadow 0.3s ease',
+              }}
+              onMouseOver={(e) => e.currentTarget.style.transform = 'translateY(-10px)'}
+              onMouseOut={(e) => e.currentTarget.style.transform = 'translateY(0)'}
+            >
+              <div style={{ width: '80px', height: '80px', borderRadius: '40px', backgroundColor: '#f5f3ff', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '24px' }}>
+                <FileInput size={40} color="#7c3aed" />
+              </div>
+              <h2 style={{ fontSize: '1.5rem', color: 'var(--secondary)', margin: '0 0 12px 0' }}>Importador PDF</h2>
+              <p style={{ color: 'var(--text-muted)', margin: 0, lineHeight: 1.5 }}>
+                Extrae datos de informes externos de Legionella (PDF) y genera el XLS listo para HS Manager.
               </p>
             </div>
           )}

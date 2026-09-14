@@ -13,6 +13,7 @@ import TrainingCertificateModule from './TrainingCertificateModule';
 import RRHHModule from './RRHHModule';
 import DocumentsModule from './DocumentsModule';
 import AlertasPatogenosModule from './AlertasPatogenosModule';
+import ImportadorPDFModule from './ImportadorPDFModule';
 
 export default function App() {
   const [session, setSession] = useState(null);
@@ -238,6 +239,14 @@ export default function App() {
     );
   }
 
+
+  if (activeModule === 'importador-pdf' && ['admin', 'lab'].includes(role)) {
+    return (
+      <ImportadorPDFModule
+        onBackToHub={() => setActiveModule(null)}
+      />
+    );
+  }
 
   // Fallback for modules not yet implemented
   return (
