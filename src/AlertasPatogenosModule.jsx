@@ -57,12 +57,34 @@ export default function AlertasPatogenosModule({ onBackToHub }) {
     setError('');
     setFileName(file.name);
     const text = await file.text();
-    const alerts = parseCSV(text);
+    const rawAlerts = parseCSV(text);
 
-    if (alerts.length === 0) {
+    if (rawAlerts.length === 0) {
       setError('No se han encontrado muestras con patógenos en el CSV. Asegúrate de que el campo Observaciones contiene texto.');
       return;
     }
+
+    // Resolver auditor desde legionella_actividades (fuente primaria)
+    const establecimientos = [...new Set(rawAlerts.map(a => a.establecimiento).filter(Boolean))];
+    const { data: actData } = await supabase
+      .from('legionella_actividades')
+      .select('establecimiento, auditor')
+      .in('establecimiento', establecimientos)
+      .not('auditor', 'is', null)
+      .order('fecha_date', { ascending: false });
+
+    const auditorMap = {};
+    if (actData) {
+      actData.forEach(r => {
+        if (r.auditor && !auditorMap[r.establecimiento]) auditorMap[r.establecimiento] = r.auditor;
+      });
+    }
+
+    const alerts = rawAlerts.map(a => ({
+      ...a,
+      consultor: auditorMap[a.establecimiento] || a.consultor,
+      fuente_consultor: auditorMap[a.establecimiento] ? 'previsión' : 'csv',
+    }));
 
     // Consultar Supabase para ver cuáles ya fueron comunicadas
     const numeros = alerts.map(a => a.numero).filter(Boolean);
@@ -258,7 +280,7 @@ export default function AlertasPatogenosModule({ onBackToHub }) {
                   <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.88rem' }}>
                     <thead>
                       <tr style={{ background: '#f1f5f9' }}>
-                        {['Nº Muestra', 'Establecimiento', 'Punto', 'Consultor', 'Fecha recogida', 'Resultado preliminar'].map(h => (
+                        {['Nº Muestra', 'Establecimiento', 'Punto', 'Consultor responsable', 'Fecha recogida', 'Resultado preliminar'].map(h => (
                           <th key={h} style={{ padding: '10px 12px', textAlign: 'left', color: '#1e3a5f', fontWeight: 700, borderBottom: '2px solid #e2e8f0', whiteSpace: 'nowrap' }}>{h}</th>
                         ))}
                       </tr>
@@ -269,8 +291,19 @@ export default function AlertasPatogenosModule({ onBackToHub }) {
                           <td style={{ padding: '10px 12px', fontWeight: 600, color: '#1e3a5f', whiteSpace: 'nowrap' }}>{a.numero}</td>
                           <td style={{ padding: '10px 12px', color: '#374151' }}>{a.establecimiento}</td>
                           <td style={{ padding: '10px 12px', color: '#374151' }}>{a.muestra}</td>
-                          <td style={{ padding: '10px 12px', color: sinEmail.includes(a.consultor) ? '#f59e0b' : '#374151', fontWeight: sinEmail.includes(a.consultor) ? 600 : 400 }}>
-                            {a.consultor}{sinEmail.includes(a.consultor) && ' ⚠️'}
+                          <td style={{ padding: '10px 12px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                              <span style={{ color: sinEmail.includes(a.consultor) ? '#f59e0b' : '#374151', fontWeight: sinEmail.includes(a.consultor) ? 600 : 400 }}>
+                                {a.consultor || '—'}{sinEmail.includes(a.consultor) && ' ⚠️'}
+                              </span>
+                              <span style={{
+                                fontSize: '0.72rem', padding: '1px 6px', borderRadius: '10px', fontWeight: 600,
+                                background: a.fuente_consultor === 'previsión' ? '#dbeafe' : '#fef3c7',
+                                color: a.fuente_consultor === 'previsión' ? '#1d4ed8' : '#92400e',
+                              }}>
+                                {a.fuente_consultor === 'previsión' ? 'previsión' : 'CSV'}
+                              </span>
+                            </div>
                           </td>
                           <td style={{ padding: '10px 12px', color: '#374151', whiteSpace: 'nowrap' }}>{a.fecha_recogida}</td>
                           <td style={{ padding: '10px 12px', color: '#dc2626', fontSize: '0.85em', maxWidth: '280px' }}>{a.observaciones}</td>

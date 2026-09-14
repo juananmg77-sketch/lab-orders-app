@@ -130,13 +130,20 @@ exports.handler = async (event) => {
     }
 
     // 2. Obtener emails de consultores
-    const consultoresUniq = [...new Set(newSamples.map(s => s.consultor))];
-    const nombresQ = consultoresUniq.map(n => encodeURIComponent(n)).join(',');
+    const consultoresUniq = [...new Set(newSamples.map(s => s.consultor).filter(Boolean))];
     const emailRows = await supabaseRequest(
       `/lab_consultor_emails?nombre_csv=in.(${consultoresUniq.map(n => `"${n}"`).join(',')})&select=nombre_csv,email&activo=eq.true`
     );
     const emailMap = {};
     if (Array.isArray(emailRows)) emailRows.forEach(r => { emailMap[r.nombre_csv] = r.email; });
+
+    // 2b. Obtener emails de contacto de los hoteles (para CC)
+    const estabsUniq = [...new Set(newSamples.map(s => s.establecimiento).filter(Boolean))];
+    const hotelRows = await supabaseRequest(
+      `/lab_hotel_contactos?establecimiento_nombre=in.(${estabsUniq.map(e => `"${e}"`).join(',')})&select=establecimiento_nombre,email`
+    );
+    const hotelEmailMap = {};
+    if (Array.isArray(hotelRows)) hotelRows.forEach(r => { hotelEmailMap[r.establecimiento_nombre] = r.email; });
 
     // 3. Agrupar nuevas muestras por consultor
     const byConsultor = {};
@@ -160,10 +167,14 @@ exports.handler = async (event) => {
       const html = buildEmailHtml(consultor, muestras, fechaHoy);
       const count = muestras.length;
 
+      // CC: contacto del hotel (si existe) + CC fijo
+      const hotelCCs = [...new Set(muestras.map(m => hotelEmailMap[m.establecimiento]).filter(Boolean))];
+      const ccAddress = [CC_DEFAULT, ...hotelCCs].join(',');
+
       await zohoAPI(`/api/accounts/${ZOHO_ACCOUNT_ID}/messages`, 'POST', {
         fromAddress: ZOHO_USER,
         toAddress: email,
-        ccAddress: CC_DEFAULT,
+        ccAddress,
         subject: `⚠️ Resultado preliminar con patógeno detectado · ${fechaHoy} (${count} muestra${count !== 1 ? 's' : ''})`,
         content: html,
         mailFormat: 'html',
