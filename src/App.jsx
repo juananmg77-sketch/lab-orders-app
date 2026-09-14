@@ -12,6 +12,7 @@ import LegionellaLabaquaModule from './LegionellaLabaquaModule';
 import TrainingCertificateModule from './TrainingCertificateModule';
 import RRHHModule from './RRHHModule';
 import DocumentsModule from './DocumentsModule';
+import AlertasPatogenosModule from './AlertasPatogenosModule';
 
 export default function App() {
   const [session, setSession] = useState(null);
@@ -224,6 +225,14 @@ export default function App() {
       <DocumentsModule
         session={session}
         role={role}
+        onBackToHub={() => setActiveModule(null)}
+      />
+    );
+  }
+
+  if (activeModule === 'alertas-patogenos' && ['admin', 'lab', 'operations'].includes(role)) {
+    return (
+      <AlertasPatogenosModule
         onBackToHub={() => setActiveModule(null)}
       />
     );

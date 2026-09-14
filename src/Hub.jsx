@@ -1,5 +1,5 @@
 import React from 'react';
-import { ShoppingCart, LogOut, Settings, Bell, Microscope, Users, FlaskConical, Tag, GraduationCap, UserCog, TestTube2, FolderOpen, Droplets } from 'lucide-react';
+import { ShoppingCart, LogOut, Settings, Bell, Microscope, Users, FlaskConical, Tag, GraduationCap, UserCog, TestTube2, FolderOpen, Droplets, AlertTriangle } from 'lucide-react';
 import logo from './assets/logo.png';
 
 export default function Hub({ session, globalLab, setGlobalLab, onSelectModule, onLogout, role = 'operations' }) {
@@ -332,6 +332,31 @@ export default function Hub({ session, globalLab, setGlobalLab, onSelectModule, 
               <h2 style={{ fontSize: '1.5rem', color: 'var(--secondary)', margin: '0 0 12px 0' }}>Legionela Labaqua</h2>
               <p style={{ color: 'var(--text-muted)', margin: 0, lineHeight: 1.5 }}>
                 Filtra el CSV diario a las muestras relevantes de Legionella y descarga el Excel Labaqua Canarias.
+              </p>
+            </div>
+          )}
+
+          {/* Module: Alertas Patógenos (Admin + Lab + Operations) */}
+          {['admin', 'lab', 'operations'].includes(role) && (
+            <div
+              onClick={() => onSelectModule('alertas-patogenos')}
+              style={{
+                width: '320px', backgroundColor: 'white', borderRadius: '20px',
+                padding: '40px 30px', boxShadow: '0 10px 30px rgba(0,0,0,0.08)',
+                cursor: 'pointer', display: 'flex', flexDirection: 'column',
+                alignItems: 'center', textAlign: 'center',
+                borderTop: '6px solid #dc2626',
+                transition: 'transform 0.3s ease, box-shadow 0.3s ease',
+              }}
+              onMouseOver={(e) => e.currentTarget.style.transform = 'translateY(-10px)'}
+              onMouseOut={(e) => e.currentTarget.style.transform = 'translateY(0)'}
+            >
+              <div style={{ width: '80px', height: '80px', borderRadius: '40px', backgroundColor: '#fef2f2', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '24px' }}>
+                <AlertTriangle size={40} color="#dc2626" />
+              </div>
+              <h2 style={{ fontSize: '1.5rem', color: 'var(--secondary)', margin: '0 0 12px 0' }}>Alertas Patógenos</h2>
+              <p style={{ color: 'var(--text-muted)', margin: 0, lineHeight: 1.5 }}>
+                Comunica resultados preliminares con patógenos a los consultores. Sube el CSV diario de HS Manager.
               </p>
             </div>
           )}
