@@ -1,5 +1,8 @@
 import https from 'https';
 
+const SUPABASE_URL = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
+const SUPABASE_KEY = process.env.VITE_SUPABASE_ANON_KEY;
+
 let _cachedToken = null;
 let _tokenExpiry = 0;
 
@@ -15,6 +18,50 @@ function httpsRequest(options, body = null) {
     req.on('error', reject);
     if (body) req.write(body);
     req.end();
+  });
+}
+
+function supabaseTokenRequest(method, body) {
+  return new Promise((resolve) => {
+    if (!SUPABASE_URL || !SUPABASE_KEY) return resolve(null);
+    const bodyStr = body ? JSON.stringify(body) : null;
+    const req = https.request({
+      hostname: new URL(SUPABASE_URL).hostname,
+      path: '/rest/v1/zoho_token_cache?id=eq.singleton',
+      method,
+      headers: {
+        apikey: SUPABASE_KEY,
+        Authorization: `Bearer ${SUPABASE_KEY}`,
+        'Content-Type': 'application/json',
+        ...(method !== 'GET' ? { Prefer: 'resolution=merge-duplicates' } : {}),
+        ...(bodyStr ? { 'Content-Length': Buffer.byteLength(bodyStr) } : {}),
+      },
+    }, (res) => {
+      let data = '';
+      res.on('data', (c) => (data += c));
+      res.on('end', () => {
+        try { resolve(JSON.parse(data)); } catch { resolve(null); }
+      });
+    });
+    req.on('error', () => resolve(null));
+    if (bodyStr) req.write(bodyStr);
+    req.end();
+  });
+}
+
+async function getPersistedToken() {
+  const rows = await supabaseTokenRequest('GET');
+  const row = Array.isArray(rows) ? rows[0] : null;
+  if (row && new Date(row.expires_at).getTime() > Date.now()) return row;
+  return null;
+}
+
+async function savePersistedToken(accessToken, expiryMs) {
+  await supabaseTokenRequest('POST', {
+    id: 'singleton',
+    access_token: accessToken,
+    expires_at: new Date(expiryMs).toISOString(),
+    updated_at: new Date().toISOString(),
   });
 }
 
@@ -40,18 +87,23 @@ async function refreshAccessToken() {
     throw new Error(`No se pudo refrescar el token: ${JSON.stringify(result)}`);
   }
 
+  const expiryMs = Date.now() + (55 * 60 * 1000);
   _cachedToken = result.access_token;
-  _tokenExpiry = Date.now() + (55 * 60 * 1000);
+  _tokenExpiry = expiryMs;
+  await savePersistedToken(result.access_token, expiryMs);
   return _cachedToken;
 }
 
 export async function getToken() {
   if (_cachedToken && Date.now() < _tokenExpiry) return _cachedToken;
-  if (process.env.ZOHO_ACCESS_TOKEN && !_cachedToken) {
-    _cachedToken = process.env.ZOHO_ACCESS_TOKEN;
-    _tokenExpiry = Date.now() + (55 * 60 * 1000);
+
+  const persisted = await getPersistedToken();
+  if (persisted) {
+    _cachedToken = persisted.access_token;
+    _tokenExpiry = new Date(persisted.expires_at).getTime();
     return _cachedToken;
   }
+
   return refreshAccessToken();
 }
 

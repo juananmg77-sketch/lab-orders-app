@@ -123,10 +123,10 @@ export const handler = async (event) => {
   }
 
   try {
-    // 1. Deduplicar contra Supabase
+    // 1. Deduplicar: saltar las que ya tienen email_enviado=true
     const numeros = samples.map(s => s.numero).join(',');
     const existing = await supabaseRequest(
-      `/lab_alertas_comunicadas?numero_muestra=in.(${numeros})&select=numero_muestra`
+      `/lab_alertas_comunicadas?numero_muestra=in.(${numeros})&email_enviado=eq.true&select=numero_muestra`
     );
     const existingSet = new Set(Array.isArray(existing) ? existing.map(r => r.numero_muestra) : []);
     const newSamples = samples.filter(s => !existingSet.has(s.numero));
@@ -162,47 +162,64 @@ export const handler = async (event) => {
       byConsultor[s.consultor].push(s);
     });
 
-    // 4. Enviar emails y registrar
-    const enviados = [];
-    const sinEmail = [];
     const fechaHoy = new Date().toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' });
+    const sinEmail = [];
+
+    // 4. Registrar PRIMERO en Supabase (email_enviado=false) — así queda constancia aunque falle el email
+    const toInsert = newSamples.map(s => ({
+      numero_muestra: s.numero,
+      consultor: s.consultor,
+      establecimiento: s.establecimiento,
+      patogeno: (s.patogenos || []).map(p => `${p.nombre}: ${p.valor} ${p.unidad}`).join(' | ').substring(0, 500) || (s.observaciones || '').substring(0, 500),
+      email_enviado: false,
+    }));
+    await supabaseRequest('/lab_alertas_comunicadas', 'POST', toInsert);
+
+    // 5. Enviar emails y actualizar estado
+    const enviados = [];
 
     for (const [consultor, muestras] of Object.entries(byConsultor)) {
       const email = emailMap[consultor];
       if (!email) {
         sinEmail.push({ consultor, count: muestras.length });
+        // Marcar como sin_email para que no queden como pendientes
+        const nums = muestras.map(m => m.numero).join(',');
+        await supabaseRequest(
+          `/lab_alertas_comunicadas?numero_muestra=in.(${nums})`,
+          'PATCH',
+          { email_enviado: true, email_error: 'sin_email_consultor' }
+        );
         continue;
       }
 
       const html = buildEmailHtml(consultor, muestras, fechaHoy);
       const count = muestras.length;
-
       const hotelCCs = [...new Set(muestras.map(m => hotelEmailMap[m.establecimiento]).filter(Boolean))];
       const ccAddress = [CC_DEFAULT, ...hotelCCs].join(',');
+      const nums = muestras.map(m => m.numero).join(',');
 
-      await zohoAPI(`/api/accounts/${ZOHO_ACCOUNT_ID}/messages`, 'POST', {
-        fromAddress: ZOHO_USER,
-        toAddress: email,
-        ccAddress,
-        subject: `⚠️ Resultado preliminar con patógeno detectado · ${fechaHoy} (${count} muestra${count !== 1 ? 's' : ''})`,
-        content: html,
-        mailFormat: 'html',
-      });
-
-      enviados.push(...muestras.map(m => m.numero));
-    }
-
-    // 5. Registrar en Supabase
-    if (enviados.length > 0) {
-      const records = newSamples
-        .filter(s => enviados.includes(s.numero))
-        .map(s => ({
-          numero_muestra: s.numero,
-          consultor: s.consultor,
-          establecimiento: s.establecimiento,
-          patogeno: (s.observaciones || '').substring(0, 500),
-        }));
-      await supabaseRequest('/lab_alertas_comunicadas', 'POST', records);
+      try {
+        await zohoAPI(`/api/accounts/${ZOHO_ACCOUNT_ID}/messages`, 'POST', {
+          fromAddress: ZOHO_USER,
+          toAddress: email,
+          ccAddress,
+          subject: `⚠️ Resultado preliminar con patógeno detectado · ${fechaHoy} (${count} muestra${count !== 1 ? 's' : ''})`,
+          content: html,
+          mailFormat: 'html',
+        });
+        await supabaseRequest(
+          `/lab_alertas_comunicadas?numero_muestra=in.(${nums})`,
+          'PATCH',
+          { email_enviado: true, email_error: null }
+        );
+        enviados.push(...muestras.map(m => m.numero));
+      } catch (emailErr) {
+        await supabaseRequest(
+          `/lab_alertas_comunicadas?numero_muestra=in.(${nums})`,
+          'PATCH',
+          { email_error: emailErr.message.substring(0, 500) }
+        );
+      }
     }
 
     return {
@@ -213,6 +230,7 @@ export const handler = async (event) => {
         enviados: enviados.length,
         ya_comunicados: existingSet.size,
         sin_email: sinEmail,
+        pendientes_email: newSamples.length - enviados.length - sinEmail.reduce((a, b) => a + b.count, 0),
       }),
     };
   } catch (err) {
