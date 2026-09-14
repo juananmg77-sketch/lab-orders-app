@@ -1,5 +1,13 @@
 // CJS - pdf-parse marcado como external en netlify.toml (no bundled por esbuild)
-const pdfParse = require('pdf-parse');
+// pdf-parse 2.x API: new PDFParse({ data }) → load() → getText() → { text }
+const { PDFParse } = require('pdf-parse');
+
+async function extractText(buffer) {
+  const parser = new PDFParse({ data: buffer });
+  await parser.load();
+  const result = await parser.getText();
+  return result.text;
+}
 
 function corsHeaders() {
   return {
@@ -71,16 +79,17 @@ function extractFields(text, filename) {
     ? `${matM[1].trim()}${f.punto ? ' - ' + f.punto : ''}`
     : (f.punto ? `Agua - ${f.punto}` : 'Agua continental tratada');
 
-  // Fechas
-  const fToma = text.match(/Fecha toma muestra\s+(\d{2}\/\d{2}\/\d{4})\s+(\d{2}:\d{2})/i);
-  f.fecha_recogida = fToma ? fToma[1] : null;
-  f.hora_recogida  = fToma ? fToma[2] : null;
+  // Fechas — Nilsson usa layout 2 columnas; hora de toma queda tras "Datos de laboratorio"
+  const fTomaDate = text.match(/Fecha toma muestra\s+(\d{2}\/\d{2}\/\d{4})/i);
+  const fTomaTime = text.match(/Datos de laboratorio\s*\n?\s*(\d{2}:\d{2})/i);
+  f.fecha_recogida = fTomaDate ? fTomaDate[1] : null;
+  f.hora_recogida  = fTomaTime ? fTomaTime[1] : null;
 
   const fEnt = text.match(/Fecha entrada\s+(\d{2}\/\d{2}\/\d{4})/i);
   f.fecha_entrada = fEnt ? fEnt[1] : f.fecha_recogida;
 
-  const fIni = text.match(/Fecha inicio\s+(\d{2}\/\d{2}\/\d{4})(?:\s+(\d{2}:\d{2}))?/i);
-  f.fecha_inicio = fIni ? `${fIni[1]}${fIni[2] ? ' ' + fIni[2] : ''}` : null;
+  const fIni = text.match(/Fecha inicio\s+(\d{2}\/\d{2}\/\d{4})/i);
+  f.fecha_inicio = fIni ? fIni[1] : null;
 
   const fFin = text.match(/Fecha fin\s+(\d{2}\/\d{2}\/\d{4})/i);
   f.fecha_fin = fFin ? fFin[1] : null;
@@ -126,8 +135,8 @@ exports.handler = async (event) => {
     if (!pdf_base64) throw new Error('pdf_base64 requerido');
 
     const buffer = Buffer.from(pdf_base64, 'base64');
-    const data = await pdfParse(buffer);
-    const fields = extractFields(data.text, filename || '');
+    const text = await extractText(buffer);
+    const fields = extractFields(text, filename || '');
 
     return {
       statusCode: 200,
