@@ -333,7 +333,7 @@ export default function AlertasPatogenosModule({ onBackToHub }) {
                   <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.88rem' }}>
                     <thead>
                       <tr style={{ background: '#f1f5f9' }}>
-                        {['Nº Muestra', 'Establecimiento', 'Punto', 'Consultor responsable', 'Fecha recogida', 'Resultado preliminar'].map(h => (
+                        {['Nº Muestra', 'Establecimiento', 'Punto de muestreo', 'Consultor responsable', 'Fecha', 'Patógenos detectados'].map(h => (
                           <th key={h} style={{ padding: '10px 12px', textAlign: 'left', color: '#1e3a5f', fontWeight: 700, borderBottom: '2px solid #e2e8f0', whiteSpace: 'nowrap' }}>{h}</th>
                         ))}
                       </tr>
@@ -359,7 +359,20 @@ export default function AlertasPatogenosModule({ onBackToHub }) {
                             </div>
                           </td>
                           <td style={{ padding: '10px 12px', color: '#374151', whiteSpace: 'nowrap' }}>{a.fecha_recogida}</td>
-                          <td style={{ padding: '10px 12px', color: '#dc2626', fontSize: '0.85em', maxWidth: '280px' }}>{a.observaciones}</td>
+                          <td style={{ padding: '10px 12px', verticalAlign: 'top' }}>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', minWidth: '180px' }}>
+                              {(Array.isArray(a.patogenos) && a.patogenos.length > 0 ? a.patogenos : []).map((p, pi) => (
+                                <span key={pi} style={{
+                                  display: 'inline-flex', alignItems: 'center', gap: '4px',
+                                  background: '#fef2f2', border: '1px solid #fecaca',
+                                  borderRadius: '6px', padding: '3px 8px',
+                                  fontSize: '0.82rem', color: '#dc2626', fontWeight: 600, whiteSpace: 'nowrap'
+                                }}>
+                                  ⚠ {p.nombre}: <strong>{p.valor}</strong> {p.unidad}
+                                </span>
+                              ))}
+                            </div>
+                          </td>
                         </tr>
                       ))}
                     </tbody>

@@ -143,7 +143,7 @@ exports.handler = async (event) => {
     // 2. Obtener emails de consultores
     const consultoresUniq = [...new Set(newSamples.map(s => s.consultor).filter(Boolean))];
     const emailRows = await supabaseRequest(
-      `/lab_consultor_emails?nombre_csv=in.(${consultoresUniq.map(n => `"${n}"`).join(',')})&select=nombre_csv,email&activo=eq.true`
+      `/lab_consultor_emails?nombre_csv=in.(${consultoresUniq.map(n => encodeURIComponent(n)).join(',')})&select=nombre_csv,email&activo=eq.true`
     );
     const emailMap = {};
     if (Array.isArray(emailRows)) emailRows.forEach(r => { emailMap[r.nombre_csv] = r.email; });
@@ -151,7 +151,7 @@ exports.handler = async (event) => {
     // 2b. Obtener emails de contacto de los hoteles (para CC)
     const estabsUniq = [...new Set(newSamples.map(s => s.establecimiento).filter(Boolean))];
     const hotelRows = await supabaseRequest(
-      `/lab_hotel_contactos?establecimiento_nombre=in.(${estabsUniq.map(e => `"${e}"`).join(',')})&select=establecimiento_nombre,email`
+      `/lab_hotel_contactos?establecimiento_nombre=in.(${estabsUniq.map(e => encodeURIComponent(e)).join(',')})&select=establecimiento_nombre,email`
     );
     const hotelEmailMap = {};
     if (Array.isArray(hotelRows)) hotelRows.forEach(r => { hotelEmailMap[r.establecimiento_nombre] = r.email; });
