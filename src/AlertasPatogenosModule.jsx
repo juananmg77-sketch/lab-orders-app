@@ -97,9 +97,9 @@ function buildCopyText(consultor, muestras) {
 }
 
 // Bloque por consultor
-function ConsultorBlock({ consultor, muestras, tieneEmail, onSendEmail, onConfirmManual }) {
+function ConsultorBlock({ consultor, muestras, tieneEmail, onSendEmail, onConfirmManual, onUndo }) {
   const [copied, setCopied] = useState(false);
-  const [status, setStatus] = useState('pending'); // pending | sending | sent | confirmed | error
+  const [status, setStatus] = useState('pending'); // pending | sending | sent | confirmed | error | undoing
   const [errorMsg, setErrorMsg] = useState('');
 
   const handleCopy = () => {
@@ -112,7 +112,11 @@ function ConsultorBlock({ consultor, muestras, tieneEmail, onSendEmail, onConfir
     setStatus('sending');
     setErrorMsg('');
     try {
-      await onSendEmail(consultor, muestras);
+      const result = await onSendEmail(consultor, muestras);
+      // Si el email no se envió realmente (Zoho falló), tratar como error
+      if (result && result.enviados === 0 && muestras.length > 0) {
+        throw new Error(result.email_error || 'El email no pudo enviarse (Zoho bloqueado). Usa "Confirmar manual" si ya lo comunicaste por otro medio, o reinténtalo más tarde.');
+      }
       setStatus('sent');
     } catch (e) {
       setErrorMsg(e.message);
@@ -129,6 +133,18 @@ function ConsultorBlock({ consultor, muestras, tieneEmail, onSendEmail, onConfir
     } catch (e) {
       setErrorMsg(e.message);
       setStatus('error');
+    }
+  };
+
+  const handleUndo = async () => {
+    setStatus('undoing');
+    try {
+      await onUndo(muestras);
+      setStatus('pending');
+      setErrorMsg('');
+    } catch (e) {
+      setErrorMsg(e.message);
+      setStatus('confirmed');
     }
   };
 
@@ -178,8 +194,24 @@ function ConsultorBlock({ consultor, muestras, tieneEmail, onSendEmail, onConfir
           {status === 'confirmed' && (
             <span style={{ fontSize: '0.82rem', color: '#16a34a', fontWeight: 600 }}>✓ Comunicado manualmente</span>
           )}
+          {status === 'undoing' && (
+            <span style={{ fontSize: '0.82rem', color: '#6b7280' }}>Deshaciendo...</span>
+          )}
         </div>
         <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+          {done && (
+            <button
+              onClick={handleUndo}
+              style={{
+                display: 'flex', alignItems: 'center', gap: '5px',
+                padding: '7px 14px', borderRadius: '8px',
+                border: '1px solid #fca5a5', background: 'white', color: '#dc2626',
+                cursor: 'pointer', fontWeight: 600, fontSize: '0.82rem',
+              }}
+            >
+              ↩ Deshacer
+            </button>
+          )}
           <button
             onClick={handleCopy}
             style={{
@@ -367,7 +399,7 @@ export default function AlertasPatogenosModule({ onBackToHub }) {
 
   const onFileInput = (e) => handleFile(e.target.files[0]);
 
-  // Enviar email para un consultor concreto
+  // Enviar email para un consultor concreto — devuelve el resultado para que el bloque detecte fallos
   const handleSendEmail = async (consultor, muestras) => {
     const resp = await fetch('/.netlify/functions/alertas-patogenos', {
       method: 'POST',
@@ -376,6 +408,7 @@ export default function AlertasPatogenosModule({ onBackToHub }) {
     });
     const data = await resp.json();
     if (!data.ok) throw new Error(data.error || 'Error desconocido');
+    return data;
   };
 
   // Confirmar comunicación manual: insertar directamente en Supabase
@@ -390,6 +423,16 @@ export default function AlertasPatogenosModule({ onBackToHub }) {
     const { error } = await supabase
       .from('lab_alertas_comunicadas')
       .upsert(records, { onConflict: 'numero_muestra' });
+    if (error) throw new Error(error.message);
+  };
+
+  // Deshacer: eliminar de lab_alertas_comunicadas para que vuelvan a aparecer
+  const handleUndo = async (muestras) => {
+    const numeros = muestras.map(m => m.numero);
+    const { error } = await supabase
+      .from('lab_alertas_comunicadas')
+      .delete()
+      .in('numero_muestra', numeros);
     if (error) throw new Error(error.message);
   };
 
@@ -505,6 +548,7 @@ export default function AlertasPatogenosModule({ onBackToHub }) {
                 tieneEmail={tieneEmail}
                 onSendEmail={handleSendEmail}
                 onConfirmManual={handleConfirmManual}
+                onUndo={handleUndo}
               />
             ))}
           </div>
