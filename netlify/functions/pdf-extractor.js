@@ -1,6 +1,5 @@
-import { createRequire } from 'module';
-const require = createRequire(import.meta.url);
-const pdfParse = require('pdf-parse');
+// CJS - pdf-parse marcado como external en netlify.toml (no bundled por esbuild)
+const pdfParse = require('pdf-parse/lib/pdf-parse.js');
 
 function corsHeaders() {
   return {
@@ -13,10 +12,10 @@ function corsHeaders() {
 
 function norm(v) {
   if (!v) return null;
-  const s = v.trim().replace(',', '.');
+  const s = v.trim();
   const low = s.toLowerCase();
   if (low === 'no detectada' || low === 'no detectado') return '<20';
-  return s;
+  return s.replace(',', '.');
 }
 
 function detectSheet(punto, descripcion) {
@@ -24,10 +23,10 @@ function detectSheet(punto, descripcion) {
   if (/VALPE/.test(t)) return 'Legionella VALPE21';
   if (/DECRETO.*140|140.*2009/.test(t)) return '2.4 Piscina Decreto 140 2009';
   if (/HIDROMASAJE|JACUZZI|BA[ÑN]ERA/.test(t)) return '2.3 Vaso de hidromasaje';
-  if (/SPA|CUBIERTA|CLIMATIZADA|INTERIOR/.test(t)) return '2.2 Piscina tipo Spa';
-  if (/EXTERIOR|ADULTO|INFANTIL|FAMIL|OLYMPIC|FAMILIAR/.test(t)) return '2.1 Piscina Exterior';
+  if (/SPA|CUBIERTA|CLIMATIZADA/.test(t)) return '2.2 Piscina tipo Spa';
+  if (/EXTERIOR|ADULTO|INFANTIL|FAMIL|OLYMPIC/.test(t)) return '2.1 Piscina Exterior';
   if (/GRIFO|LAVABO|DUCHA|FREGADERO/.test(t)) return '3.13 Control de Grifos';
-  if (/PNEUMO|PNEUMOPH/.test(t)) return '3.1.4 Legionella pneumophilla';
+  if (/PNEUMO/.test(t)) return '3.1.4 Legionella pneumophilla';
   return '3.1 Legionella spp';
 }
 
@@ -38,37 +37,30 @@ function extractFields(text, filename) {
   const m1 = text.match(/Informe de an[aá]lisis\s+L\s*(\d+)/i);
   f.numero_informe = m1 ? `L ${m1[1]}` : null;
 
-  // Procedencia (puede estar en una o dos líneas)
+  // Procedencia (código + establecimiento + punto)
   const procBlock = text.match(/Procedencia\/P\.Muestreo\s+([\s\S]+?)(?=Matriz|Datos de laboratorio)/i);
   if (procBlock) {
     const chunk = procBlock[1].replace(/\n/g, ' ').replace(/\s+/g, ' ').trim();
     const codeM = chunk.match(/(EC\d+)/);
     f.codigo = codeM ? codeM[1] : null;
-
     const puntoM = chunk.match(/\b(P\.\w+)\b/g);
     f.punto = puntoM ? puntoM[puntoM.length - 1] : '';
-
     f.establecimiento = chunk
-      .replace(f.codigo || '', '')
-      .replace(f.punto || '', '')
-      .replace(/^[-–\s]+/, '')
-      .replace(/\s+/g, ' ')
-      .trim();
+      .replace(f.codigo || '', '').replace(f.punto || '', '')
+      .replace(/^[-–\s]+/, '').replace(/\s+/g, ' ').trim();
   }
 
-  // Fallback código desde filename
+  // Fallback desde filename (EC2604287_H10TIMANFAYAPALACEP_CUBIERTA_...)
   if (!f.codigo && filename) {
     const parts = filename.replace(/\.pdf$/i, '').split('_');
     const ec = parts.find(p => /^EC\d+$/.test(p));
-    if (ec) f.codigo = ec;
-    // Establecimiento desde filename: parte entre EC y fecha
-    const ecIdx = parts.indexOf(ec);
-    if (ecIdx >= 0) {
+    if (ec) {
+      f.codigo = ec;
+      const ecIdx = parts.indexOf(ec);
       const dateIdx = parts.findIndex((p, i) => i > ecIdx && /^\d{2}$/.test(p));
       if (dateIdx > ecIdx + 1) {
-        const estParts = parts.slice(ecIdx + 1, dateIdx > 3 ? dateIdx - 1 : dateIdx);
-        f.establecimiento = estParts.join(' ');
-        f.punto = parts[dateIdx - 1] || '';
+        f.establecimiento = parts.slice(ecIdx + 1, dateIdx - 1).join(' ');
+        f.punto = parts[dateIdx - 1] ? `P.${parts[dateIdx - 1]}` : '';
       }
     }
   }
@@ -82,7 +74,7 @@ function extractFields(text, filename) {
   // Fechas
   const fToma = text.match(/Fecha toma muestra\s+(\d{2}\/\d{2}\/\d{4})\s+(\d{2}:\d{2})/i);
   f.fecha_recogida = fToma ? fToma[1] : null;
-  f.hora_recogida = fToma ? fToma[2] : null;
+  f.hora_recogida  = fToma ? fToma[2] : null;
 
   const fEnt = text.match(/Fecha entrada\s+(\d{2}\/\d{2}\/\d{4})/i);
   f.fecha_entrada = fEnt ? fEnt[1] : f.fecha_recogida;
@@ -93,7 +85,7 @@ function extractFields(text, filename) {
   const fFin = text.match(/Fecha fin\s+(\d{2}\/\d{2}\/\d{4})/i);
   f.fecha_fin = fFin ? fFin[1] : null;
 
-  // Parámetros analíticos
+  // Parámetros
   const legM = text.match(/Recuento de Legionella\s+spp[\s\S]{0,250}?(No detectada|\d+(?:[,\.]\d+)?)\s+ufc\/L/i);
   f.legionella_spp = norm(legM ? legM[1] : null);
 
@@ -114,20 +106,20 @@ function extractFields(text, filename) {
 
   f.resultado = 'APTO';
 
-  // Firmante para comentarios
-  const firmM = text.match(/Firmado ele[ct]r[oó]nicamente por:\s*\n?\s*(.+?)\s*(?:CIF|$)/i);
+  const firmM = text.match(/Firmado ele[ct]r[oó]nicamente por:\s*\n?\s*(.+?)(?:CIF|\n)/i);
   const lab = firmM ? firmM[1].trim() : 'Laboratorio externo';
   f.comentarios = `Informe ${f.numero_informe || ''} ${lab}`.trim();
 
-  // Detectar pestaña
   f.tipo_hoja = detectSheet(f.punto || '', f.descripcion || '');
 
   return f;
 }
 
-export const handler = async (event) => {
+exports.handler = async (event) => {
   if (event.httpMethod === 'OPTIONS') return { statusCode: 200, headers: corsHeaders(), body: '' };
-  if (event.httpMethod !== 'POST') return { statusCode: 405, headers: corsHeaders(), body: JSON.stringify({ ok: false, error: 'Método no permitido' }) };
+  if (event.httpMethod !== 'POST') {
+    return { statusCode: 405, headers: corsHeaders(), body: JSON.stringify({ ok: false, error: 'Método no permitido' }) };
+  }
 
   try {
     const { pdf_base64, filename } = JSON.parse(event.body || '{}');

@@ -6,6 +6,9 @@
 [functions]
   node_bundler = "esbuild"
 
+[functions."pdf-extractor"]
+  external_node_modules = ["pdf-parse"]
+
 [[redirects]]
   from = "/*"
   to = "/index.html"
