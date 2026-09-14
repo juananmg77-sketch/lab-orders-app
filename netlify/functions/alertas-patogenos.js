@@ -36,31 +36,42 @@ function supabaseRequest(path, method = 'GET', body = null) {
 }
 
 function buildEmailHtml(consultor, muestras, fecha) {
-  const rows = muestras.map(m => `
+  const rows = muestras.map(m => {
+    // Renderizar patógenos detectados (array con nombre+valor+unidad)
+    const pats = Array.isArray(m.patogenos) && m.patogenos.length > 0
+      ? m.patogenos
+      : (m.observaciones || '').split(' | ').filter(Boolean).map(s => ({ nombre: s, valor: '', unidad: '' }));
+
+    const patHtml = pats.map(p =>
+      `<div style="color:#dc2626;font-weight:600">⚠ ${p.nombre}${p.valor ? `: <strong>${p.valor}</strong> ${p.unidad}` : ''}</div>`
+    ).join('');
+
+    return `
     <tr>
-      <td style="padding:10px 14px;border-bottom:1px solid #e5e7eb;font-weight:600;color:#1e3a5f">${m.establecimiento}</td>
-      <td style="padding:10px 14px;border-bottom:1px solid #e5e7eb;color:#374151">${m.numero}</td>
-      <td style="padding:10px 14px;border-bottom:1px solid #e5e7eb;color:#374151">${m.muestra}</td>
-      <td style="padding:10px 14px;border-bottom:1px solid #e5e7eb;color:#374151">${m.fecha_recogida}</td>
-      <td style="padding:10px 14px;border-bottom:1px solid #e5e7eb;color:#dc2626;font-size:0.9em">${m.observaciones}</td>
-    </tr>`).join('');
+      <td style="padding:10px 14px;border-bottom:1px solid #e5e7eb;font-weight:600;color:#1e3a5f;vertical-align:top">${m.establecimiento}</td>
+      <td style="padding:10px 14px;border-bottom:1px solid #e5e7eb;color:#374151;white-space:nowrap;vertical-align:top">${m.numero}</td>
+      <td style="padding:10px 14px;border-bottom:1px solid #e5e7eb;color:#374151;vertical-align:top">${m.muestra}</td>
+      <td style="padding:10px 14px;border-bottom:1px solid #e5e7eb;color:#374151;white-space:nowrap;vertical-align:top">${m.fecha_recogida}</td>
+      <td style="padding:10px 14px;border-bottom:1px solid #e5e7eb;vertical-align:top;font-size:0.88em">${patHtml}</td>
+    </tr>`;
+  }).join('');
 
   return `
 <!DOCTYPE html>
 <html lang="es">
 <head><meta charset="UTF-8"></head>
 <body style="font-family:Arial,sans-serif;background:#f4f7f9;margin:0;padding:20px">
-  <div style="max-width:800px;margin:0 auto;background:white;border-radius:12px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,0.08)">
+  <div style="max-width:820px;margin:0 auto;background:white;border-radius:12px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,0.08)">
     <div style="background:#0076CE;padding:28px 36px">
-      <h1 style="color:white;margin:0;font-size:1.4rem">⚠️ Resultado Preliminar con Patógeno Detectado</h1>
-      <p style="color:rgba(255,255,255,0.85);margin:8px 0 0">HSLAB — Comunicación urgente de resultados en curso · ${fecha}</p>
+      <h1 style="color:white;margin:0;font-size:1.4rem">⚠️ Resultado Preliminar — Bacterias detectadas</h1>
+      <p style="color:rgba(255,255,255,0.85);margin:8px 0 0">HSLAB · Comunicación urgente de resultados en curso · ${fecha}</p>
     </div>
     <div style="padding:28px 36px">
-      <p style="color:#374151;margin:0 0 20px">Estimado/a <strong>${consultor}</strong>,</p>
+      <p style="color:#374151;margin:0 0 16px">Estimado/a <strong>${consultor}</strong>,</p>
       <p style="color:#374151;margin:0 0 20px">
-        Le comunicamos que las siguientes muestras de su zona de actuación presentan resultados
-        <strong style="color:#dc2626">positivos para patógenos</strong> en análisis preliminar
-        y requieren atención inmediata por parte del establecimiento.
+        Las siguientes muestras de su zona presentan <strong style="color:#dc2626">recuentos positivos de bacterias indicadoras o patógenas</strong>
+        en análisis preliminar (resultado en curso, pendiente de cierre). Se comunica de forma preventiva mientras se espera
+        el resultado del cultivo de Legionella.
       </p>
       <table style="width:100%;border-collapse:collapse;font-size:0.9rem;margin-bottom:24px">
         <thead>
@@ -69,21 +80,21 @@ function buildEmailHtml(consultor, muestras, fecha) {
             <th style="padding:12px 14px;text-align:left;color:#1e3a5f;font-weight:700;border-bottom:2px solid #e2e8f0">Nº Muestra</th>
             <th style="padding:12px 14px;text-align:left;color:#1e3a5f;font-weight:700;border-bottom:2px solid #e2e8f0">Punto de muestreo</th>
             <th style="padding:12px 14px;text-align:left;color:#1e3a5f;font-weight:700;border-bottom:2px solid #e2e8f0">Fecha recogida</th>
-            <th style="padding:12px 14px;text-align:left;color:#1e3a5f;font-weight:700;border-bottom:2px solid #e2e8f0">Resultado preliminar</th>
+            <th style="padding:12px 14px;text-align:left;color:#1e3a5f;font-weight:700;border-bottom:2px solid #e2e8f0">Bacterias detectadas (UFC)</th>
           </tr>
         </thead>
         <tbody>${rows}</tbody>
       </table>
       <div style="background:#fef3c7;border:1px solid #fbbf24;border-radius:8px;padding:16px;margin-bottom:20px">
         <p style="margin:0;color:#92400e;font-size:0.9rem">
-          <strong>⚡ Acción requerida:</strong> Este es un resultado preliminar. El informe oficial
-          se emitirá al cierre del análisis. Por favor, notifique al responsable del establecimiento
-          e inicie el protocolo de actuación según el plan de legionella/higiene correspondiente.
+          <strong>⚡ Acción requerida:</strong> Resultado preliminar — el informe oficial se emitirá al cierre del análisis.
+          Por favor, comunique al responsable del establecimiento e inicie el protocolo de actuación
+          según el PPCL / plan de higiene correspondiente. El resultado de Legionella estará disponible
+          en el informe definitivo.
         </p>
       </div>
       <p style="color:#6b7280;font-size:0.85rem;margin:0">
-        Este mensaje ha sido generado automáticamente por el sistema de gestión HSLAB.<br>
-        Para cualquier consulta contacte con el laboratorio: <a href="mailto:lab@hsconsulting.es" style="color:#0076CE">lab@hsconsulting.es</a>
+        Generado automáticamente por el sistema HSLAB · <a href="mailto:lab@hsconsulting.es" style="color:#0076CE">lab@hsconsulting.es</a>
       </p>
     </div>
   </div>

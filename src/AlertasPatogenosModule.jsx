@@ -2,37 +2,90 @@ import React, { useState, useCallback } from 'react';
 import { supabase } from './supabaseClient';
 import { ArrowLeft, Upload, AlertTriangle, CheckCircle, Send, X, FileText, Clock } from 'lucide-react';
 
-function parseCSV(text) {
-  const lines = text.split(/\r?\n/).filter(l => l.trim());
-  if (lines.length < 2) return [];
-  const headers = lines[0].split(';').map(h => h.trim().replace(/^"|"$/g, ''));
+// Parser CSV correcto: maneja campos entrecomillados con saltos de línea y punto y coma internos
+function parseCSVRows(text) {
+  const rows = [];
+  let current = [];
+  let field = '';
+  let inQuotes = false;
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    if (inQuotes) {
+      if (ch === '"' && text[i + 1] === '"') { field += '"'; i++; }
+      else if (ch === '"') inQuotes = false;
+      else field += ch;
+    } else {
+      if (ch === '"') { inQuotes = true; }
+      else if (ch === ';') { current.push(field.trim()); field = ''; }
+      else if (ch === '\n') {
+        current.push(field.trim()); field = '';
+        if (current.some(f => f)) rows.push(current);
+        current = [];
+      } else if (ch !== '\r') { field += ch; }
+    }
+  }
+  if (field || current.length) { current.push(field.trim()); if (current.some(f => f)) rows.push(current); }
+  return rows;
+}
 
-  const idx = (name) => headers.findIndex(h => h.toLowerCase() === name.toLowerCase());
+const PATOGENOS_DEF = [
+  { nombre: 'Coliformes totales', clave: 'coliformes totales', unidad: 'UFC/100mL' },
+  { nombre: 'E. coli', clave: 'escherichia coli', unidad: 'UFC/100mL' },
+  { nombre: 'Pseudomonas aeruginosa', clave: 'pseudomonas aeruginosa', unidad: 'UFC/100mL' },
+  { nombre: 'S. aureus', clave: 'staphylococcus aureus', unidad: 'UFC/mL' },
+];
+
+function parseCSV(text) {
+  const rows = parseCSVRows(text);
+  if (rows.length < 2) return [];
+
+  const headers = rows[0].map(h => h.replace(/^"|"$/g, '').trim());
+  const idx = (substr) => headers.findIndex(h => h.toLowerCase().includes(substr.toLowerCase()));
+
   const iNumero = idx('Número');
   const iEstablecimiento = idx('Establecimiento');
   const iConsultor = idx('Recogido por');
   const iMuestra = idx('Muestra');
   const iFecha = idx('Fecha de recogida');
-  const iObs = idx('Observaciones');
-  const iGrupo = idx('Grupo');
   const iEstado = idx('Estado');
+  const iGrupo = idx('Grupo');
+
+  // Localizar columnas de patógenos por nombre de cabecera
+  const patCols = PATOGENOS_DEF.map(p => ({ ...p, colIdx: idx(p.clave) }));
+
+  const getNum = (row, i) => {
+    if (i < 0 || i >= row.length) return null;
+    const v = row[i].replace(',', '.').trim();
+    if (!v || v === '-' || v.toLowerCase() === 'nd') return null;
+    const n = parseFloat(v);
+    return isNaN(n) ? null : n;
+  };
 
   const results = [];
-  for (let i = 1; i < lines.length; i++) {
-    const cols = lines[i].split(';').map(c => c.trim().replace(/^"|"$/g, ''));
-    const obs = iObs >= 0 ? cols[iObs] : '';
-    if (!obs || !obs.trim()) continue; // Solo muestras con patógeno en Observaciones
-    const estado = iEstado >= 0 ? cols[iEstado] : '';
-    // Filtrar solo "En curso" si hay columna Estado (puede estar vacía en algunos exports)
+  for (let i = 1; i < rows.length; i++) {
+    const row = rows[i];
+    const estado = iEstado >= 0 ? row[iEstado] : '';
+    // Solo muestras "En curso" (resultado no cerrado)
     if (estado && !estado.toLowerCase().includes('en curso')) continue;
+
+    // Detectar patógenos con recuento > 0
+    const detected = patCols
+      .map(p => ({ ...p, valor: getNum(row, p.colIdx) }))
+      .filter(p => p.valor !== null && p.valor > 0);
+
+    if (detected.length === 0) continue;
+
+    const resumen = detected.map(p => `${p.nombre}: ${p.valor} ${p.unidad}`).join(' | ');
+
     results.push({
-      numero: iNumero >= 0 ? cols[iNumero] : '',
-      establecimiento: iEstablecimiento >= 0 ? cols[iEstablecimiento] : '',
-      consultor: iConsultor >= 0 ? cols[iConsultor] : '',
-      muestra: iMuestra >= 0 ? cols[iMuestra] : '',
-      fecha_recogida: iFecha >= 0 ? cols[iFecha] : '',
-      observaciones: obs,
-      grupo: iGrupo >= 0 ? cols[iGrupo] : '',
+      numero: iNumero >= 0 ? row[iNumero] : '',
+      establecimiento: iEstablecimiento >= 0 ? row[iEstablecimiento] : '',
+      consultor: iConsultor >= 0 ? row[iConsultor] : '',
+      muestra: iMuestra >= 0 ? row[iMuestra] : '',
+      fecha_recogida: iFecha >= 0 ? row[iFecha] : '',
+      observaciones: resumen,
+      patogenos: detected.map(p => ({ nombre: p.nombre, valor: p.valor, unidad: p.unidad })),
+      grupo: iGrupo >= 0 ? row[iGrupo] : '',
     });
   }
   return results;
