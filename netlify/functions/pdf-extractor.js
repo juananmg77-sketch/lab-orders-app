@@ -1,5 +1,5 @@
 // CJS - pdf-parse marcado como external en netlify.toml (no bundled por esbuild)
-const pdfParse = require('pdf-parse/lib/pdf-parse.js');
+const pdfParse = require('pdf-parse');
 
 function corsHeaders() {
   return {
