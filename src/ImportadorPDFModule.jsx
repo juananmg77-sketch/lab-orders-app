@@ -1,6 +1,6 @@
 import { useState, useRef, useCallback } from 'react';
 import * as XLSX from 'xlsx';
-import { ArrowLeft, Upload, FileText, Download, Trash2, AlertCircle, CheckCircle, Loader } from 'lucide-react';
+import { ArrowLeft, Upload, Download, Trash2, AlertCircle, CheckCircle, Loader, ClipboardList, FileWarning } from 'lucide-react';
 
 // ─── Configuración de hojas: headers exactos del importador HSLAB ───────────
 const SHEET_CONFIG = {
@@ -285,25 +285,105 @@ const EDITABLE_FIELDS = [
   { key: 'resultado', label: 'Resultado', width: 90 },
 ];
 
+// ─── Parseo CSV con soporte a saltos de línea dentro de campos entre comillas ──
+function parseCSV(text) {
+  const records = [];
+  let record = [];
+  let field = '';
+  let inQuotes = false;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (c === '"') {
+      if (inQuotes && text[i + 1] === '"') { field += '"'; i++; }
+      else inQuotes = !inQuotes;
+    } else if (c === ';' && !inQuotes) {
+      record.push(field.trim()); field = '';
+    } else if ((c === '\n' || c === '\r') && !inQuotes) {
+      if (c === '\r' && text[i + 1] === '\n') i++;
+      record.push(field.trim()); field = '';
+      if (record.some(f => f !== '')) { records.push(record); }
+      record = [];
+    } else {
+      field += c;
+    }
+  }
+  if (field !== '' || record.length > 0) { record.push(field.trim()); records.push(record); }
+  return records;
+}
+
+// ─── Construye mapa EC → pendiente a partir del CSV de HSLAB ──────────────────
+// Columnas esperadas (separador ;): 0=Id, 1=Número(EC), 5=Grupo, 6=Establecimiento,
+// 9=Analítica, 10=Fecha recogida, 11=Hora recogida, 13=Muestra
+function buildPendingMap(text) {
+  const records = parseCSV(text);
+  const map = {};
+  for (let i = 1; i < records.length; i++) {
+    const c = records[i];
+    const ec = c[1];
+    if (!ec || !ec.startsWith('EC')) continue;
+    map[ec] = {
+      analitica: c[9] || '',
+      grupo: c[5] || '',
+      establecimiento: c[6] || '',
+      muestra: c[13] || '',
+      fecha_recogida: c[10] || '',
+      hora_recogida: c[11] || '',
+    };
+  }
+  return map;
+}
+
 // ─── Componente principal ─────────────────────────────────────────────────────
 export default function ImportadorPDFModule({ onBackToHub }) {
   const [rows, setRows] = useState([]);
   const [processing, setProcessing] = useState(false);
   const [dragOver, setDragOver] = useState(false);
   const [generando, setGenerando] = useState(false);
+  const [pendingMap, setPendingMap] = useState({});   // { EC...: { analitica, establecimiento, muestra, ... } }
+  const pendingMapRef = useRef({});                    // ref para acceso desde callback sin stale closure
   const fileInput = useRef();
+  const csvInput = useRef();
 
+  // ── Carga CSV de muestras pendientes ──
+  const handleLoadCSV = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const map = buildPendingMap(ev.target.result);
+      pendingMapRef.current = map;
+      setPendingMap(map);
+      // Re-evaluar filas ya cargadas
+      setRows(prev => prev.map(r => {
+        if (r.status !== 'ok' || !r.fields.codigo) return r;
+        const pending = map[r.fields.codigo];
+        if (!pending) return { ...r, matchStatus: 'unmatched' };
+        const fields = { ...r.fields };
+        if (pending.analitica && SHEET_CONFIG[pending.analitica]) fields.tipo_hoja = pending.analitica;
+        if (!fields.punto && pending.muestra) fields.punto = pending.muestra;
+        if (!fields.hora_recogida && pending.hora_recogida) fields.hora_recogida = pending.hora_recogida;
+        if (!fields.establecimiento && pending.establecimiento) fields.establecimiento = pending.establecimiento;
+        return { ...r, fields, matchStatus: 'matched', matchedPending: pending };
+      }));
+    };
+    reader.readAsText(file, 'UTF-8');
+    e.target.value = '';
+  };
+
+  // ── Procesa PDFs ──
   const processFiles = useCallback(async (files) => {
     const arr = Array.from(files).filter(f => f.name.toLowerCase().endsWith('.pdf'));
     if (!arr.length) return;
     setProcessing(true);
 
     const newRows = arr.map(f => ({
-      id: `${Date.now()}_${f.name}`,
+      id: `${Date.now()}_${Math.random()}_${f.name}`,
       filename: f.name,
       status: 'processing',
       error: null,
       fields: {},
+      matchStatus: null,
+      matchedPending: null,
     }));
     setRows(prev => [...prev, ...newRows]);
 
@@ -320,8 +400,27 @@ export default function ImportadorPDFModule({ onBackToHub }) {
         });
         const data = await resp.json();
         if (!data.ok) throw new Error(data.error);
+
+        const fields = data.fields;
+
+        // Matching con pendientes
+        let matchStatus = Object.keys(pendingMapRef.current).length > 0 ? 'unmatched' : null;
+        let matchedPending = null;
+        const pending = pendingMapRef.current[fields.codigo];
+        if (pending) {
+          matchStatus = 'matched';
+          matchedPending = pending;
+          // La analítica del CSV es la fuente de verdad para el tipo de hoja
+          if (pending.analitica && SHEET_CONFIG[pending.analitica]) {
+            fields.tipo_hoja = pending.analitica;
+          }
+          if (!fields.punto && pending.muestra) fields.punto = pending.muestra;
+          if (!fields.hora_recogida && pending.hora_recogida) fields.hora_recogida = pending.hora_recogida;
+          if (!fields.establecimiento && pending.establecimiento) fields.establecimiento = pending.establecimiento;
+        }
+
         setRows(prev => prev.map(r => r.id === rowId
-          ? { ...r, status: 'ok', fields: data.fields }
+          ? { ...r, status: 'ok', fields, matchStatus, matchedPending }
           : r
         ));
       } catch (err) {
@@ -335,64 +434,58 @@ export default function ImportadorPDFModule({ onBackToHub }) {
   }, []);
 
   const onFileChange = (e) => processFiles(e.target.files);
-
-  const onDrop = (e) => {
-    e.preventDefault();
-    setDragOver(false);
-    processFiles(e.dataTransfer.files);
-  };
-
-  const updateField = (id, key, value) => {
-    setRows(prev => prev.map(r => r.id === id
-      ? { ...r, fields: { ...r.fields, [key]: value } }
-      : r
-    ));
-  };
-
-  const updateSheet = (id, tipo_hoja) => {
-    setRows(prev => prev.map(r => r.id === id
-      ? { ...r, fields: { ...r.fields, tipo_hoja } }
-      : r
-    ));
-  };
-
+  const onDrop = (e) => { e.preventDefault(); setDragOver(false); processFiles(e.dataTransfer.files); };
+  const updateField = (id, key, value) => setRows(prev => prev.map(r => r.id === id ? { ...r, fields: { ...r.fields, [key]: value } } : r));
+  const updateSheet = (id, tipo_hoja) => setRows(prev => prev.map(r => r.id === id ? { ...r, fields: { ...r.fields, tipo_hoja } } : r));
   const removeRow = (id) => setRows(prev => prev.filter(r => r.id !== id));
 
-  const generateXLS = () => {
-    const okRows = rows.filter(r => r.status === 'ok');
-    if (!okRows.length) return;
+  // ── Genera XLS ──
+  const generateXLS = (soloMatchadas = false) => {
+    const source = rows.filter(r => {
+      if (r.status !== 'ok') return false;
+      if (soloMatchadas) return r.matchStatus === 'matched';
+      return true;
+    });
+    if (!source.length) return;
     setGenerando(true);
-
     try {
       const wb = XLSX.utils.book_new();
       const bySheet = {};
-      okRows.forEach(r => {
+      source.forEach(r => {
         const sheet = r.fields.tipo_hoja || '3.1 Legionella spp';
         if (!bySheet[sheet]) bySheet[sheet] = [];
         bySheet[sheet].push(r.fields);
       });
-
       for (const [sheetName, samples] of Object.entries(bySheet)) {
         const cfg = SHEET_CONFIG[sheetName];
         if (!cfg) continue;
         const aoa = [cfg.headers, ...samples.map(cfg.toRow)];
         const ws = XLSX.utils.aoa_to_sheet(aoa);
-        // Ancho columnas auto
         ws['!cols'] = cfg.headers.map(() => ({ wch: 20 }));
         XLSX.utils.book_append_sheet(wb, ws, sheetName.substring(0, 31));
       }
-
       const fecha = new Date().toISOString().slice(0, 10);
-      XLSX.writeFile(wb, `Importador_HSLAB_${fecha}.xlsx`);
+      const suffix = soloMatchadas ? '_cuadradas' : '';
+      XLSX.writeFile(wb, `Importador_HSLAB_${fecha}${suffix}.xlsx`);
     } finally {
       setGenerando(false);
     }
   };
 
-  const okCount = rows.filter(r => r.status === 'ok').length;
+  // ── Cómputos de estado ──
+  const okRows = rows.filter(r => r.status === 'ok');
+  const matchedRows = okRows.filter(r => r.matchStatus === 'matched');
+  const unmatchedPDFs = okRows.filter(r => r.matchStatus === 'unmatched');
+  const hasPending = Object.keys(pendingMap).length > 0;
+  const pendingCount = Object.keys(pendingMap).length;
+
+  // Pendientes del CSV que todavía no tienen PDF subido
+  const uploadedCodes = new Set(okRows.map(r => r.fields.codigo).filter(Boolean));
+  const missingPDFs = Object.entries(pendingMap).filter(([ec]) => !uploadedCodes.has(ec));
 
   return (
     <div style={{ minHeight: '100vh', backgroundColor: '#f8fafc', fontFamily: 'Arial, sans-serif' }}>
+
       {/* Header */}
       <header style={{
         background: 'linear-gradient(135deg, #1e3a5f 0%, #0076CE 100%)',
@@ -406,19 +499,56 @@ export default function ImportadorPDFModule({ onBackToHub }) {
         }}>
           <ArrowLeft size={16} /> Volver
         </button>
-        <div>
-          <h1 style={{ color: 'white', margin: 0, fontSize: '1.4rem' }}>
-            Importador PDF → XLS
-          </h1>
+        <div style={{ flex: 1 }}>
+          <h1 style={{ color: 'white', margin: 0, fontSize: '1.4rem' }}>Importador PDF → XLS</h1>
           <p style={{ color: 'rgba(255,255,255,0.75)', margin: '4px 0 0', fontSize: '0.85rem' }}>
             Sube informes externos de Legionella y genera el XLS para HS Manager
           </p>
         </div>
       </header>
 
-      <main style={{ padding: '32px', maxWidth: 1600, margin: '0 auto' }}>
+      <main style={{ padding: '24px 32px', maxWidth: 1700, margin: '0 auto' }}>
 
-        {/* Drop zone */}
+        {/* ── Banda de muestras pendientes ── */}
+        <div style={{
+          backgroundColor: hasPending ? '#f0fdf4' : 'white',
+          border: `1px solid ${hasPending ? '#86efac' : '#e2e8f0'}`,
+          borderRadius: 12, padding: '14px 20px', marginBottom: 20,
+          display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap',
+        }}>
+          <ClipboardList size={20} color={hasPending ? '#16a34a' : '#94a3b8'} />
+          {hasPending ? (
+            <>
+              <span style={{ color: '#15803d', fontWeight: 700, fontSize: '0.9rem' }}>
+                {pendingCount} muestras pendientes cargadas
+              </span>
+              <span style={{ color: '#4b7c5a', fontSize: '0.82rem' }}>
+                · {matchedRows.length} cuadradas con PDF · {missingPDFs.length} sin PDF todavía
+              </span>
+              <button
+                onClick={() => csvInput.current.click()}
+                style={{ marginLeft: 'auto', background: 'none', border: '1px solid #86efac', borderRadius: 8, color: '#16a34a', padding: '5px 14px', cursor: 'pointer', fontSize: '0.82rem' }}
+              >
+                Cambiar CSV
+              </button>
+            </>
+          ) : (
+            <>
+              <span style={{ color: '#64748b', fontSize: '0.9rem' }}>
+                Carga el CSV de muestras pendientes de HSLAB para cuadrar automáticamente los PDFs
+              </span>
+              <button
+                onClick={() => csvInput.current.click()}
+                style={{ marginLeft: 'auto', background: '#0076CE', border: 'none', borderRadius: 8, color: 'white', padding: '7px 18px', cursor: 'pointer', fontSize: '0.85rem', fontWeight: 600 }}
+              >
+                Cargar CSV pendientes
+              </button>
+            </>
+          )}
+          <input ref={csvInput} type="file" accept=".csv" onChange={handleLoadCSV} style={{ display: 'none' }} />
+        </div>
+
+        {/* ── Drop zone PDFs ── */}
         <div
           onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
           onDragLeave={() => setDragOver(false)}
@@ -426,53 +556,75 @@ export default function ImportadorPDFModule({ onBackToHub }) {
           onClick={() => fileInput.current.click()}
           style={{
             border: `2px dashed ${dragOver ? '#0076CE' : '#cbd5e1'}`,
-            borderRadius: 16, padding: '48px 32px', textAlign: 'center',
+            borderRadius: 16, padding: '40px 32px', textAlign: 'center',
             cursor: 'pointer', backgroundColor: dragOver ? '#eff6ff' : 'white',
             transition: 'all 0.2s', marginBottom: 24,
             boxShadow: '0 2px 8px rgba(0,0,0,0.05)',
           }}
         >
           <input ref={fileInput} type="file" multiple accept=".pdf" onChange={onFileChange} style={{ display: 'none' }} />
-          <Upload size={40} color={dragOver ? '#0076CE' : '#94a3b8'} style={{ marginBottom: 12 }} />
-          <p style={{ margin: 0, fontSize: '1.05rem', color: '#475569', fontWeight: 600 }}>
+          <Upload size={36} color={dragOver ? '#0076CE' : '#94a3b8'} style={{ marginBottom: 10 }} />
+          <p style={{ margin: 0, fontSize: '1rem', color: '#475569', fontWeight: 600 }}>
             Arrastra los PDFs aquí o haz clic para seleccionar
           </p>
-          <p style={{ margin: '6px 0 0', color: '#94a3b8', fontSize: '0.85rem' }}>
+          <p style={{ margin: '5px 0 0', color: '#94a3b8', fontSize: '0.82rem' }}>
             Acepta múltiples archivos PDF de Nilsson Laboratorios u otros labs externos
           </p>
           {processing && (
-            <p style={{ margin: '12px 0 0', color: '#0076CE', fontSize: '0.9rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+            <p style={{ margin: '10px 0 0', color: '#0076CE', fontSize: '0.88rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
               <Loader size={14} style={{ animation: 'spin 1s linear infinite' }} /> Procesando PDFs…
             </p>
           )}
         </div>
 
-        {/* Tabla de muestras */}
+        {/* ── Tabla de muestras ── */}
         {rows.length > 0 && (
           <div style={{ backgroundColor: 'white', borderRadius: 16, boxShadow: '0 2px 12px rgba(0,0,0,0.07)', overflow: 'hidden', marginBottom: 24 }}>
-            <div style={{ padding: '16px 24px', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <h2 style={{ margin: 0, fontSize: '1rem', color: '#1e3a5f' }}>
-                {rows.length} archivo{rows.length !== 1 ? 's' : ''} cargado{rows.length !== 1 ? 's' : ''} · {okCount} extraído{okCount !== 1 ? 's' : ''}
+            <div style={{ padding: '14px 20px', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10 }}>
+              <h2 style={{ margin: 0, fontSize: '0.95rem', color: '#1e3a5f' }}>
+                {rows.length} archivo{rows.length !== 1 ? 's' : ''} · {okRows.length} extraído{okRows.length !== 1 ? 's' : ''}
+                {hasPending && ` · `}
+                {hasPending && <span style={{ color: '#16a34a', fontWeight: 700 }}>{matchedRows.length} cuadrados</span>}
+                {hasPending && unmatchedPDFs.length > 0 && <span style={{ color: '#f59e0b' }}> · {unmatchedPDFs.length} sin pendiente</span>}
               </h2>
-              <div style={{ display: 'flex', gap: 10 }}>
+              <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
                 <button
                   onClick={() => setRows([])}
-                  style={{ background: '#fee2e2', border: 'none', borderRadius: 8, color: '#dc2626', padding: '8px 16px', cursor: 'pointer', fontSize: '0.85rem' }}
+                  style={{ background: '#fee2e2', border: 'none', borderRadius: 8, color: '#dc2626', padding: '7px 14px', cursor: 'pointer', fontSize: '0.82rem' }}
                 >
                   Limpiar todo
                 </button>
+                {hasPending && okRows.length > 0 && (
+                  <button
+                    onClick={() => generateXLS(false)}
+                    disabled={generando}
+                    style={{
+                      background: '#e0f2fe', border: 'none', borderRadius: 8,
+                      color: '#0369a1', padding: '7px 14px',
+                      cursor: 'pointer', fontSize: '0.82rem', fontWeight: 600,
+                    }}
+                  >
+                    <Download size={13} style={{ verticalAlign: 'middle', marginRight: 4 }} />
+                    Generar todo ({okRows.length})
+                  </button>
+                )}
                 <button
-                  onClick={generateXLS}
-                  disabled={okCount === 0 || generando}
+                  onClick={() => generateXLS(hasPending)}
+                  disabled={(hasPending ? matchedRows.length : okRows.length) === 0 || generando}
                   style={{
-                    background: okCount > 0 ? '#0076CE' : '#e2e8f0', border: 'none', borderRadius: 8,
-                    color: okCount > 0 ? 'white' : '#94a3b8', padding: '8px 20px',
-                    cursor: okCount > 0 ? 'pointer' : 'not-allowed', fontSize: '0.85rem',
-                    fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6,
+                    background: (hasPending ? matchedRows.length : okRows.length) > 0 ? '#0076CE' : '#e2e8f0',
+                    border: 'none', borderRadius: 8,
+                    color: (hasPending ? matchedRows.length : okRows.length) > 0 ? 'white' : '#94a3b8',
+                    padding: '7px 18px',
+                    cursor: (hasPending ? matchedRows.length : okRows.length) > 0 ? 'pointer' : 'not-allowed',
+                    fontSize: '0.85rem', fontWeight: 600,
+                    display: 'flex', alignItems: 'center', gap: 6,
                   }}
                 >
                   <Download size={14} />
-                  {generando ? 'Generando…' : `Generar XLS (${okCount})`}
+                  {generando ? 'Generando…' : hasPending
+                    ? `Generar XLS cuadradas (${matchedRows.length})`
+                    : `Generar XLS (${okRows.length})`}
                 </button>
               </div>
             </div>
@@ -482,6 +634,7 @@ export default function ImportadorPDFModule({ onBackToHub }) {
                 <thead>
                   <tr style={{ backgroundColor: '#f1f5f9' }}>
                     <th style={thStyle}>Estado</th>
+                    {hasPending && <th style={thStyle}>Cuadre</th>}
                     <th style={thStyle}>Pestaña HSLAB</th>
                     {EDITABLE_FIELDS.map(f => (
                       <th key={f.key} style={{ ...thStyle, minWidth: f.width }}>{f.label}</th>
@@ -491,15 +644,34 @@ export default function ImportadorPDFModule({ onBackToHub }) {
                 </thead>
                 <tbody>
                   {rows.map((row) => (
-                    <tr key={row.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                      {/* Estado */}
+                    <tr key={row.id} style={{
+                      borderBottom: '1px solid #f1f5f9',
+                      backgroundColor: row.matchStatus === 'matched' ? '#f0fdf4' : row.matchStatus === 'unmatched' ? '#fffbeb' : 'white',
+                    }}>
+                      {/* Estado extracción */}
                       <td style={tdStyle}>
                         {row.status === 'processing' && <Loader size={16} color="#0076CE" />}
                         {row.status === 'ok' && <CheckCircle size={16} color="#16a34a" />}
-                        {row.status === 'error' && (
-                          <span title={row.error}><AlertCircle size={16} color="#dc2626" /></span>
-                        )}
+                        {row.status === 'error' && <span title={row.error}><AlertCircle size={16} color="#dc2626" /></span>}
                       </td>
+
+                      {/* Columna cuadre (solo si hay CSV cargado) */}
+                      {hasPending && (
+                        <td style={tdStyle}>
+                          {row.matchStatus === 'matched' && (
+                            <span title={`Muestra: ${row.matchedPending?.muestra || ''}`}
+                              style={{ color: '#16a34a', fontWeight: 700, fontSize: '0.75rem', whiteSpace: 'nowrap' }}>
+                              ✓ Cuadrado
+                            </span>
+                          )}
+                          {row.matchStatus === 'unmatched' && (
+                            <span title="EC no encontrado en los pendientes del CSV"
+                              style={{ color: '#f59e0b', fontWeight: 700, fontSize: '0.75rem', whiteSpace: 'nowrap' }}>
+                              ⚠ Sin pendiente
+                            </span>
+                          )}
+                        </td>
+                      )}
 
                       {/* Selector pestaña */}
                       <td style={{ ...tdStyle, minWidth: 200 }}>
@@ -544,12 +716,9 @@ export default function ImportadorPDFModule({ onBackToHub }) {
                         </td>
                       ))}
 
-                      {/* Borrar fila */}
+                      {/* Borrar */}
                       <td style={tdStyle}>
-                        <button
-                          onClick={() => removeRow(row.id)}
-                          style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4 }}
-                        >
+                        <button onClick={() => removeRow(row.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4 }}>
                           <Trash2 size={14} color="#dc2626" />
                         </button>
                       </td>
@@ -561,36 +730,76 @@ export default function ImportadorPDFModule({ onBackToHub }) {
           </div>
         )}
 
-        {/* Leyenda hojas */}
-        <div style={{
-          backgroundColor: 'white', borderRadius: 16, padding: '20px 24px',
-          boxShadow: '0 2px 8px rgba(0,0,0,0.05)',
-        }}>
-          <h3 style={{ margin: '0 0 14px', fontSize: '0.9rem', color: '#64748b', fontWeight: 600 }}>
-            Detección automática de pestaña según punto de muestreo
+        {/* ── Panel: pendientes sin PDF todavía ── */}
+        {hasPending && missingPDFs.length > 0 && (
+          <div style={{
+            backgroundColor: 'white', borderRadius: 16,
+            boxShadow: '0 2px 12px rgba(0,0,0,0.07)', overflow: 'hidden', marginBottom: 24,
+          }}>
+            <div style={{ padding: '14px 20px', borderBottom: '1px solid #fde68a', backgroundColor: '#fffbeb', display: 'flex', alignItems: 'center', gap: 10 }}>
+              <FileWarning size={18} color="#d97706" />
+              <h2 style={{ margin: 0, fontSize: '0.95rem', color: '#92400e' }}>
+                {missingPDFs.length} muestra{missingPDFs.length !== 1 ? 's' : ''} pendiente{missingPDFs.length !== 1 ? 's' : ''} sin PDF
+              </h2>
+            </div>
+            <div style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.82rem' }}>
+                <thead>
+                  <tr style={{ backgroundColor: '#fffbeb' }}>
+                    {['Código EC','Establecimiento','Muestra / Punto','Analítica (HSLAB)','F. Recogida','Hora'].map(h => (
+                      <th key={h} style={{ ...thStyle, color: '#92400e' }}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {missingPDFs.map(([ec, p]) => (
+                    <tr key={ec} style={{ borderBottom: '1px solid #fef3c7' }}>
+                      <td style={tdStyle}><span style={{ fontFamily: 'monospace', color: '#0369a1', fontWeight: 700 }}>{ec}</span></td>
+                      <td style={tdStyle}>{p.establecimiento}</td>
+                      <td style={tdStyle}>{p.muestra}</td>
+                      <td style={tdStyle}>
+                        <span style={{
+                          padding: '2px 8px', borderRadius: 6, fontSize: '0.75rem', fontWeight: 600,
+                          backgroundColor: SHEET_CONFIG[p.analitica]?.color ? `${SHEET_CONFIG[p.analitica].color}22` : '#f1f5f9',
+                          color: SHEET_CONFIG[p.analitica]?.color || '#64748b',
+                          border: `1px solid ${SHEET_CONFIG[p.analitica]?.color || '#e2e8f0'}`,
+                        }}>
+                          {p.analitica}
+                        </span>
+                      </td>
+                      <td style={tdStyle}>{p.fecha_recogida}</td>
+                      <td style={tdStyle}>{p.hora_recogida}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {/* ── Leyenda hojas ── */}
+        <div style={{ backgroundColor: 'white', borderRadius: 16, padding: '18px 22px', boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}>
+          <h3 style={{ margin: '0 0 12px', fontSize: '0.88rem', color: '#64748b', fontWeight: 600 }}>
+            Detección automática de pestaña (cuando no hay CSV cargado)
           </h3>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
             {[
-              { hoja: '3.1 Legionella spp', keywords: 'ACS, Acumulador, Impulsión, Retorno, Red' },
+              { hoja: '3.1 Legionella spp', keywords: 'ACS, Aljibe, Retorno, Red (default)' },
               { hoja: '3.1.4 Legionella pneumophilla', keywords: 'Pneumophilla explícita' },
               { hoja: '3.13 Control de Grifos', keywords: 'Grifo, Lavabo, Ducha' },
               { hoja: '2.1 Piscina Exterior', keywords: 'Exterior (sin Legionella)' },
-            { hoja: '2.1.1 Piscina Exterior con Legionella', keywords: 'Exterior, Adultos, Infantil, Familiar, Family (con Leg.)' },
-            { hoja: '2.1.2 Piscina Exterior con Legionella (*)', keywords: 'Exterior no acreditado (*)' },
-              { hoja: '2.2 Piscina tipo Spa', keywords: 'Spa, Cubierta, Climatizada, Interior' },
-              { hoja: '2.3 Vaso de hidromasaje', keywords: 'Hidromasaje, Jacuzzi, Bañera' },
+              { hoja: '2.1.1 Piscina Exterior con Legionella', keywords: 'Exterior, Adultos, Infantil, Cubierta, Chapoteo, Splash' },
+              { hoja: '2.1.2 Piscina Exterior con Legionella (*)', keywords: 'Igual que 2.1.1 no acreditado (manual)' },
+              { hoja: '2.2 Piscina tipo Spa', keywords: 'Spa, Climatizada, Mar Muerto, Kneipp' },
+              { hoja: '2.3 Vaso de hidromasaje', keywords: 'Jacuzzi, Yacuzzi, Hidromasaje, Bañera' },
               { hoja: '2.4 Piscina Decreto 140 2009', keywords: 'Decreto 140, 140/2009' },
               { hoja: 'Legionella VALPE21', keywords: 'VALPE' },
             ].map(({ hoja, keywords }) => (
               <div key={hoja} style={{
-                display: 'flex', alignItems: 'center', gap: 8, padding: '6px 12px',
-                borderRadius: 8, backgroundColor: '#f8fafc', border: '1px solid #e2e8f0',
-                fontSize: '0.78rem',
+                display: 'flex', alignItems: 'center', gap: 7, padding: '5px 10px',
+                borderRadius: 7, backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', fontSize: '0.77rem',
               }}>
-                <span style={{
-                  width: 10, height: 10, borderRadius: '50%',
-                  backgroundColor: SHEET_CONFIG[hoja]?.color || '#64748b', flexShrink: 0,
-                }} />
+                <span style={{ width: 9, height: 9, borderRadius: '50%', backgroundColor: SHEET_CONFIG[hoja]?.color || '#64748b', flexShrink: 0 }} />
                 <span style={{ color: '#1e293b', fontWeight: 600 }}>{SHEET_CONFIG[hoja]?.label}</span>
                 <span style={{ color: '#94a3b8' }}>— {keywords}</span>
               </div>
@@ -609,5 +818,5 @@ const thStyle = {
   fontSize: '0.78rem', borderBottom: '2px solid #e2e8f0', whiteSpace: 'nowrap',
 };
 const tdStyle = {
-  padding: '8px 10px', verticalAlign: 'middle',
+  padding: '7px 10px', verticalAlign: 'middle',
 };
