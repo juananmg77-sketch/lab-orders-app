@@ -32,7 +32,8 @@ function detectSheet(punto, descripcion) {
   if (/DECRETO.*140|140.*2009/.test(t)) return '2.4 Piscina Decreto 140 2009';
   if (/HIDROMASAJE|JACUZZI|BA[ÑN]ERA/.test(t)) return '2.3 Vaso de hidromasaje';
   if (/SPA|CUBIERTA|CLIMATIZADA/.test(t)) return '2.2 Piscina tipo Spa';
-  if (/EXTERIOR|ADULTO|INFANTIL|FAMIL|OLYMPIC/.test(t)) return '2.1 Piscina Exterior';
+  // Exterior con Legionella: 2.1.1 (acreditado) / 2.1.2 (no acreditado) — usamos 2.1.1 por defecto
+  if (/EXTERIOR|ADULTO|INFANTIL|FAMIL|OLYMPIC|FAMILY/.test(t)) return '2.1.1 Piscina Exterior con Legionella';
   if (/GRIFO|LAVABO|DUCHA|FREGADERO/.test(t)) return '3.13 Control de Grifos';
   if (/PNEUMO/.test(t)) return '3.1.4 Legionella pneumophilla';
   return '3.1 Legionella spp';

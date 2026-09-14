@@ -95,6 +95,66 @@ const SHEET_CONFIG = {
       return r.map(v => v || '');
     },
   },
+  '2.1.1 Piscina Exterior con Legionella': {
+    label: 'Piscina Exterior + Legionella (acred.)',
+    color: '#0284c7',
+    headers: [
+      'Código de analítica','Establecimiento','Lugar','Descripción',
+      'F. Recogida','H. Recogida','F. Entrada','F. Inicio Análisis','F. Fin Análisis',
+      'Resultado','Apto con parámetros a revisar','Comentarios',
+      'pH in situ','Cloro Libre Residual in Situ','Bromo','Cloro Combinado Residual',
+      'Temperatura In Situ','Aluminio','Cobre','Amonio',
+      'Diferencia Conductividad vaso ‐ agua de llenado','Oxidabilidad (vaso - agua de llenado)',
+      'Nitratos','Turbidez','Tiempo de recirculación','Transparencia',
+      'Ácido Isocianúrico','Dureza cálcica','Alcalinidad','Índice Langelier',
+      'Escherichia Coli','Coliformes totales','Pseudomonas Aeruginosa',
+      'Staphylococcus aureus','Estreptococos fecales','Heterótrofos a 36 ºC',
+      'Legionella spp','Hierro','Recuento de Aerobios Masófilos a 22ºC',
+      'Recuento de Legionella spp. según ISO 11731:2017',
+      'Recuento de Legionella spp. según ISO 11731:2017.',
+      'Identificación de Legionella pneumophila Serogrupo 1',
+      'Identificación de Legionella pneumophila Serogrupo 2 - ',
+    ],
+    toRow: (s) => {
+      const r = new Array(43).fill('');
+      r[0]=s.codigo; r[1]=s.establecimiento; r[2]=s.lugar||s.punto; r[3]=s.descripcion;
+      r[4]=s.fecha_recogida; r[5]=s.hora_recogida; r[6]=s.fecha_entrada;
+      r[7]=s.fecha_inicio; r[8]=s.fecha_fin; r[9]=s.resultado||'APTO'; r[11]=s.comentarios;
+      r[12]=s.ph; r[13]=s.cloro_libre; r[15]=s.cloro_combinado; r[16]=s.temperatura;
+      r[36]=s.legionella_spp; r[38]=s.aerobios_22; r[39]=s.legionella_spp; r[41]=s.legionella_pneumo;
+      return r.map(v => v || '');
+    },
+  },
+  '2.1.2 Piscina Exterior con Legionella (*)': {
+    label: 'Piscina Exterior + Legionella (no acred.)',
+    color: '#0369a1',
+    headers: [
+      'Código de analítica','Establecimiento','Lugar','Descripción',
+      'F. Recogida','H. Recogida','F. Entrada','F. Inicio Análisis','F. Fin Análisis',
+      'Resultado','Apto con parámetros a revisar','Comentarios',
+      'pH in situ (*)','Cloro Libre Residual in Situ (*)','Bromo (*)','Cloro Combinado Residual (*)',
+      'Temperatura In Situ (*)','Aluminio  (*)','Cobre  (*)','Amonio  (*)',
+      'Diferencia Conductividad vaso ‐ agua de llenado  (*)','Oxidabilidad (vaso - agua de llenado) (*)',
+      'Nitratos  (*)','Turbidez (*)','Tiempo de recirculación  (*)','Transparencia  (*)',
+      'Ácido Isocianúrico  (*)','Dureza cálcica  (*)','Alcalinidad  (*)','Índice Langelier (*)',
+      'Escherichia Coli (*)','Coliformes totales (*)','Pseudomonas Aeruginosa (*)',
+      'Staphylococcus aureus (*)','Estreptococos fecales  (*)','Heterótrofos a 36 ºC  (*)',
+      'Legionella spp','Hierro (*)','Aerobios Mesófilos a 22ºC (*)',
+      'Recuento de Legionella spp. según ISO 11731:2017',
+      'Recuento de Legionella spp. según ISO 11731:2017.',
+      'Identificación de Legionella pneumophila Serogrupo 1',
+      'Identificación de Legionella pneumophila Serogrupo 2 - ',
+    ],
+    toRow: (s) => {
+      const r = new Array(43).fill('');
+      r[0]=s.codigo; r[1]=s.establecimiento; r[2]=s.lugar||s.punto; r[3]=s.descripcion;
+      r[4]=s.fecha_recogida; r[5]=s.hora_recogida; r[6]=s.fecha_entrada;
+      r[7]=s.fecha_inicio; r[8]=s.fecha_fin; r[9]=s.resultado||'APTO'; r[11]=s.comentarios;
+      r[12]=s.ph; r[13]=s.cloro_libre; r[15]=s.cloro_combinado; r[16]=s.temperatura;
+      r[36]=s.legionella_spp; r[38]=s.aerobios_22; r[39]=s.legionella_spp; r[41]=s.legionella_pneumo;
+      return r.map(v => v || '');
+    },
+  },
   '2.2 Piscina tipo Spa': {
     label: 'Piscina tipo Spa / Cubierta',
     color: '#7c3aed',
@@ -514,7 +574,9 @@ export default function ImportadorPDFModule({ onBackToHub }) {
               { hoja: '3.1 Legionella spp', keywords: 'ACS, Acumulador, Impulsión, Retorno, Red' },
               { hoja: '3.1.4 Legionella pneumophilla', keywords: 'Pneumophilla explícita' },
               { hoja: '3.13 Control de Grifos', keywords: 'Grifo, Lavabo, Ducha' },
-              { hoja: '2.1 Piscina Exterior', keywords: 'Exterior, Adultos, Infantil, Familiar' },
+              { hoja: '2.1 Piscina Exterior', keywords: 'Exterior (sin Legionella)' },
+            { hoja: '2.1.1 Piscina Exterior con Legionella', keywords: 'Exterior, Adultos, Infantil, Familiar, Family (con Leg.)' },
+            { hoja: '2.1.2 Piscina Exterior con Legionella (*)', keywords: 'Exterior no acreditado (*)' },
               { hoja: '2.2 Piscina tipo Spa', keywords: 'Spa, Cubierta, Climatizada, Interior' },
               { hoja: '2.3 Vaso de hidromasaje', keywords: 'Hidromasaje, Jacuzzi, Bañera' },
               { hoja: '2.4 Piscina Decreto 140 2009', keywords: 'Decreto 140, 140/2009' },
