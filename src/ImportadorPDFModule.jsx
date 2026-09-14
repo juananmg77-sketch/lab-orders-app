@@ -479,9 +479,15 @@ export default function ImportadorPDFModule({ onBackToHub }) {
   const hasPending = Object.keys(pendingMap).length > 0;
   const pendingCount = Object.keys(pendingMap).length;
 
-  // Pendientes del CSV que todavía no tienen PDF subido
+  // Todas las entradas del CSV, ordenadas: pendientes primero, completadas al final
   const uploadedCodes = new Set(okRows.map(r => r.fields.codigo).filter(Boolean));
-  const missingPDFs = Object.entries(pendingMap).filter(([ec]) => !uploadedCodes.has(ec));
+  const allPendingEntries = Object.entries(pendingMap).sort(([a], [b]) => {
+    const aDone = uploadedCodes.has(a);
+    const bDone = uploadedCodes.has(b);
+    if (aDone === bDone) return 0;
+    return aDone ? 1 : -1;
+  });
+  const missingCount = allPendingEntries.filter(([ec]) => !uploadedCodes.has(ec)).length;
 
   return (
     <div style={{ minHeight: '100vh', backgroundColor: '#f8fafc', fontFamily: 'Arial, sans-serif' }}>
@@ -523,7 +529,7 @@ export default function ImportadorPDFModule({ onBackToHub }) {
                 {pendingCount} muestras pendientes cargadas
               </span>
               <span style={{ color: '#4b7c5a', fontSize: '0.82rem' }}>
-                · {matchedRows.length} cuadradas con PDF · {missingPDFs.length} sin PDF todavía
+                · {matchedRows.length} cuadradas con PDF · {missingCount} sin PDF todavía
               </span>
               <button
                 onClick={() => csvInput.current.click()}
@@ -730,47 +736,75 @@ export default function ImportadorPDFModule({ onBackToHub }) {
           </div>
         )}
 
-        {/* ── Panel: pendientes sin PDF todavía ── */}
-        {hasPending && missingPDFs.length > 0 && (
+        {/* ── Panel: seguimiento de todas las muestras pendientes ── */}
+        {hasPending && allPendingEntries.length > 0 && (
           <div style={{
             backgroundColor: 'white', borderRadius: 16,
             boxShadow: '0 2px 12px rgba(0,0,0,0.07)', overflow: 'hidden', marginBottom: 24,
           }}>
-            <div style={{ padding: '14px 20px', borderBottom: '1px solid #fde68a', backgroundColor: '#fffbeb', display: 'flex', alignItems: 'center', gap: 10 }}>
-              <FileWarning size={18} color="#d97706" />
-              <h2 style={{ margin: 0, fontSize: '0.95rem', color: '#92400e' }}>
-                {missingPDFs.length} muestra{missingPDFs.length !== 1 ? 's' : ''} pendiente{missingPDFs.length !== 1 ? 's' : ''} sin PDF
+            <div style={{ padding: '14px 20px', borderBottom: '1px solid #e2e8f0', backgroundColor: '#f8fafc', display: 'flex', alignItems: 'center', gap: 10 }}>
+              <ClipboardList size={18} color="#475569" />
+              <h2 style={{ margin: 0, fontSize: '0.95rem', color: '#1e3a5f' }}>
+                Seguimiento muestras pendientes
               </h2>
+              <span style={{ marginLeft: 8, fontSize: '0.82rem', color: '#64748b' }}>
+                <span style={{ color: '#16a34a', fontWeight: 700 }}>{allPendingEntries.length - missingCount} completadas</span>
+                {' · '}
+                <span style={{ color: '#d97706', fontWeight: 700 }}>{missingCount} pendientes</span>
+              </span>
             </div>
             <div style={{ overflowX: 'auto' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.82rem' }}>
                 <thead>
-                  <tr style={{ backgroundColor: '#fffbeb' }}>
+                  <tr style={{ backgroundColor: '#f1f5f9' }}>
+                    <th style={{ ...thStyle, width: 28 }}></th>
                     {['Código EC','Establecimiento','Muestra / Punto','Analítica (HSLAB)','F. Recogida','Hora'].map(h => (
-                      <th key={h} style={{ ...thStyle, color: '#92400e' }}>{h}</th>
+                      <th key={h} style={thStyle}>{h}</th>
                     ))}
                   </tr>
                 </thead>
                 <tbody>
-                  {missingPDFs.map(([ec, p]) => (
-                    <tr key={ec} style={{ borderBottom: '1px solid #fef3c7' }}>
-                      <td style={tdStyle}><span style={{ fontFamily: 'monospace', color: '#0369a1', fontWeight: 700 }}>{ec}</span></td>
-                      <td style={tdStyle}>{p.establecimiento}</td>
-                      <td style={tdStyle}>{p.muestra}</td>
-                      <td style={tdStyle}>
-                        <span style={{
-                          padding: '2px 8px', borderRadius: 6, fontSize: '0.75rem', fontWeight: 600,
-                          backgroundColor: SHEET_CONFIG[p.analitica]?.color ? `${SHEET_CONFIG[p.analitica].color}22` : '#f1f5f9',
-                          color: SHEET_CONFIG[p.analitica]?.color || '#64748b',
-                          border: `1px solid ${SHEET_CONFIG[p.analitica]?.color || '#e2e8f0'}`,
-                        }}>
-                          {p.analitica}
-                        </span>
-                      </td>
-                      <td style={tdStyle}>{p.fecha_recogida}</td>
-                      <td style={tdStyle}>{p.hora_recogida}</td>
-                    </tr>
-                  ))}
+                  {allPendingEntries.map(([ec, p]) => {
+                    const done = uploadedCodes.has(ec);
+                    return (
+                      <tr key={ec} style={{
+                        borderBottom: '1px solid #f1f5f9',
+                        backgroundColor: done ? '#f0fdf4' : 'white',
+                      }}>
+                        {/* Indicador */}
+                        <td style={{ ...tdStyle, textAlign: 'center' }}>
+                          {done
+                            ? <CheckCircle size={15} color="#16a34a" />
+                            : <span style={{ display: 'inline-block', width: 15, height: 15, borderRadius: '50%', border: '2px solid #d1d5db' }} />
+                          }
+                        </td>
+                        <td style={tdStyle}>
+                          <span style={{
+                            fontFamily: 'monospace', fontWeight: 700,
+                            color: done ? '#15803d' : '#0369a1',
+                            textDecoration: done ? 'line-through' : 'none',
+                            opacity: done ? 0.7 : 1,
+                          }}>
+                            {ec}
+                          </span>
+                        </td>
+                        <td style={{ ...tdStyle, color: done ? '#6b7280' : '#374151' }}>{p.establecimiento}</td>
+                        <td style={{ ...tdStyle, color: done ? '#6b7280' : '#374151', fontWeight: done ? 400 : 600 }}>{p.muestra}</td>
+                        <td style={tdStyle}>
+                          <span style={{
+                            padding: '2px 8px', borderRadius: 6, fontSize: '0.73rem', fontWeight: 600,
+                            backgroundColor: SHEET_CONFIG[p.analitica]?.color ? `${SHEET_CONFIG[p.analitica].color}22` : '#f1f5f9',
+                            color: done ? '#9ca3af' : (SHEET_CONFIG[p.analitica]?.color || '#64748b'),
+                            border: `1px solid ${done ? '#e5e7eb' : (SHEET_CONFIG[p.analitica]?.color || '#e2e8f0')}`,
+                          }}>
+                            {p.analitica}
+                          </span>
+                        </td>
+                        <td style={{ ...tdStyle, color: done ? '#9ca3af' : '#374151' }}>{p.fecha_recogida}</td>
+                        <td style={{ ...tdStyle, color: done ? '#9ca3af' : '#374151' }}>{p.hora_recogida}</td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
