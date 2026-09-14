@@ -113,7 +113,7 @@ export default function AlertasPatogenosModule({ onBackToHub }) {
     const rawAlerts = parseCSV(text);
 
     if (rawAlerts.length === 0) {
-      setError('No se han encontrado muestras con patógenos en el CSV. Asegúrate de que el campo Observaciones contiene texto.');
+      setError('No se han encontrado muestras "En curso" con recuento de patógenos > 0 (Coliformes, E. coli, Pseudomonas, S. aureus).');
       return;
     }
 
@@ -273,7 +273,7 @@ export default function AlertasPatogenosModule({ onBackToHub }) {
             <div style={{ marginTop: '24px', padding: '16px', background: '#f0f9ff', borderRadius: '8px', fontSize: '0.9rem', color: '#0369a1' }}>
               <strong>¿Qué hace este módulo?</strong>
               <ul style={{ margin: '8px 0 0 16px', padding: 0 }}>
-                <li>Detecta muestras con texto en la columna <em>Observaciones</em> (= patógeno detectado)</li>
+                <li>Detecta muestras <em>En curso</em> con recuento &gt; 0 en Coliformes totales, E. coli, Pseudomonas aeruginosa o S. aureus</li>
                 <li>Excluye las muestras ya comunicadas en días anteriores</li>
                 <li>Envía un email por consultor con el listado de sus muestras</li>
                 <li>Registra los envíos para evitar duplicados futuros</li>
