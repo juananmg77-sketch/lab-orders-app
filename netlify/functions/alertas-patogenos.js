@@ -19,7 +19,7 @@ function supabaseRequest(path, method = 'GET', body = null) {
         apikey: SUPABASE_KEY,
         Authorization: `Bearer ${SUPABASE_KEY}`,
         'Content-Type': 'application/json',
-        Prefer: method === 'POST' ? 'return=minimal' : undefined,
+        ...(method === 'POST' ? { Prefer: 'return=minimal' } : {}),
         ...(bodyStr ? { 'Content-Length': Buffer.byteLength(bodyStr) } : {}),
       },
     }, (res) => {
