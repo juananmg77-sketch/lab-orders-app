@@ -1,5 +1,5 @@
-const { zohoAPI } = require('./utils/zoho-auth');
-const https = require('https');
+import { zohoAPI } from './utils/zoho-auth.js';
+import https from 'https';
 
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
 const SUPABASE_KEY = process.env.SUPABASE_SERVICE_KEY || process.env.VITE_SUPABASE_ANON_KEY;
@@ -37,7 +37,6 @@ function supabaseRequest(path, method = 'GET', body = null) {
 
 function buildEmailHtml(consultor, muestras, fecha) {
   const rows = muestras.map(m => {
-    // Renderizar patógenos detectados (array con nombre+valor+unidad)
     const pats = Array.isArray(m.patogenos) && m.patogenos.length > 0
       ? m.patogenos
       : (m.observaciones || '').split(' | ').filter(Boolean).map(s => ({ nombre: s, valor: '', unidad: '' }));
@@ -111,7 +110,7 @@ function corsHeaders() {
   };
 }
 
-exports.handler = async (event) => {
+export const handler = async (event) => {
   if (event.httpMethod === 'OPTIONS') return { statusCode: 200, headers: corsHeaders(), body: '' };
   if (event.httpMethod !== 'POST') return { statusCode: 405, headers: corsHeaders(), body: JSON.stringify({ ok: false, error: 'Método no permitido' }) };
 
@@ -178,7 +177,6 @@ exports.handler = async (event) => {
       const html = buildEmailHtml(consultor, muestras, fechaHoy);
       const count = muestras.length;
 
-      // CC: contacto del hotel (si existe) + CC fijo
       const hotelCCs = [...new Set(muestras.map(m => hotelEmailMap[m.establecimiento]).filter(Boolean))];
       const ccAddress = [CC_DEFAULT, ...hotelCCs].join(',');
 

@@ -1,4 +1,4 @@
-const https = require('https');
+import https from 'https';
 
 let _cachedToken = null;
 let _tokenExpiry = 0;
@@ -45,7 +45,7 @@ async function refreshAccessToken() {
   return _cachedToken;
 }
 
-async function getToken() {
+export async function getToken() {
   if (_cachedToken && Date.now() < _tokenExpiry) return _cachedToken;
   if (process.env.ZOHO_ACCESS_TOKEN && !_cachedToken) {
     _cachedToken = process.env.ZOHO_ACCESS_TOKEN;
@@ -55,7 +55,7 @@ async function getToken() {
   return refreshAccessToken();
 }
 
-async function zohoAPI(path, method = 'GET', body = null) {
+export async function zohoAPI(path, method = 'GET', body = null) {
   const accessToken = await getToken();
   const bodyStr = body ? JSON.stringify(body) : '';
 
@@ -83,5 +83,3 @@ async function zohoAPI(path, method = 'GET', body = null) {
 
   return result;
 }
-
-module.exports = { zohoAPI, getToken };
