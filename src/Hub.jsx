@@ -1,5 +1,5 @@
 import React from 'react';
-import { ShoppingCart, LogOut, Settings, Bell, Microscope, Users, FlaskConical, Tag, GraduationCap, UserCog, TestTube2, FolderOpen, Droplets, AlertTriangle, FileInput } from 'lucide-react';
+import { ShoppingCart, LogOut, Settings, Bell, Microscope, Users, FlaskConical, Tag, GraduationCap, UserCog, TestTube2, FolderOpen, Droplets, AlertTriangle, FileInput, BarChart2 } from 'lucide-react';
 import logo from './assets/logo.png';
 
 export default function Hub({ session, globalLab, setGlobalLab, onSelectModule, onLogout, role = 'operations' }) {
@@ -382,6 +382,31 @@ export default function Hub({ session, globalLab, setGlobalLab, onSelectModule, 
               <h2 style={{ fontSize: '1.5rem', color: 'var(--secondary)', margin: '0 0 12px 0' }}>Importador PDF</h2>
               <p style={{ color: 'var(--text-muted)', margin: 0, lineHeight: 1.5 }}>
                 Extrae datos de informes externos de Legionella (PDF) y genera el XLS listo para HS Manager.
+              </p>
+            </div>
+          )}
+
+          {/* Module: KPI Analíticas (admin only) */}
+          {role === 'admin' && (
+            <div
+              onClick={() => onSelectModule('kpi')}
+              style={{
+                width: '320px', backgroundColor: 'white', borderRadius: '20px',
+                padding: '40px 30px', boxShadow: '0 10px 30px rgba(0,0,0,0.08)',
+                cursor: 'pointer', display: 'flex', flexDirection: 'column',
+                alignItems: 'center', textAlign: 'center',
+                borderTop: '6px solid #DC2626',
+                transition: 'transform 0.3s ease, box-shadow 0.3s ease',
+              }}
+              onMouseOver={(e) => e.currentTarget.style.transform = 'translateY(-10px)'}
+              onMouseOut={(e) => e.currentTarget.style.transform = 'translateY(0)'}
+            >
+              <div style={{ width: '80px', height: '80px', borderRadius: '40px', backgroundColor: '#FEF2F2', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '24px' }}>
+                <BarChart2 size={40} color="#DC2626" />
+              </div>
+              <h2 style={{ fontSize: '1.5rem', color: 'var(--secondary)', margin: '0 0 12px 0' }}>KPI Analíticas</h2>
+              <p style={{ color: 'var(--text-muted)', margin: 0, lineHeight: 1.5 }}>
+                Monitor de plazos en tiempo real. Alertas de retraso por tipo de analítica con SLA configurado.
               </p>
             </div>
           )}

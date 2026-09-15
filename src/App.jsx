@@ -14,6 +14,7 @@ import RRHHModule from './RRHHModule';
 import DocumentsModule from './DocumentsModule';
 import AlertasPatogenosModule from './AlertasPatogenosModule';
 import ImportadorPDFModule from './ImportadorPDFModule';
+import KPIModule from './KPIModule';
 
 export default function App() {
   const [session, setSession] = useState(null);
@@ -243,6 +244,14 @@ export default function App() {
   if (activeModule === 'importador-pdf' && ['admin', 'lab'].includes(role)) {
     return (
       <ImportadorPDFModule
+        onBackToHub={() => setActiveModule(null)}
+      />
+    );
+  }
+
+  if (activeModule === 'kpi' && role === 'admin') {
+    return (
+      <KPIModule
         onBackToHub={() => setActiveModule(null)}
       />
     );
