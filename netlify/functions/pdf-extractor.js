@@ -49,14 +49,32 @@ function extractFields(text, filename) {
   // Procedencia (código + establecimiento + punto)
   const procBlock = text.match(/Procedencia\/P\.Muestreo\s+([\s\S]+?)(?=Matriz|Datos de laboratorio)/i);
   if (procBlock) {
-    const chunk = procBlock[1].replace(/\n/g, ' ').replace(/\s+/g, ' ').trim();
+    // Preservar estructura de líneas antes de aplanar
+    const lines = procBlock[1].split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+    const chunk = lines.join(' ');
+
     const codeM = chunk.match(/(EC\d+)/);
     f.codigo = codeM ? codeM[1] : null;
+
+    // Intento 1: punto explícito con prefijo P.XXXXX
     const puntoM = chunk.match(/\b(P\.\w+)\b/g);
-    f.punto = puntoM ? puntoM[puntoM.length - 1] : '';
-    f.establecimiento = chunk
-      .replace(f.codigo || '', '').replace(f.punto || '', '')
-      .replace(/^[-–\s]+/, '').replace(/\s+/g, ' ').trim();
+    if (puntoM) {
+      f.punto = puntoM[puntoM.length - 1];
+      f.establecimiento = chunk
+        .replace(f.codigo || '', '').replace(f.punto, '')
+        .replace(/^[-–\s]+/, '').replace(/[-–\s]+$/, '').replace(/\s+/g, ' ').trim();
+    } else if (lines.length >= 2) {
+      // Intento 2: multilínea → la última línea es el punto de muestreo,
+      // las anteriores (sin EC) son el nombre del hotel
+      f.punto = lines[lines.length - 1];
+      f.establecimiento = lines.slice(0, -1).join(' ')
+        .replace(f.codigo || '', '').replace(/^[-–\s]+/, '').replace(/\s+/g, ' ').trim();
+    } else {
+      // Sin delimitador claro: todo va a establecimiento
+      f.punto = '';
+      f.establecimiento = chunk
+        .replace(f.codigo || '', '').replace(/^[-–\s]+/, '').replace(/\s+/g, ' ').trim();
+    }
   }
 
   // Fallback desde filename (EC2604287_H10TIMANFAYAPALACEP_CUBIERTA_...)
