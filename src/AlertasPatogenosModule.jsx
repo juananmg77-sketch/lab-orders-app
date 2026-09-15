@@ -308,16 +308,22 @@ function ConsultorBlock({ consultor, muestras, tieneEmail, onSendEmail, onConfir
                 <td style={{ padding: '10px 14px', color: '#6b7280', whiteSpace: 'nowrap' }}>{m.fecha_recogida}</td>
                 <td style={{ padding: '10px 14px' }}>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
-                    {(m.patogenos || []).map((p, pi) => (
-                      <span key={pi} style={{
-                        display: 'inline-flex', alignItems: 'center', gap: '4px',
-                        background: '#fef2f2', border: '1px solid #fecaca',
-                        borderRadius: '6px', padding: '2px 8px',
-                        fontSize: '0.8rem', color: '#dc2626', fontWeight: 600, whiteSpace: 'nowrap',
-                      }}>
-                        ⚠ {p.nombre}: {p.valor} {p.unidad}
-                      </span>
-                    ))}
+                    {(m.patogenos || []).map((p, pi) => {
+                      const n = (p.nombre || '').toLowerCase();
+                      const v = parseFloat(p.valor);
+                      const isAmber = n.includes('coliformes') && !isNaN(v) && v <= 100;
+                      return (
+                        <span key={pi} style={{
+                          display: 'inline-flex', alignItems: 'center', gap: '4px',
+                          background: isAmber ? '#fffbeb' : '#fef2f2',
+                          border: `1px solid ${isAmber ? '#fde68a' : '#fecaca'}`,
+                          borderRadius: '6px', padding: '2px 8px',
+                          fontSize: '0.8rem', color: isAmber ? '#D97706' : '#dc2626', fontWeight: 600, whiteSpace: 'nowrap',
+                        }}>
+                          ⚠ {p.nombre}: {p.valor} {p.unidad}
+                        </span>
+                      );
+                    })}
                   </div>
                 </td>
               </tr>
