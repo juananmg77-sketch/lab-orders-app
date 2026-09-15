@@ -15,10 +15,10 @@ const SHEET_CONFIG = {
       'Cloro Libre Residual in situ','Bromo en México','Temperatura in situ','pH',
       'Turbidez (*)','Hierro (*)','Índice de Langelier  (*)',
       'Recuento Aerobios mesófilos 22ºC  (*)',
-      'Recuento de Legionella spp. Según UNE EN ISO 11731',
-      'Recuento de Legionella spp. Según UNE EN ISO 11731 (V)',
+      'Recuento de Legionella spp. Según UNE EN ISO 11731:2017',
+      'Recuento de Legionella spp. Según UNE EN ISO 11731:2017.',
       'Identificación Legionella pneumophilla serogrupo 1',
-      'Identificación de Legionella pneumophilla Serogrupos 2-14',
+      'Identificación de Legionella pneumophilla Serogrupo 2-14',
       'Legionella pneumophilla por qPCR','Legionella spp. por qPCR',
     ],
     toRow: (s) => {
@@ -114,7 +114,7 @@ const SHEET_CONFIG = {
       'Recuento de Legionella spp. según ISO 11731:2017',
       'Recuento de Legionella spp. según ISO 11731:2017.',
       'Identificación de Legionella pneumophila Serogrupo 1',
-      'Identificación de Legionella pneumophila Serogrupo 2 - ',
+      'Identificación de Legionella pneumophila Serogrupo 2 - 14',
     ],
     toRow: (s) => {
       const r = new Array(43).fill('');
@@ -144,7 +144,7 @@ const SHEET_CONFIG = {
       'Recuento de Legionella spp. según ISO 11731:2017',
       'Recuento de Legionella spp. según ISO 11731:2017.',
       'Identificación de Legionella pneumophila Serogrupo 1',
-      'Identificación de Legionella pneumophila Serogrupo 2 - ',
+      'Identificación de Legionella pneumophila Serogrupo 2 - 14',
     ],
     toRow: (s) => {
       const r = new Array(43).fill('');
@@ -169,12 +169,12 @@ const SHEET_CONFIG = {
       'Turbidez','Ácido Isocianúrico','Aluminio','Transparencia',
       'Dureza cálcica','Alcalinidad','Índice Langelier','Tiempo de recirculación',
       'Humedad Relativa Aire','Temperatura Ambiente',
-      'Concentración Dióxido de Carbono (Diferencia Interior-Exterior)',
+      'Concentración Dióxido de Carbono (Diferencia Interior - Exterior)',
       'CO2 Interior','CO2 Exterior','Coliformes totales','Escherichia Coli',
       'Pseudomonas Aeruginosa','Staphylococcus aureus','Heterótrofos a 36 ºC',
       'Estreptococos fecales','Legionella spp','Nitratos',
       'Legionella pneumophilla','Aerobios Mesófilos Totales a 22ºC',
-      'Legionella spp. ','Legionella pneumophilla (AU)',
+      'Legionella spp. ','Legionella pneumophilla',
       'Recuento de Legionella spp. según ISO 11731:2017.',
     ],
     toRow: (s) => {
@@ -198,12 +198,12 @@ const SHEET_CONFIG = {
       'Bromo Total','Cobre','Amonio','Oxidabilidad (vaso - agua de llenado)',
       'Temperatura in situ','Turbidez','Ácido Isocianúrico','Aluminio','Transparencia',
       'Humedad Relativa Aire',
-      'Concentración Dióxido de Carbono (Diferencia Interior-Exterior)',
+      'Concentración Dióxido de Carbono (Diferencia Interior - Exterior)',
       'Dureza cálcica','Alcalinidad','Índice de Langelier','Tiempo de recirculación',
       'Coliformes totales','Cloro Total (Cl2)','Escherichia Coli',
       'Pseudomonas Aeruginosa','Staphylococcus aureus','Heterótrofos a 36 ºC',
       'Estreptococos fecales','Legionella spp','Legionella pneumophilla',
-      'Legionella spp.','Aerobios mesófilos totales','Legionella pneumophilla (AP)',
+      'Legionella spp.','Aerobios mesófilos totales','Legionella pneumophilla',
       'Recuento de Legionella spp. según ISO 11731:2017.',
       'Recuento de aerobios mesófilos a 22 ºC',
     ],
@@ -252,7 +252,8 @@ const SHEET_CONFIG = {
       'Recuento de Legionella','Hierro',
       'Concentración de la muestra por filtración',
       'Concentración de la muestra por centrifugación',
-      'Turbidez','Amoniaco',
+      'Recuento de microorganismos aerobios a 36 ºC',
+      'Recuento de microorganismos aerobios a 22 ºC',
     ],
     toRow: (s) => {
       const r = new Array(22).fill('');
