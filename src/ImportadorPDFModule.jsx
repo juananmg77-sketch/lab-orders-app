@@ -1,6 +1,7 @@
 import { useState, useRef, useCallback } from 'react';
 import * as XLSX from 'xlsx';
-import { ArrowLeft, Upload, Download, Trash2, AlertCircle, CheckCircle, Loader, ClipboardList, FileWarning } from 'lucide-react';
+import JSZip from 'jszip';
+import { ArrowLeft, Upload, Download, Trash2, AlertCircle, CheckCircle, Loader, ClipboardList, Archive } from 'lucide-react';
 
 // ─── Configuración de hojas: headers exactos del importador HSLAB ───────────
 const SHEET_CONFIG = {
@@ -341,6 +342,7 @@ export default function ImportadorPDFModule({ onBackToHub }) {
   const [generando, setGenerando] = useState(false);
   const [pendingMap, setPendingMap] = useState({});   // { EC...: { analitica, establecimiento, muestra, ... } }
   const pendingMapRef = useRef({});                    // ref para acceso desde callback sin stale closure
+  const filesRef = useRef({});                         // rowId → File original (para ZIP renombrado)
   const fileInput = useRef();
   const csvInput = useRef();
 
@@ -370,7 +372,8 @@ export default function ImportadorPDFModule({ onBackToHub }) {
     e.target.value = '';
   };
 
-  // ── Procesa PDFs ──
+  // ── Procesa PDFs (hasta 4 en paralelo) ──
+  const CONCURRENCY = 4;
   const processFiles = useCallback(async (files) => {
     const arr = Array.from(files).filter(f => f.name.toLowerCase().endsWith('.pdf'));
     if (!arr.length) return;
@@ -387,12 +390,20 @@ export default function ImportadorPDFModule({ onBackToHub }) {
     }));
     setRows(prev => [...prev, ...newRows]);
 
-    for (let i = 0; i < arr.length; i++) {
-      const file = arr[i];
-      const rowId = newRows[i].id;
+    // Guarda File original para ZIP renombrado
+    arr.forEach((file, i) => { filesRef.current[newRows[i].id] = file; });
+
+    const processOne = async (file, rowId) => {
       try {
         const bytes = await file.arrayBuffer();
-        const b64 = btoa(String.fromCharCode(...new Uint8Array(bytes)));
+        // btoa no soporta ficheros grandes (>~500KB); usar base64 con chunks
+        const uint8 = new Uint8Array(bytes);
+        let b64 = '';
+        for (let c = 0; c < uint8.length; c += 8192) {
+          b64 += String.fromCharCode(...uint8.subarray(c, c + 8192));
+        }
+        b64 = btoa(b64);
+
         const resp = await fetch('/.netlify/functions/pdf-extractor', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -403,17 +414,13 @@ export default function ImportadorPDFModule({ onBackToHub }) {
 
         const fields = data.fields;
 
-        // Matching con pendientes
         let matchStatus = Object.keys(pendingMapRef.current).length > 0 ? 'unmatched' : null;
         let matchedPending = null;
         const pending = pendingMapRef.current[fields.codigo];
         if (pending) {
           matchStatus = 'matched';
           matchedPending = pending;
-          // La analítica del CSV es la fuente de verdad para el tipo de hoja
-          if (pending.analitica && SHEET_CONFIG[pending.analitica]) {
-            fields.tipo_hoja = pending.analitica;
-          }
+          if (pending.analitica && SHEET_CONFIG[pending.analitica]) fields.tipo_hoja = pending.analitica;
           if (!fields.punto && pending.muestra) fields.punto = pending.muestra;
           if (!fields.hora_recogida && pending.hora_recogida) fields.hora_recogida = pending.hora_recogida;
           if (!fields.establecimiento && pending.establecimiento) fields.establecimiento = pending.establecimiento;
@@ -429,15 +436,53 @@ export default function ImportadorPDFModule({ onBackToHub }) {
           : r
         ));
       }
+    };
+
+    // Procesa en lotes de CONCURRENCY
+    for (let i = 0; i < arr.length; i += CONCURRENCY) {
+      const batch = arr.slice(i, i + CONCURRENCY);
+      await Promise.all(batch.map((file, j) => processOne(file, newRows[i + j].id)));
     }
     setProcessing(false);
   }, []);
 
-  const onFileChange = (e) => processFiles(e.target.files);
+  const onFileChange = (e) => { processFiles(e.target.files); e.target.value = ''; };
   const onDrop = (e) => { e.preventDefault(); setDragOver(false); processFiles(e.dataTransfer.files); };
   const updateField = (id, key, value) => setRows(prev => prev.map(r => r.id === id ? { ...r, fields: { ...r.fields, [key]: value } } : r));
   const updateSheet = (id, tipo_hoja) => setRows(prev => prev.map(r => r.id === id ? { ...r, fields: { ...r.fields, tipo_hoja } } : r));
-  const removeRow = (id) => setRows(prev => prev.filter(r => r.id !== id));
+  const removeRow = (id) => { delete filesRef.current[id]; setRows(prev => prev.filter(r => r.id !== id)); };
+
+  // ── Descarga ZIP con PDFs renombrados al código EC ──
+  const [zipping, setZipping] = useState(false);
+  const downloadZip = async () => {
+    const target = okRows;
+    if (!target.length) return;
+    setZipping(true);
+    try {
+      const zip = new JSZip();
+      const sanitize = (s) => (s || '').replace(/[/\\:*?"<>|]/g, '-').trim();
+      for (const row of target) {
+        const file = filesRef.current[row.id];
+        if (!file) continue;
+        const codigo = sanitize(row.fields.codigo) || 'SIN_EC';
+        const hotel  = sanitize(row.fields.establecimiento).substring(0, 40);
+        const punto  = sanitize(row.fields.punto).substring(0, 30);
+        const parts = [codigo, hotel, punto].filter(Boolean);
+        const newName = parts.join(' - ') + '.pdf';
+        const bytes = await file.arrayBuffer();
+        zip.file(newName, bytes);
+      }
+      const blob = await zip.generateAsync({ type: 'blob', compression: 'STORE' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `HSLAB_PDFs_${new Date().toISOString().slice(0, 10)}.zip`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } finally {
+      setZipping(false);
+    }
+  };
 
   // ── Genera XLS ──
   const generateXLS = (soloMatchadas = false) => {
@@ -593,12 +638,31 @@ export default function ImportadorPDFModule({ onBackToHub }) {
                 {hasPending && <span style={{ color: '#16a34a', fontWeight: 700 }}>{matchedRows.length} cuadrados</span>}
                 {hasPending && unmatchedPDFs.length > 0 && <span style={{ color: '#f59e0b' }}> · {unmatchedPDFs.length} sin pendiente</span>}
               </h2>
-              <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+              <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
                 <button
-                  onClick={() => setRows([])}
+                  onClick={() => { Object.keys(filesRef.current).forEach(k => delete filesRef.current[k]); setRows([]); }}
                   style={{ background: '#fee2e2', border: 'none', borderRadius: 8, color: '#dc2626', padding: '7px 14px', cursor: 'pointer', fontSize: '0.82rem' }}
                 >
                   Limpiar todo
+                </button>
+                {/* ZIP con PDFs renombrados */}
+                <button
+                  onClick={downloadZip}
+                  disabled={okRows.length === 0 || zipping}
+                  title="Descarga todos los PDFs renombrados con el código EC en un ZIP"
+                  style={{
+                    background: okRows.length > 0 ? '#f0fdf4' : '#f8fafc',
+                    border: `1px solid ${okRows.length > 0 ? '#86efac' : '#e2e8f0'}`,
+                    borderRadius: 8,
+                    color: okRows.length > 0 ? '#15803d' : '#94a3b8',
+                    padding: '7px 14px',
+                    cursor: okRows.length > 0 ? 'pointer' : 'not-allowed',
+                    fontSize: '0.82rem', fontWeight: 600,
+                    display: 'flex', alignItems: 'center', gap: 5,
+                  }}
+                >
+                  <Archive size={13} />
+                  {zipping ? 'Comprimiendo…' : `ZIP PDFs (${okRows.length})`}
                 </button>
                 {hasPending && okRows.length > 0 && (
                   <button
@@ -608,9 +672,10 @@ export default function ImportadorPDFModule({ onBackToHub }) {
                       background: '#e0f2fe', border: 'none', borderRadius: 8,
                       color: '#0369a1', padding: '7px 14px',
                       cursor: 'pointer', fontSize: '0.82rem', fontWeight: 600,
+                      display: 'flex', alignItems: 'center', gap: 5,
                     }}
                   >
-                    <Download size={13} style={{ verticalAlign: 'middle', marginRight: 4 }} />
+                    <Download size={13} />
                     Generar todo ({okRows.length})
                   </button>
                 )}
