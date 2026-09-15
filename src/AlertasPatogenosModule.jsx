@@ -79,9 +79,8 @@ function parseCSV(text) {
 
 function buildCopyText(consultor, muestras) {
   const fecha = new Date().toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' });
-  const header = `Resultado preliminar con bacterias detectadas — ${consultor} — ${fecha}\n`;
-  const sep = '─'.repeat(70);
-  const cols = ['Nº Muestra', 'Hotel', 'Punto de muestreo', 'Fecha recogida', 'Resultado'];
+  const sep = '─'.repeat(80);
+  const cols = ['Nº Muestra', 'Establecimiento', 'Punto de muestreo', 'F. Recogida', 'Bacterias detectadas'];
   const rows = muestras.map(m => [
     m.numero,
     m.establecimiento,
@@ -93,7 +92,29 @@ function buildCopyText(consultor, muestras) {
   const pad = (s, w) => (s || '').padEnd(w);
   const headerRow = cols.map((c, i) => pad(c, widths[i])).join('  |  ');
   const bodyRows = rows.map(r => r.map((c, i) => pad(c, widths[i])).join('  |  ')).join('\n');
-  return `${header}${sep}\n${headerRow}\n${sep}\n${bodyRows}\n${sep}\n\nSe comunica de forma preventiva mientras se espera el resultado del cultivo de Legionella.\nPor favor, inicia el protocolo de actuación según el PPCL correspondiente.`;
+
+  return [
+    `Estimado/a ${consultor},`,
+    '',
+    `Las siguientes muestras presentan recuentos positivos de bacterias indicadoras o patógenas en análisis preliminar (${fecha}):`,
+    '',
+    sep,
+    headerRow,
+    sep,
+    bodyRows,
+    sep,
+    '',
+    'NOTA IMPORTANTE — Resultados preliminares',
+    sep,
+    'Los resultados presentados son preliminares a la espera de la finalización del informe',
+    'oficial de laboratorio. Los mismos no excluyen la posible presencia de Legionella,',
+    'cuyo resultado será comunicado en el momento en que sea cerrado el informe definitivo.',
+    '',
+    'Se ruega iniciar el protocolo de actuación preventiva según el PPCL / plan de higiene',
+    'correspondiente.',
+    '',
+    'HSLAB · lab@hsconsulting.es',
+  ].join('\n');
 }
 
 // Bloque por consultor

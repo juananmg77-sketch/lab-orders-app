@@ -84,12 +84,15 @@ function buildEmailHtml(consultor, muestras, fecha) {
         </thead>
         <tbody>${rows}</tbody>
       </table>
-      <div style="background:#fef3c7;border:1px solid #fbbf24;border-radius:8px;padding:16px;margin-bottom:20px">
-        <p style="margin:0;color:#92400e;font-size:0.9rem">
-          <strong>⚡ Acción requerida:</strong> Resultado preliminar — el informe oficial se emitirá al cierre del análisis.
-          Por favor, comunique al responsable del establecimiento e inicie el protocolo de actuación
-          según el PPCL / plan de higiene correspondiente. El resultado de Legionella estará disponible
-          en el informe definitivo.
+      <div style="background:#fef3c7;border:1px solid #fbbf24;border-radius:8px;padding:18px 20px;margin-bottom:20px">
+        <p style="margin:0 0 10px;color:#92400e;font-size:0.9rem;font-weight:700">⚠ Nota importante — Resultados preliminares</p>
+        <p style="margin:0 0 8px;color:#78350f;font-size:0.9rem">
+          Los resultados presentados son <strong>preliminares a la espera de la finalización del informe oficial</strong> de laboratorio.
+          Los mismos <strong>no excluyen la posible presencia de Legionella</strong>, cuyo resultado será comunicado
+          en el momento en que sea cerrado el informe definitivo.
+        </p>
+        <p style="margin:0;color:#78350f;font-size:0.9rem">
+          Se ruega iniciar el protocolo de actuación preventiva según el PPCL / plan de higiene correspondiente.
         </p>
       </div>
       <p style="color:#6b7280;font-size:0.85rem;margin:0">
