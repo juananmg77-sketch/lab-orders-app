@@ -66,8 +66,6 @@ function severity(r) {
   return 'ok';
 }
 
-function sinIniciar(r) { return r.estado.startsWith('1') && r.dias > 2; }
-
 // ── Styles ───────────────────────────────────────────────────────────────────
 
 const S = {
@@ -83,7 +81,8 @@ const S = {
   slaRow: { display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' },
   slaTitle: { fontSize: '.67rem', fontWeight: 700, letterSpacing: '.07em', textTransform: 'uppercase', color: '#7A96B0', marginRight: 4 },
   slaChip: (color) => ({ display: 'inline-flex', alignItems: 'center', gap: 8, border: '1px solid #D1DCE9', borderRadius: 8, padding: '5px 12px', fontSize: '.72rem', background: '#F2F6FB' }),
-  grid: { display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 10, marginBottom: 12 },
+  grid: { display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10, marginBottom: 12 },
+  grid2: { display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10, marginBottom: 12 },
   tile: (color) => ({ background: '#fff', border: '1px solid #D1DCE9', borderRadius: 10, padding: '12px 16px', borderTop: `3px solid ${color}` }),
   tileLabel: { fontSize: '.66rem', fontWeight: 700, letterSpacing: '.07em', textTransform: 'uppercase', color: '#7A96B0', marginBottom: 6 },
   tileVal: (color) => ({ fontFamily: "'JetBrains Mono', monospace", fontSize: '1.9rem', fontWeight: 700, color }),
@@ -181,9 +180,10 @@ export default function KPIModule({ onBackToHub }) {
       if (regionF && r.region !== regionF) return false;
       if (q && !r.hotel.toLowerCase().includes(q) && !r.numero.toLowerCase().includes(q) && !r.analitica.toLowerCase().includes(q)) return false;
       if (sevF === 'crit') return severity(r) === 'crit';
+      if (sevF === 'crit-rec') return severity(r) === 'crit' && r.estado.startsWith('1');
+      if (sevF === 'crit-cur') return severity(r) === 'crit' && r.estado.startsWith('2');
       if (sevF === 'warn') return severity(r) === 'warn';
       if (sevF === 'ok') return severity(r) === 'ok';
-      if (sevF === 'sini') return sinIniciar(r);
       return true;
     });
   }, [data, search, catF, estadoF, regionF, sevF]);
@@ -203,12 +203,14 @@ export default function KPIModule({ onBackToHub }) {
   const safeP = Math.min(page, pages);
   const slice = sorted.slice((safeP - 1) * PER_PAGE, safeP * PER_PAGE);
 
-  const counts = useMemo(() => ({
-    ok: data.filter(r => severity(r) === 'ok').length,
-    warn: data.filter(r => severity(r) === 'warn').length,
-    crit: data.filter(r => severity(r) === 'crit').length,
-    sini: data.filter(sinIniciar).length,
-  }), [data]);
+  const counts = useMemo(() => {
+    const ok = data.filter(r => severity(r) === 'ok').length;
+    const warn = data.filter(r => severity(r) === 'warn').length;
+    const critAll = data.filter(r => severity(r) === 'crit');
+    const critRec = critAll.filter(r => r.estado.startsWith('1')).length;
+    const critCur = critAll.filter(r => r.estado.startsWith('2')).length;
+    return { ok, warn, crit: critAll.length, critRec, critCur };
+  }, [data]);
 
   const sort = (col) => {
     if (sortCol === col) setSortDir(d => -d);
@@ -349,22 +351,27 @@ export default function KPIModule({ onBackToHub }) {
                 <span style={{ color: '#7A96B0' }}>({it.n})</span>
               </div>
             ))}
-            <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 7, fontSize: '.74rem', color: '#4A6A8A' }}>
-              <div style={{ width: 10, height: 10, borderRadius: '50%', background: SEV_COLORS.sini, flexShrink: 0 }} />
-              <span>Sin iniciar <span style={{ fontSize: '.64rem', opacity: .7 }}>(Recogida &gt;2d)</span></span>
-              <span style={{ fontFamily: "'JetBrains Mono',monospace", fontWeight: 700, color: SEV_COLORS.sini }}>{counts.sini}</span>
+            <div style={{ marginLeft: 'auto', display: 'flex', gap: 16, flexWrap: 'wrap' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: '.74rem', color: '#4A6A8A' }}>
+                <div style={{ width: 10, height: 10, borderRadius: 2, background: SEV_COLORS.crit, flexShrink: 0 }} />
+                <span>Fuera plazo · Recogida</span>
+                <span style={{ fontFamily: "'JetBrains Mono',monospace", fontWeight: 700, color: SEV_COLORS.crit }}>{counts.critRec}</span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: '.74rem', color: '#4A6A8A' }}>
+                <div style={{ width: 10, height: 10, borderRadius: 2, background: '#7C3AED', flexShrink: 0 }} />
+                <span>Fuera plazo · En curso</span>
+                <span style={{ fontFamily: "'JetBrains Mono',monospace", fontWeight: 700, color: '#7C3AED' }}>{counts.critCur}</span>
+              </div>
             </div>
           </div>
         </div>
 
-        {/* KPI tiles */}
+        {/* KPI tiles — fila 1 */}
         <div style={S.grid}>
           {[
             { label: 'Total activas', val: total, color: SEV_COLORS.total, sub: 'muestras en seguimiento' },
             { label: '✓ En plazo', val: counts.ok, color: SEV_COLORS.ok, sub: 'días activos < SLA' },
             { label: '⚠ Último día', val: counts.warn, color: SEV_COLORS.warn, sub: 'hoy = fecha límite' },
-            { label: '✕ Fuera de plazo', val: counts.crit, color: SEV_COLORS.crit, sub: 'días activos > SLA' },
-            { label: '⏳ Sin iniciar', val: counts.sini, color: SEV_COLORS.sini, sub: 'Recogida pendiente >2d' },
           ].map(t => (
             <div key={t.label} style={S.tile(t.color)}>
               <div style={S.tileLabel}>{t.label}</div>
@@ -372,6 +379,26 @@ export default function KPIModule({ onBackToHub }) {
               <div style={S.tileSub}>{t.sub}</div>
             </div>
           ))}
+        </div>
+        {/* KPI tiles — fila 2: desglose fuera de plazo */}
+        <div style={S.grid2}>
+          <div style={{ ...S.tile(SEV_COLORS.crit), borderTop: `5px solid ${SEV_COLORS.crit}` }}>
+            <div style={S.tileLabel}>✕ Fuera de plazo total</div>
+            <div style={S.tileVal(SEV_COLORS.crit)}>{counts.crit.toLocaleString()}</div>
+            <div style={S.tileSub}>Recogida + En curso · días {'>'} SLA</div>
+          </div>
+          <div style={{ ...S.tile(SEV_COLORS.crit), borderTop: `5px solid ${SEV_COLORS.crit}`, position: 'relative' }}>
+            <div style={{ position: 'absolute', top: 10, right: 12, fontSize: '.62rem', fontWeight: 700, padding: '2px 8px', borderRadius: 10, background: '#EFF6FF', color: '#1D4ED8', border: '1px solid #BFDBFE' }}>RECOGIDA</div>
+            <div style={S.tileLabel}>✕ Fuera de plazo</div>
+            <div style={S.tileVal(SEV_COLORS.crit)}>{counts.critRec.toLocaleString()}</div>
+            <div style={S.tileSub}>Estado: Recogida · días {'>'} SLA</div>
+          </div>
+          <div style={{ ...S.tile('#7C3AED'), borderTop: '5px solid #7C3AED', position: 'relative' }}>
+            <div style={{ position: 'absolute', top: 10, right: 12, fontSize: '.62rem', fontWeight: 700, padding: '2px 8px', borderRadius: 10, background: '#F5F3FF', color: '#6D28D9', border: '1px solid #DDD6FE' }}>EN CURSO</div>
+            <div style={S.tileLabel}>✕ Fuera de plazo</div>
+            <div style={{ ...S.tileVal('#7C3AED') }}>{counts.critCur.toLocaleString()}</div>
+            <div style={S.tileSub}>Estado: En curso · días {'>'} SLA</div>
+          </div>
         </div>
 
         {/* Filters */}
@@ -395,9 +422,10 @@ export default function KPIModule({ onBackToHub }) {
             {[
               { key: '', label: 'Todos', color: '#0076CE' },
               { key: 'crit', label: 'Fuera plazo', color: SEV_COLORS.crit },
+              { key: 'crit-rec', label: 'Fuera plazo · Recogida', color: SEV_COLORS.crit },
+              { key: 'crit-cur', label: 'Fuera plazo · En curso', color: '#7C3AED' },
               { key: 'warn', label: 'Último día', color: SEV_COLORS.warn },
               { key: 'ok', label: 'En plazo', color: SEV_COLORS.ok },
-              { key: 'sini', label: 'Sin iniciar', color: SEV_COLORS.sini },
             ].map(ch => (
               <button key={ch.key} style={S.chip(sevF === ch.key, ch.color)} onClick={() => { setSevF(ch.key); setPage(1); }}>{ch.label}</button>
             ))}
