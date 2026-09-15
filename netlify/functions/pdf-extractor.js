@@ -30,11 +30,11 @@ function detectSheet(punto, descripcion) {
   const t = (punto + ' ' + descripcion).toUpperCase();
   if (/VALPE/.test(t)) return 'Legionella VALPE21';
   if (/DECRETO.*140|140.*2009/.test(t)) return '2.4 Piscina Decreto 140 2009';
-  if (/HIDROMASAJE|JACUZZI|YACUZZI|BA[ÑN]ERA/.test(t)) return '2.3 Vaso de hidromasaje';
+  if (/HIDROMASAJE|JACUZZI|YACUZZI|BA[ÑN]ERA|CHORRO/.test(t)) return '2.3 Vaso de hidromasaje';
   // EXTERIOR antes que SPA para que "Piscina SPA Exterior" → 2.1.1
   if (/EXTERIOR|ADULTO|INFANTIL|FAMIL|OLYMPIC|FAMILY|CHAPOTEO|SPLASH|CUBIERTA/.test(t)) return '2.1.1 Piscina Exterior con Legionella';
   if (/SPA|CLIMATIZADA|MAR MUERTO|KNEIPP/.test(t)) return '2.2 Piscina tipo Spa';
-  if (/GRIFO|LAVABO|DUCHA|FREGADERO/.test(t)) return '3.13 Control de Grifos';
+  if (/GRIFO|LAVABO|DUCHA|FREGADERO|ACS/.test(t)) return '3.13 Control de Grifos';
   if (/PNEUMO/.test(t)) return '3.1.4 Legionella pneumophilla';
   return '3.1 Legionella spp';
 }
@@ -125,6 +125,88 @@ function extractFields(text, filename) {
   return f;
 }
 
+// ──────────────────────────────────────────────
+// LABAQUA extractor
+// ──────────────────────────────────────────────
+function isLabaqua(text) {
+  return /LABAQUA/i.test(text);
+}
+
+function extractFieldsLabaqua(text, filename) {
+  const f = {};
+
+  // Número informe — en cabecera está vacío; al pie tiene el número
+  // También está en el filename: _4822649.pdf
+  const infoM = text.match(/INFORME\s+N[º°o]:[ \t]*(\d{5,})/i);
+  const fileM = filename ? filename.match(/_(\d{5,})\.pdf$/i) : null;
+  f.numero_informe = (infoM && infoM[1]) || (fileM && fileM[1]) || null;
+
+  // EC + establecimiento + punto desde "# DENOMINACIÓN MUESTRA: ECxxxxx . Hotel . Punto"
+  const denomM = text.match(/DENOMINACI[ÓO]N\s+MUESTRA:\s*(.+?)(?:\r?\n|$)/i);
+  if (denomM) {
+    const parts = denomM[1].trim().split(/\s+\.\s+/);
+    f.codigo        = (parts[0] || '').trim() || null;
+    f.establecimiento = (parts[1] || '').trim();
+    f.punto         = (parts[2] || '').replace(/\.$/, '').trim(); // quitar punto final si lo hay
+  } else {
+    f.codigo = null; f.establecimiento = ''; f.punto = '';
+  }
+
+  // Fallback EC desde filename
+  if (!f.codigo && filename) {
+    const ecM = filename.match(/(EC\d+)/);
+    if (ecM) f.codigo = ecM[1];
+  }
+
+  // Fechas administrativas
+  const recM = text.match(/FECHA\s+RECEPCI[ÓO]N:\s+(\d{1,2}\/\d{2}\/\d{4})/i);
+  f.fecha_entrada = recM ? recM[1] : null;
+
+  const finM = text.match(/FECHA\s+FINALIZACI[ÓO]N:\s+(\d{1,2}\/\d{2}\/\d{4})/i);
+  f.fecha_fin = finM ? finM[1] : null;
+
+  const iniM = text.match(/Fecha\s+inicio\s+an[aá]lisis\s+(\d{1,2}\/\d{2}\/\d{4})/i);
+  f.fecha_inicio = iniM ? iniM[1] : null;
+
+  // Fecha y hora de toma (suministrada por el cliente)
+  const tomaM = text.match(/Fecha\s+de\s+toma:\s+(\d{1,2}\/\d{2}\/\d{4})\s+(\d{2}:\d{2})/i);
+  f.fecha_recogida = tomaM ? tomaM[1] : f.fecha_entrada;
+  const hora = tomaM ? tomaM[2] : null;
+  f.hora_recogida = hora && hora !== '00:00' ? hora : null;
+
+  // Descripción muestra
+  const descM = text.match(/DESCRIPCI[ÓO]N\s+MUESTRA:\s+(.+?)(?=FECHA\s+RECEPCI[ÓO]N)/is);
+  const descRaw = descM ? descM[1].replace(/\s+/g, ' ').trim() : 'Agua';
+  f.descripcion = f.punto ? `${descRaw} - ${f.punto}` : descRaw;
+
+  // Helper: extrae el último token (resultado) antes de una unidad en un bloque de texto
+  function lastResult(block) {
+    if (!block) return null;
+    const tokens = block.match(/No\s+detectado|[<>]\s*\d+(?:[,\.]\d+)?|\d+(?:[,\.]\d+)?/gi);
+    return tokens ? tokens[tokens.length - 1].trim() : null;
+  }
+
+  // Legionella spp — unidad: u.f.c./L
+  const legBlock = text.match(/Legionella\s+spp\.([\s\S]{0,250}?)u\.f\.c\.\/L/i);
+  f.legionella_spp = norm(lastResult(legBlock && legBlock[1]));
+
+  // Aerobios 22ºC — unidad: u.f.c./mL
+  const aerBlock = text.match(/Microorganismos\s+aerobios\s+a\s+22[oº°]C([\s\S]{0,250}?)u\.f\.c\.\/mL/i);
+  f.aerobios_22 = norm(lastResult(aerBlock && aerBlock[1]));
+
+  // Labaqua no incluye pH / cloro / temperatura en estos informes
+  f.ph = null;
+  f.cloro_libre = null;
+  f.cloro_combinado = null;
+  f.temperatura = null;
+
+  f.resultado  = 'APTO';
+  f.comentarios = `Informe ${f.numero_informe || ''} Labaqua`.trim();
+  f.tipo_hoja  = detectSheet(f.punto || '', f.descripcion || '');
+
+  return f;
+}
+
 exports.handler = async (event) => {
   if (event.httpMethod === 'OPTIONS') return { statusCode: 200, headers: corsHeaders(), body: '' };
   if (event.httpMethod !== 'POST') {
@@ -137,7 +219,9 @@ exports.handler = async (event) => {
 
     const buffer = Buffer.from(pdf_base64, 'base64');
     const text = await extractText(buffer);
-    const fields = extractFields(text, filename || '');
+    const fields = isLabaqua(text)
+      ? extractFieldsLabaqua(text, filename || '')
+      : extractFields(text, filename || '');
 
     return {
       statusCode: 200,
