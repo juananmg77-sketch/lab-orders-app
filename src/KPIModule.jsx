@@ -1,5 +1,5 @@
-import React, { useState, useRef, useMemo, useCallback } from 'react';
-import { ArrowLeft, Upload, BarChart2, FileDown } from 'lucide-react';
+import React, { useState, useRef, useMemo, useCallback, useEffect } from 'react';
+import { ArrowLeft, Upload, BarChart2, FileDown, ChevronDown, X } from 'lucide-react';
 import * as XLSX from 'xlsx';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -117,6 +117,85 @@ const CAT_BADGES = {
 };
 const PER_PAGE = 75;
 
+// ── MultiSelect ───────────────────────────────────────────────────────────────
+
+function MultiSelect({ options, selected, onChange, placeholder }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef(null);
+
+  useEffect(() => {
+    const close = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    document.addEventListener('mousedown', close);
+    return () => document.removeEventListener('mousedown', close);
+  }, []);
+
+  const toggle = (val) => {
+    const next = new Set(selected);
+    next.has(val) ? next.delete(val) : next.add(val);
+    onChange(next);
+  };
+
+  const label = selected.size === 0
+    ? placeholder
+    : selected.size === 1
+      ? [...selected][0]
+      : `${selected.size} seleccionados`;
+
+  return (
+    <div ref={ref} style={{ position: 'relative' }}>
+      <button
+        onClick={() => setOpen(o => !o)}
+        style={{
+          fontFamily: 'inherit', fontSize: '.76rem', padding: '6px 10px',
+          border: `1px solid ${selected.size > 0 ? '#0076CE' : '#D1DCE9'}`,
+          borderRadius: 7, background: selected.size > 0 ? '#EFF6FF' : '#F2F6FB',
+          color: selected.size > 0 ? '#0076CE' : '#0E2340',
+          cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6,
+          fontWeight: selected.size > 0 ? 600 : 400, whiteSpace: 'nowrap',
+        }}
+      >
+        {label}
+        {selected.size > 0 && (
+          <span
+            onClick={(e) => { e.stopPropagation(); onChange(new Set()); }}
+            style={{ display: 'flex', alignItems: 'center', marginLeft: 2, opacity: .6 }}
+          >
+            <X size={12} />
+          </span>
+        )}
+        <ChevronDown size={12} style={{ opacity: .5, transform: open ? 'rotate(180deg)' : 'none', transition: 'transform .15s' }} />
+      </button>
+
+      {open && (
+        <div style={{
+          position: 'absolute', top: 'calc(100% + 4px)', left: 0, zIndex: 200,
+          background: '#fff', border: '1px solid #D1DCE9', borderRadius: 8,
+          boxShadow: '0 6px 20px rgba(0,0,0,.12)', minWidth: 180, maxHeight: 260,
+          overflowY: 'auto', padding: '6px 0',
+        }}>
+          {options.map(opt => (
+            <label key={opt} style={{
+              display: 'flex', alignItems: 'center', gap: 9,
+              padding: '6px 14px', cursor: 'pointer', fontSize: '.78rem',
+              background: selected.has(opt) ? '#EFF6FF' : 'transparent',
+              color: selected.has(opt) ? '#0076CE' : '#0E2340',
+              fontWeight: selected.has(opt) ? 600 : 400,
+            }}>
+              <input
+                type="checkbox"
+                checked={selected.has(opt)}
+                onChange={() => toggle(opt)}
+                style={{ accentColor: '#0076CE', width: 14, height: 14, cursor: 'pointer' }}
+              />
+              {opt}
+            </label>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Export ────────────────────────────────────────────────────────────────────
 
 function exportXLS(rows, label) {
@@ -161,9 +240,9 @@ export default function KPIModule({ onBackToHub }) {
   const [data, setData] = useState([]);
   const [toast, setToast] = useState(null);
   const [search, setSearch] = useState('');
-  const [catF, setCatF] = useState('');
-  const [estadoF, setEstadoF] = useState('');
-  const [regionF, setRegionF] = useState('');
+  const [catsF, setCatsF] = useState(new Set());
+  const [estadosF, setEstadosF] = useState(new Set());
+  const [regionsF, setRegionsF] = useState(new Set());
   const [sevF, setSevF] = useState('crit');
   const [sortCol, setSortCol] = useState('retraso');
   const [sortDir, setSortDir] = useState(-1);
@@ -187,6 +266,9 @@ export default function KPIModule({ onBackToHub }) {
     setData(rows);
     setPage(1);
     setSevF('crit');
+    setCatsF(new Set());
+    setEstadosF(new Set());
+    setRegionsF(new Set());
     showToast(`✓ ${rows.length.toLocaleString()} muestras cargadas`);
     return true;
   }, [showToast]);
@@ -214,9 +296,9 @@ export default function KPIModule({ onBackToHub }) {
   const filtered = useMemo(() => {
     const q = search.toLowerCase();
     return data.filter(r => {
-      if (catF && r.cat !== catF) return false;
-      if (estadoF && !r.estado.startsWith(estadoF)) return false;
-      if (regionF && r.region !== regionF) return false;
+      if (catsF.size > 0 && !catsF.has(r.cat)) return false;
+      if (estadosF.size > 0 && !([...estadosF].some(e => r.estado.startsWith(e.charAt(0))))) return false;
+      if (regionsF.size > 0 && !regionsF.has(r.region)) return false;
       if (q && !r.hotel.toLowerCase().includes(q) && !r.numero.toLowerCase().includes(q) && !r.analitica.toLowerCase().includes(q)) return false;
       if (sevF === 'crit') return severity(r) === 'crit';
       if (sevF === 'crit-rec') return severity(r) === 'crit' && r.estado.startsWith('1');
@@ -225,7 +307,7 @@ export default function KPIModule({ onBackToHub }) {
       if (sevF === 'ok') return severity(r) === 'ok';
       return true;
     });
-  }, [data, search, catF, estadoF, regionF, sevF]);
+  }, [data, search, catsF, estadosF, regionsF, sevF]);
 
   const sorted = useMemo(() => {
     return [...filtered].sort((a, b) => {
@@ -451,19 +533,24 @@ export default function KPIModule({ onBackToHub }) {
         <div style={S.filters}>
           <span style={{ fontSize: '.69rem', fontWeight: 600, color: '#7A96B0', whiteSpace: 'nowrap' }}>Filtrar:</span>
           <input style={S.input} type="text" placeholder="Establecimiento o código…" value={search} onChange={e => { setSearch(e.target.value); setPage(1); }} />
-          <select style={S.select} value={catF} onChange={e => { setCatF(e.target.value); setPage(1); }}>
-            <option value="">Todas las categorías</option>
-            {['Legionella', 'Agua/Piscina', 'Alimento', 'Superficie', 'Agua/Red'].map(c => <option key={c}>{c}</option>)}
-          </select>
-          <select style={S.select} value={estadoF} onChange={e => { setEstadoF(e.target.value); setPage(1); }}>
-            <option value="">Todos los estados</option>
-            <option value="1">1 Recogida</option>
-            <option value="2">2 En curso</option>
-          </select>
-          <select style={S.select} value={regionF} onChange={e => { setRegionF(e.target.value); setPage(1); }}>
-            <option value="">Todas las regiones</option>
-            {regions.map(r => <option key={r}>{r}</option>)}
-          </select>
+          <MultiSelect
+            options={['Legionella', 'Agua/Piscina', 'Alimento', 'Superficie', 'Agua/Red']}
+            selected={catsF}
+            onChange={s => { setCatsF(s); setPage(1); }}
+            placeholder="Categoría"
+          />
+          <MultiSelect
+            options={['1 Recogida', '2 En curso']}
+            selected={estadosF}
+            onChange={s => { setEstadosF(s); setPage(1); }}
+            placeholder="Estado"
+          />
+          <MultiSelect
+            options={regions}
+            selected={regionsF}
+            onChange={s => { setRegionsF(s); setPage(1); }}
+            placeholder="Región"
+          />
           <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
             {[
               { key: '', label: 'Todos', color: '#0076CE' },
