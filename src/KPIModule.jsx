@@ -201,30 +201,22 @@ function MultiSelect({ options, selected, onChange, placeholder }) {
 function exportXLS(rows, label) {
   const SEV_LABEL = { ok: 'En plazo', warn: 'Último día', crit: 'Fuera de plazo' };
   const data = rows.map(r => ({
-    'Estado SLA':       SEV_LABEL[severity(r)] || '',
-    'Código':           r.numero,
-    'Establecimiento':  r.hotel,
-    'Región':           r.region,
-    'Grupo':            r.grupo,
-    'Categoría':        r.cat,
-    'Analítica':        r.analitica,
-    'Estado muestra':   r.estado,
-    'F. Recogida':      r.fecha_rec,
-    'F. Límite SLA':    r.fecha_limite,
-    'Días activos':     r.dias,
-    'SLA (días)':       r.sla,
-    'Retraso (días)':   r.retraso,
-    '% SLA':            Math.round(r.dias / r.sla * 100),
-    'Muestra':          r.muestra,
+    'Estado SLA':     SEV_LABEL[severity(r)] || '',
+    'Código':         r.numero,
+    'Establecimiento': r.hotel,
+    'Analítica':      r.analitica,
+    'Estado muestra': r.estado,
+    'F. Recogida':    r.fecha_rec,
+    'F. Límite SLA':  r.fecha_limite,
+    'Retraso (días)': r.retraso,
+    'Muestra':        r.muestra,
   }));
 
   const ws = XLSX.utils.json_to_sheet(data);
 
-  // Anchos de columna
   ws['!cols'] = [
-    { wch: 14 }, { wch: 14 }, { wch: 32 }, { wch: 16 }, { wch: 14 },
-    { wch: 14 }, { wch: 36 }, { wch: 12 }, { wch: 12 }, { wch: 14 },
-    { wch: 12 }, { wch: 11 }, { wch: 14 }, { wch: 8 }, { wch: 20 },
+    { wch: 14 }, { wch: 14 }, { wch: 34 }, { wch: 38 },
+    { wch: 13 }, { wch: 12 }, { wch: 14 }, { wch: 13 }, { wch: 22 },
   ];
 
   const wb = XLSX.utils.book_new();
