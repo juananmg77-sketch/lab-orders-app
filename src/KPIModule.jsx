@@ -1,5 +1,6 @@
 import React, { useState, useRef, useMemo, useCallback } from 'react';
-import { ArrowLeft, Upload, AlertTriangle, CheckCircle, Clock, BarChart2, XCircle } from 'lucide-react';
+import { ArrowLeft, Upload, BarChart2, FileDown } from 'lucide-react';
+import * as XLSX from 'xlsx';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -115,6 +116,44 @@ const CAT_BADGES = {
   'Agua/Red': { bg: '#F0FDF4', color: '#166534', border: '#BBF7D0' },
 };
 const PER_PAGE = 75;
+
+// ── Export ────────────────────────────────────────────────────────────────────
+
+function exportXLS(rows, label) {
+  const SEV_LABEL = { ok: 'En plazo', warn: 'Último día', crit: 'Fuera de plazo' };
+  const data = rows.map(r => ({
+    'Estado SLA':       SEV_LABEL[severity(r)] || '',
+    'Código':           r.numero,
+    'Establecimiento':  r.hotel,
+    'Región':           r.region,
+    'Grupo':            r.grupo,
+    'Categoría':        r.cat,
+    'Analítica':        r.analitica,
+    'Estado muestra':   r.estado,
+    'F. Recogida':      r.fecha_rec,
+    'F. Límite SLA':    r.fecha_limite,
+    'Días activos':     r.dias,
+    'SLA (días)':       r.sla,
+    'Retraso (días)':   r.retraso,
+    '% SLA':            Math.round(r.dias / r.sla * 100),
+    'Muestra':          r.muestra,
+  }));
+
+  const ws = XLSX.utils.json_to_sheet(data);
+
+  // Anchos de columna
+  ws['!cols'] = [
+    { wch: 14 }, { wch: 14 }, { wch: 32 }, { wch: 16 }, { wch: 14 },
+    { wch: 14 }, { wch: 36 }, { wch: 12 }, { wch: 12 }, { wch: 14 },
+    { wch: 12 }, { wch: 11 }, { wch: 14 }, { wch: 8 }, { wch: 20 },
+  ];
+
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'KPI Analíticas');
+
+  const fecha = new Date().toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' }).replace(/\//g, '-');
+  XLSX.writeFile(wb, `KPI_Analiticas_${label}_${fecha}.xlsx`);
+}
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
@@ -305,6 +344,13 @@ export default function KPIModule({ onBackToHub }) {
           {new Date().toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short' })}
         </span>
         <button style={S.uploadBtn} onClick={() => fileRef.current?.click()}><Upload size={13} /> Actualizar CSV</button>
+        <button
+          style={{ ...S.uploadBtn, background: sorted.length > 0 ? '#DC2626' : 'rgba(255,255,255,.4)', color: sorted.length > 0 ? '#fff' : '#aaa', marginLeft: 6, cursor: sorted.length > 0 ? 'pointer' : 'default' }}
+          onClick={() => sorted.length > 0 && exportXLS(sorted, sevF || 'todos')}
+          title={`Exportar ${sorted.length} filas visibles a Excel`}
+        >
+          <FileDown size={13} /> Exportar XLS
+        </button>
       </header>
 
       <div style={S.main}>
@@ -434,6 +480,14 @@ export default function KPIModule({ onBackToHub }) {
           <span style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: '.7rem', color: '#7A96B0', whiteSpace: 'nowrap' }}>
             {filtered.length.toLocaleString()} resultados
           </span>
+          {filtered.length > 0 && (
+            <button
+              style={{ fontFamily: 'inherit', fontSize: '.72rem', fontWeight: 600, padding: '5px 12px', border: '1px solid #D1DCE9', borderRadius: 7, background: '#fff', color: '#0E2340', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5 }}
+              onClick={() => exportXLS(sorted, sevF || 'todos')}
+            >
+              <FileDown size={13} /> Exportar {filtered.length.toLocaleString()} filas
+            </button>
+          )}
         </div>
 
         {/* Table */}
