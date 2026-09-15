@@ -311,46 +311,17 @@ function ConsultorBlock({ consultor, muestras, tieneEmail, onSendEmail, onConfir
 export default function AlertasPatogenosModule({ onBackToHub }) {
   const [step, setStep] = useState('upload');
   const [dragging, setDragging] = useState(false);
+  const [loading, setLoading] = useState(false);
   const [byConsultor, setByConsultor] = useState([]); // [{consultor, muestras, tieneEmail}]
   const [alreadySent, setAlreadySent] = useState(0);
   const [error, setError] = useState('');
-  const [fileName, setFileName] = useState('');
+  const [fileNames, setFileNames] = useState([]);       // nombres de todos los CSVs cargados
+  const [accAlerts, setAccAlerts] = useState([]);       // alertas acumuladas de todos los CSVs
 
-  const handleFile = useCallback(async (file) => {
-    if (!file || !file.name.endsWith('.csv')) {
-      setError('El archivo debe ser un CSV exportado desde HS Manager.');
-      return;
-    }
-    setError('');
-    setFileName(file.name);
-    const text = await file.text();
-    const rawAlerts = parseCSV(text);
-
-    if (rawAlerts.length === 0) {
-      setError('No se han encontrado muestras "En curso" con recuento de patógenos > 0.');
-      return;
-    }
-
-    // Resolver auditor desde legionella_actividades
-    const establecimientos = [...new Set(rawAlerts.map(a => a.establecimiento).filter(Boolean))];
-    const { data: actData } = await supabase
-      .from('legionella_actividades')
-      .select('establecimiento, auditor')
-      .in('establecimiento', establecimientos)
-      .not('auditor', 'is', null)
-      .order('fecha_date', { ascending: false });
-
-    const auditorMap = {};
-    if (actData) actData.forEach(r => { if (r.auditor && !auditorMap[r.establecimiento]) auditorMap[r.establecimiento] = r.auditor; });
-
-    const alerts = rawAlerts.map(a => ({
-      ...a,
-      consultor: auditorMap[a.establecimiento] || a.consultor,
-      fuente_consultor: auditorMap[a.establecimiento] ? 'previsión' : 'csv',
-    }));
-
-    // Deduplicar: solo excluir email_enviado=true
-    const numeros = alerts.map(a => a.numero).filter(Boolean);
+  // Agrupa un array de alertas ya resueltas y actualiza el estado de vista
+  const processAlerts = useCallback(async (allAlerts) => {
+    // Deduplicar: excluir los ya comunicados (email_enviado=true)
+    const numeros = allAlerts.map(a => a.numero).filter(Boolean);
     const { data: existingData } = await supabase
       .from('lab_alertas_comunicadas')
       .select('numero_muestra')
@@ -358,8 +329,8 @@ export default function AlertasPatogenosModule({ onBackToHub }) {
       .eq('email_enviado', true);
 
     const existingSet = new Set((existingData || []).map(r => r.numero_muestra));
-    const nuevas = alerts.filter(a => !existingSet.has(a.numero));
-    setAlreadySent(alerts.length - nuevas.length);
+    const nuevas = allAlerts.filter(a => !existingSet.has(a.numero));
+    setAlreadySent(allAlerts.length - nuevas.length);
 
     if (nuevas.length === 0) {
       setByConsultor([]);
@@ -384,7 +355,6 @@ export default function AlertasPatogenosModule({ onBackToHub }) {
       tieneEmail: conEmail.has(c),
     }));
 
-    // Añadir muestras sin consultor al final
     const sinConsultor = nuevas.filter(a => !a.consultor);
     if (sinConsultor.length > 0) grupos.push({ consultor: '(sin consultor asignado)', muestras: sinConsultor, tieneEmail: false });
 
@@ -392,12 +362,76 @@ export default function AlertasPatogenosModule({ onBackToHub }) {
     setStep('preview');
   }, []);
 
+  // Procesa uno o varios CSVs y acumula con los ya cargados
+  const handleFiles = useCallback(async (files, currentAccAlerts) => {
+    const csvFiles = Array.from(files).filter(f => f.name.endsWith('.csv'));
+    if (!csvFiles.length) {
+      setError('Selecciona archivos CSV exportados desde HS Manager.');
+      return;
+    }
+    setError('');
+    setLoading(true);
+
+    try {
+      // Parsear todos los nuevos CSVs
+      const newRaw = [];
+      for (const file of csvFiles) {
+        const text = await file.text();
+        newRaw.push(...parseCSV(text));
+      }
+
+      if (newRaw.length === 0 && currentAccAlerts.length === 0) {
+        setError('No se han encontrado muestras "En curso" con recuento de patógenos > 0 en los archivos seleccionados.');
+        setLoading(false);
+        return;
+      }
+
+      // Resolver auditor para los nuevos establecimientos
+      const establecimientos = [...new Set(newRaw.map(a => a.establecimiento).filter(Boolean))];
+      let auditorMap = {};
+      if (establecimientos.length > 0) {
+        const { data: actData } = await supabase
+          .from('legionella_actividades')
+          .select('establecimiento, auditor')
+          .in('establecimiento', establecimientos)
+          .not('auditor', 'is', null)
+          .order('fecha_date', { ascending: false });
+        if (actData) actData.forEach(r => { if (r.auditor && !auditorMap[r.establecimiento]) auditorMap[r.establecimiento] = r.auditor; });
+      }
+
+      const newAlerts = newRaw.map(a => ({
+        ...a,
+        consultor: auditorMap[a.establecimiento] || a.consultor,
+        fuente_consultor: auditorMap[a.establecimiento] ? 'previsión' : 'csv',
+      }));
+
+      // Acumular: merge con los ya cargados, deduplicando por número de muestra
+      const existingNums = new Set(currentAccAlerts.map(a => a.numero));
+      const merged = [...currentAccAlerts];
+      for (const a of newAlerts) {
+        if (!existingNums.has(a.numero)) {
+          merged.push(a);
+          existingNums.add(a.numero);
+        }
+      }
+
+      setAccAlerts(merged);
+      setFileNames(prev => [...new Set([...prev, ...csvFiles.map(f => f.name)])]);
+      await processAlerts(merged);
+    } finally {
+      setLoading(false);
+    }
+  }, [processAlerts]);
+
   const onDrop = useCallback((e) => {
     e.preventDefault(); setDragging(false);
-    handleFile(e.dataTransfer.files[0]);
-  }, [handleFile]);
+    handleFiles(e.dataTransfer.files, accAlerts);
+  }, [handleFiles, accAlerts]);
 
-  const onFileInput = (e) => handleFile(e.target.files[0]);
+  const onFileInput = (e) => {
+    handleFiles(e.target.files, accAlerts);
+    e.target.value = '';
+  };
 
   // Enviar email para un consultor concreto — devuelve el resultado para que el bloque detecte fallos
   const handleSendEmail = async (consultor, muestras) => {
@@ -437,7 +471,7 @@ export default function AlertasPatogenosModule({ onBackToHub }) {
   };
 
   const reset = () => {
-    setStep('upload'); setByConsultor([]); setAlreadySent(0); setError(''); setFileName('');
+    setStep('upload'); setByConsultor([]); setAlreadySent(0); setError(''); setFileNames([]); setAccAlerts([]);
   };
 
   const card = { background: 'white', borderRadius: '16px', boxShadow: '0 4px 20px rgba(0,0,0,0.08)', padding: '32px' };
@@ -458,7 +492,7 @@ export default function AlertasPatogenosModule({ onBackToHub }) {
       <div style={{ flex: 1, padding: '32px', maxWidth: '1100px', margin: '0 auto', width: '100%', boxSizing: 'border-box' }}>
 
         {/* UPLOAD */}
-        {step === 'upload' && (
+        {step === 'upload' && !loading && (
           <div style={card}>
             <h2 style={{ margin: '0 0 8px', color: 'var(--secondary)' }}>Cargar CSV de HS Manager</h2>
             <p style={{ margin: '0 0 28px', color: '#6b7280' }}>
@@ -481,7 +515,7 @@ export default function AlertasPatogenosModule({ onBackToHub }) {
                 Arrastra el CSV aquí o haz clic para seleccionar
               </p>
               <p style={{ margin: 0, color: '#9ca3af', fontSize: '0.9rem' }}>Exportación de HS Manager · Separador: punto y coma</p>
-              <input id="csv-input" type="file" accept=".csv" style={{ display: 'none' }} onChange={onFileInput} />
+              <input id="csv-input" type="file" accept=".csv" multiple style={{ display: 'none' }} onChange={onFileInput} />
             </div>
             {error && (
               <div style={{ marginTop: '16px', padding: '12px 16px', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '8px', color: '#dc2626', display: 'flex', gap: '10px' }}>
@@ -500,8 +534,16 @@ export default function AlertasPatogenosModule({ onBackToHub }) {
           </div>
         )}
 
+        {/* LOADING */}
+        {loading && (
+          <div style={{ ...card, textAlign: 'center', padding: '64px' }}>
+            <div style={{ fontSize: '2.5rem', marginBottom: '16px' }}>⏳</div>
+            <p style={{ color: '#6b7280', fontWeight: 600, fontSize: '1rem' }}>Procesando CSV{fileNames.length > 1 ? 's' : ''}…</p>
+          </div>
+        )}
+
         {/* PREVIEW */}
-        {step === 'preview' && (
+        {step === 'preview' && !loading && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
             {/* Resumen */}
             <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap' }}>
@@ -522,12 +564,25 @@ export default function AlertasPatogenosModule({ onBackToHub }) {
               </div>
             </div>
 
-            {/* Info archivo */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', color: '#6b7280', fontSize: '0.88rem' }}>
-              <FileText size={15} /> <span>{fileName}</span>
-              <button onClick={reset} style={{ marginLeft: 'auto', padding: '6px 14px', border: '1px solid #d1d5db', borderRadius: '7px', background: 'white', color: '#374151', cursor: 'pointer', fontSize: '0.85rem', fontWeight: 600 }}>
-                Cargar otro CSV
-              </button>
+            {/* Info archivos + acciones */}
+            <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', color: '#6b7280', fontSize: '0.88rem', flexWrap: 'wrap' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', flex: 1 }}>
+                {fileNames.map(n => (
+                  <span key={n} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <FileText size={13} /> {n}
+                  </span>
+                ))}
+              </div>
+              <div style={{ display: 'flex', gap: '8px', marginLeft: 'auto' }}>
+                <label style={{ padding: '6px 14px', border: '1px solid var(--primary)', borderRadius: '7px', background: 'white', color: 'var(--primary)', cursor: loading ? 'not-allowed' : 'pointer', fontSize: '0.85rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px', opacity: loading ? 0.6 : 1 }}>
+                  <Upload size={13} /> {loading ? 'Procesando…' : 'Añadir más CSVs'}
+                  <input type="file" accept=".csv" multiple style={{ display: 'none' }} disabled={loading}
+                    onChange={(e) => { handleFiles(e.target.files, accAlerts); e.target.value = ''; }} />
+                </label>
+                <button onClick={reset} style={{ padding: '6px 14px', border: '1px solid #d1d5db', borderRadius: '7px', background: 'white', color: '#374151', cursor: 'pointer', fontSize: '0.85rem', fontWeight: 600 }}>
+                  Nueva carga
+                </button>
+              </div>
             </div>
 
             {/* Todo al día */}
