@@ -26,7 +26,7 @@ const SHEET_CONFIG = {
       r[0]=s.codigo; r[1]=s.establecimiento; r[2]=s.lugar||s.punto; r[3]=s.descripcion;
       r[4]=s.fecha_recogida; r[5]=s.hora_recogida; r[6]=s.fecha_entrada;
       r[7]=s.fecha_inicio; r[8]=s.fecha_fin; r[9]=s.resultado||'APTO'; r[11]=s.comentarios;
-      r[12]=s.cloro_libre; r[14]=s.temperatura; r[15]=s.ph; r[19]=s.aerobios_22;
+      r[12]=s.cloro_libre; r[14]=s.temperatura; r[15]=s.ph; r[17]=s.hierro; r[19]=s.aerobios_22;
       r[20]=s.legionella_spp;
       return r.map(v => v || '');
     },
@@ -122,7 +122,7 @@ const SHEET_CONFIG = {
       r[4]=s.fecha_recogida; r[5]=s.hora_recogida; r[6]=s.fecha_entrada;
       r[7]=s.fecha_inicio; r[8]=s.fecha_fin; r[9]=s.resultado||'APTO'; r[11]=s.comentarios;
       r[12]=s.ph; r[13]=s.cloro_libre; r[15]=s.cloro_combinado; r[16]=s.temperatura;
-      r[36]=s.legionella_spp; r[38]=s.aerobios_22; r[39]=s.legionella_spp; r[41]=s.legionella_pneumo;
+      r[36]=s.legionella_spp; r[37]=s.hierro; r[38]=s.aerobios_22; r[39]=s.legionella_spp; r[41]=s.legionella_pneumo;
       return r.map(v => v || '');
     },
   },
@@ -152,7 +152,7 @@ const SHEET_CONFIG = {
       r[4]=s.fecha_recogida; r[5]=s.hora_recogida; r[6]=s.fecha_entrada;
       r[7]=s.fecha_inicio; r[8]=s.fecha_fin; r[9]=s.resultado||'APTO'; r[11]=s.comentarios;
       r[12]=s.ph; r[13]=s.cloro_libre; r[15]=s.cloro_combinado; r[16]=s.temperatura;
-      r[36]=s.legionella_spp; r[38]=s.aerobios_22; r[39]=s.legionella_spp; r[41]=s.legionella_pneumo;
+      r[36]=s.legionella_spp; r[37]=s.hierro; r[38]=s.aerobios_22; r[39]=s.legionella_spp; r[41]=s.legionella_pneumo;
       return r.map(v => v || '');
     },
   },
@@ -261,7 +261,7 @@ const SHEET_CONFIG = {
       r[4]=s.fecha_recogida; r[5]=s.hora_recogida; r[6]=s.fecha_entrada;
       r[7]=s.fecha_inicio; r[8]=s.fecha_fin; r[9]=s.resultado||'APTO'; r[11]=s.comentarios;
       r[12]=s.temperatura; r[13]=s.cloro_libre; r[14]=s.legionella_spp;
-      r[15]=s.legionella_pneumo; r[16]=s.legionella_spp;
+      r[15]=s.legionella_pneumo; r[16]=s.legionella_spp; r[17]=s.hierro;
       return r.map(v => v || '');
     },
   },
@@ -282,6 +282,7 @@ const EDITABLE_FIELDS = [
   { key: 'cloro_combinado', label: 'Cl comb.', width: 70 },
   { key: 'temperatura', label: 'Tª ºC', width: 65 },
   { key: 'aerobios_22', label: 'Aerobios', width: 85 },
+  { key: 'hierro', label: 'Hierro mg/L', width: 90 },
   { key: 'legionella_spp', label: 'Legionella spp', width: 115 },
   { key: 'legionella_pneumo', label: 'L.pneumo', width: 100 },
   { key: 'resultado', label: 'Resultado', width: 90 },

@@ -130,6 +130,9 @@ function extractFields(text, filename) {
   const aerM = text.match(/Recuento de microorganismos[\s\S]{0,150}?([<>]?\s*\d+(?:[,\.]\d+)?|No detectado)\s+ufc\/ml/i);
   f.aerobios_22 = normAerobios(aerM ? aerM[1] : null);
 
+  const hierroM = text.match(/Hierro[\s\S]{0,100}?(No detectado|\d+(?:[,\.]\d+)?)\s+mg\/L/i);
+  f.hierro = norm(hierroM ? hierroM[1] : null);
+
   const phM = text.match(/pH\s+(\d+[,\.]\d+)\s+Unidades pH/i);
   f.ph = phM ? phM[1].replace(',', '.') : null;
 
@@ -221,6 +224,10 @@ function extractFieldsLabaqua(text, filename) {
   // Aerobios 22ºC — unidad: u.f.c./mL
   const aerBlock = text.match(/Microorganismos\s+aerobios\s+a\s+22[oº°]C([\s\S]{0,250}?)u\.f\.c\.\/mL/i);
   f.aerobios_22 = normAerobios(lastResult(aerBlock && aerBlock[1]));
+
+  // Hierro — unidad: mg/L
+  const hierroBlock = text.match(/Hierro([\s\S]{0,150}?)mg\/L/i);
+  f.hierro = norm(lastResult(hierroBlock && hierroBlock[1]));
 
   // Labaqua no incluye pH / cloro / temperatura en estos informes
   f.ph = null;
