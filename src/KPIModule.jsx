@@ -27,6 +27,8 @@ function parseCSVText(text) {
 function getSLA(analitica) {
   const a = analitica.toLowerCase();
   if (a.includes('legionella') || /^3\.1/.test(a)) return { days: 14, cat: 'Legionella' };
+  // Perfiles piscina con Legionella (2.1.1, 2.1.2, 2.2.x, 2.3.x) → 14 días
+  if (/^2\.(1\.[12]|[23])/.test(a)) return { days: 14, cat: 'Piscina+Legionella' };
   if (/^2\./.test(a)) return { days: 5, cat: 'Agua/Piscina' };
   if (/^1\.6|^5\./.test(a)) return { days: 4, cat: 'Superficie' };
   if (/^1\./.test(a)) return { days: 4, cat: 'Alimento' };
@@ -110,6 +112,7 @@ const BADGES = {
 };
 const CAT_BADGES = {
   'Legionella': { bg: '#F5F3FF', color: '#6D28D9', border: '#DDD6FE' },
+  'Piscina+Legionella': { bg: '#FDF4FF', color: '#7C3AED', border: '#E9D5FF' },
   'Agua/Piscina': { bg: '#EFF6FF', color: '#0369A1', border: '#BAE6FD' },
   'Alimento': { bg: '#FDF2F8', color: '#BE185D', border: '#FBCFE8' },
   'Superficie': { bg: '#ECFEFF', color: '#0E7490', border: '#A5F3FC' },
@@ -384,7 +387,7 @@ export default function KPIModule({ onBackToHub }) {
                 Arrastra aquí el fichero exportado desde HSLAB, o haz clic para seleccionarlo.<br />
                 Formato semicolón, columnas estándar de analíticas.
               </div>
-              <div style={{ fontSize: '.73rem', color: '#7A96B0', fontStyle: 'italic' }}>SLA: Legionella 14d · Piscina 5d · Alimento/Superficie/Agua 4d</div>
+              <div style={{ fontSize: '.73rem', color: '#7A96B0', fontStyle: 'italic' }}>SLA: Legionella 14d · Piscina+Legionella (2.1.1/2.1.2/2.2.x/2.3.x) 14d · Piscina 5d · Alimento/Superficie/Agua 4d</div>
             </div>
           </div>
         </div>
@@ -435,6 +438,7 @@ export default function KPIModule({ onBackToHub }) {
             <span style={S.slaTitle}>SLA por tipo</span>
             {[
               { name: 'Legionella', detail: '1d transporte + 12d análisis + 1d informe', days: 14, color: '#6D28D9' },
+              { name: 'Piscina + Legionella (2.1.x/2.2.x/2.3.x)', detail: '1d transporte + 12d análisis + 1d informe', days: 14, color: '#7C3AED' },
               { name: 'Piscina / Spa', detail: '1d transporte + 3d análisis + 1d informe', days: 5, color: '#0369A1' },
               { name: 'Alimento · Superficie · Agua red', detail: '1d transporte + 2d análisis + 1d informe', days: 4, color: '#059669' },
             ].map(s => (
@@ -526,7 +530,7 @@ export default function KPIModule({ onBackToHub }) {
           <span style={{ fontSize: '.69rem', fontWeight: 600, color: '#7A96B0', whiteSpace: 'nowrap' }}>Filtrar:</span>
           <input style={S.input} type="text" placeholder="Establecimiento o código…" value={search} onChange={e => { setSearch(e.target.value); setPage(1); }} />
           <MultiSelect
-            options={['Legionella', 'Agua/Piscina', 'Alimento', 'Superficie', 'Agua/Red']}
+            options={['Legionella', 'Piscina+Legionella', 'Agua/Piscina', 'Alimento', 'Superficie', 'Agua/Red']}
             selected={catsF}
             onChange={s => { setCatsF(s); setPage(1); }}
             placeholder="Categoría"
