@@ -22,8 +22,18 @@ function norm(v) {
   if (!v) return null;
   const s = v.trim();
   const low = s.toLowerCase();
-  if (low === 'no detectada' || low === 'no detectado') return '<20';
+  if (low === 'no detectada' || low === 'no detectado') return '0';
   return s.replace(',', '.');
+}
+
+// Para aerobios: <1 → 0, >300 → 300
+function normAerobios(v) {
+  const n = norm(v);
+  if (!n) return null;
+  const clean = n.replace(/\s+/g, '');
+  if (clean === '<1') return '0';
+  if (clean === '>300') return '300';
+  return n;
 }
 
 function detectSheet(punto, descripcion) {
@@ -117,8 +127,8 @@ function extractFields(text, filename) {
   const legM = text.match(/Recuento de Legionella\s+spp[\s\S]{0,250}?(No detectada|\d+(?:[,\.]\d+)?)\s+ufc\/L/i);
   f.legionella_spp = norm(legM ? legM[1] : null);
 
-  const aerM = text.match(/Recuento de microorganismos[\s\S]{0,150}?(No detectado|\d+(?:[,\.]\d+)?)\s+ufc\/ml/i);
-  f.aerobios_22 = norm(aerM ? aerM[1] : null);
+  const aerM = text.match(/Recuento de microorganismos[\s\S]{0,150}?([<>]?\s*\d+(?:[,\.]\d+)?|No detectado)\s+ufc\/ml/i);
+  f.aerobios_22 = normAerobios(aerM ? aerM[1] : null);
 
   const phM = text.match(/pH\s+(\d+[,\.]\d+)\s+Unidades pH/i);
   f.ph = phM ? phM[1].replace(',', '.') : null;
@@ -210,7 +220,7 @@ function extractFieldsLabaqua(text, filename) {
 
   // Aerobios 22ºC — unidad: u.f.c./mL
   const aerBlock = text.match(/Microorganismos\s+aerobios\s+a\s+22[oº°]C([\s\S]{0,250}?)u\.f\.c\.\/mL/i);
-  f.aerobios_22 = norm(lastResult(aerBlock && aerBlock[1]));
+  f.aerobios_22 = normAerobios(lastResult(aerBlock && aerBlock[1]));
 
   // Labaqua no incluye pH / cloro / temperatura en estos informes
   f.ph = null;
