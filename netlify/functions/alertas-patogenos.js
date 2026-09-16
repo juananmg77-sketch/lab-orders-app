@@ -41,13 +41,9 @@ function buildEmailHtml(consultor, muestras, fecha) {
       ? m.patogenos
       : (m.observaciones || '').split(' | ').filter(Boolean).map(s => ({ nombre: s, valor: '', unidad: '' }));
 
-    const patHtml = pats.map(p => {
-      const n = (p.nombre || '').toLowerCase();
-      const v = parseFloat(p.valor);
-      let color = '#dc2626';
-      if (n.includes('coliformes') && !isNaN(v) && v <= 100) color = '#D97706';
-      return `<div style="color:${color};font-weight:600">⚠ ${p.nombre}${p.valor ? `: <strong>${p.valor}</strong> ${p.unidad}` : ''}</div>`;
-    }).join('');
+    const patHtml = pats.map(p =>
+      `<div style="color:#dc2626;font-weight:600">⚠ ${p.nombre}${p.valor ? `: <strong>${p.valor}</strong> ${p.unidad}` : ''}</div>`
+    ).join('');
 
     return `
     <tr>
