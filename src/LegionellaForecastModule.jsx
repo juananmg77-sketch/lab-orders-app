@@ -826,11 +826,11 @@ function MonthlyCalendar({ actividades, año, mes, savedDB = {}, onSaveHabitacio
     }
 
     return (
-      <div onClick={() => openEdit(act)} style={{ backgroundColor: '#FFFBEB', border: '1px solid #FCD34D', borderRadius: '8px', padding: '10px 14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '10px', cursor: 'pointer', transition: 'border-color 0.15s' }} title="Clic para introducir habitaciones">
+      <div onClick={() => onEditEstab && onEditEstab(act)} style={{ backgroundColor: '#FFFBEB', border: '1px solid #FCD34D', borderRadius: '8px', padding: '10px 14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '10px', cursor: 'pointer', transition: 'border-color 0.15s' }} title="Clic para editar parámetros">
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontWeight: 700, color: 'var(--secondary)', fontSize: '0.85rem', marginBottom: '2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: '4px' }}>
             <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{act.establecimiento}</span>
-            {onEditEstab && <button onClick={e => { e.stopPropagation(); onEditEstab(act); }} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '1px', flexShrink: 0, lineHeight: 1 }} title="Editar parámetros completos"><Edit2 size={11} style={{ opacity: 0.5, color: 'var(--primary)' }} /></button>}
+            <Edit2 size={11} style={{ opacity: 0.45, color: 'var(--primary)', flexShrink: 0 }} />
           </div>
           <div style={{ fontSize: '0.73rem', color: 'var(--text-muted)', marginBottom: '4px' }}>{act.auditor || '—'}</div>
           <span style={{ fontSize: '0.67rem', color: c.text, fontWeight: 600, border: `1px solid ${c.border}`, backgroundColor: 'white', borderRadius: '4px', padding: '1px 6px' }}>{act.nodo?.replace('Zona ', '').replace('Islas ', '')}</span>
@@ -870,12 +870,12 @@ function MonthlyCalendar({ actividades, año, mes, savedDB = {}, onSaveHabitacio
       );
     }
     return (
-      <div onClick={()=>{ setEditingPiscEstab(act.establecimiento); setPiscInput(current||''); }}
-        style={{ backgroundColor:'#EFF6FF',border:'1px solid #7DD3FC',borderRadius:'8px',padding:'10px 14px',display:'flex',justifyContent:'space-between',alignItems:'center',gap:'10px',cursor:'pointer' }}>
+      <div onClick={()=>onEditEstab&&onEditEstab(act)}
+        style={{ backgroundColor:'#EFF6FF',border:'1px solid #7DD3FC',borderRadius:'8px',padding:'10px 14px',display:'flex',justifyContent:'space-between',alignItems:'center',gap:'10px',cursor:'pointer' }} title="Clic para editar parámetros">
         <div style={{ flex:1,minWidth:0 }}>
           <div style={{ fontWeight:700,color:'var(--secondary)',fontSize:'0.85rem',marginBottom:'2px',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',display:'flex',alignItems:'center',gap:'4px' }}>
             <span style={{ overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap' }}>{act.establecimiento}</span>
-            {onEditEstab && <button onClick={e=>{ e.stopPropagation(); onEditEstab(act); }} style={{ background:'none',border:'none',cursor:'pointer',padding:'1px',flexShrink:0,lineHeight:1 }} title="Editar parámetros completos"><Edit2 size={11} style={{ opacity:0.5,color:'var(--primary)' }}/></button>}
+            <Edit2 size={11} style={{ opacity:0.45,color:'var(--primary)',flexShrink:0 }}/>
           </div>
           <div style={{ fontSize:'0.73rem',color:'var(--text-muted)',marginBottom:'4px' }}>{act.auditor||'—'}</div>
         </div>
@@ -1006,7 +1006,7 @@ function MonthlyCalendar({ actividades, año, mes, savedDB = {}, onSaveHabitacio
                         <div key={i} style={{ backgroundColor:c.bg,border:`1px solid ${c.border}`,borderRadius:'8px',padding:'10px 14px',display:'flex',justifyContent:'space-between',alignItems:'center',gap:'10px' }}>
                           <div style={{ flex:1,minWidth:0 }}>
                             <div style={{ fontWeight:700,color:'var(--secondary)',fontSize:'0.85rem',marginBottom:'2px',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',display:'flex',alignItems:'center',gap:'4px' }}>
-                              <button onClick={()=>onEditEstab&&onEditEstab(act)} style={{ background:'none',border:'none',cursor:'pointer',fontWeight:700,color:'var(--secondary)',padding:0,fontSize:'0.85rem',textAlign:'left',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',maxWidth:'100%' }} title="Editar parámetros">{act.establecimiento}</button>
+                              <button onClick={e=>{e.stopPropagation();onEditEstab&&onEditEstab(act);}} style={{ background:'none',border:'none',cursor:'pointer',fontWeight:700,color:'var(--secondary)',padding:0,fontSize:'0.85rem',textAlign:'left',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',maxWidth:'100%' }} title="Editar parámetros">{act.establecimiento}</button>
                               {onEditEstab&&<Edit2 size={10} style={{ opacity:0.35,verticalAlign:'middle',flexShrink:0 }}/>}
                             </div>
                             <div style={{ fontSize:'0.73rem',color:'var(--text-muted)',marginBottom:'4px' }}>{act.auditor||'—'}</div>
@@ -1037,7 +1037,7 @@ function MonthlyCalendar({ actividades, año, mes, savedDB = {}, onSaveHabitacio
                       <div key={i} style={{ backgroundColor:c.bg,border:`1px solid ${c.border}`,borderRadius:'8px',padding:'10px 14px',display:'flex',justifyContent:'space-between',alignItems:'center',gap:'10px' }}>
                         <div style={{ flex:1,minWidth:0 }}>
                           <div style={{ fontWeight:700,color:'var(--secondary)',fontSize:'0.85rem',marginBottom:'2px',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',display:'flex',alignItems:'center',gap:'4px' }}>
-                            <button onClick={()=>onEditEstab&&onEditEstab(act)} style={{ background:'none',border:'none',cursor:'pointer',fontWeight:700,color:'var(--secondary)',padding:0,fontSize:'0.85rem',textAlign:'left',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',maxWidth:'100%' }} title="Editar parámetros">{act.establecimiento}</button>
+                            <button onClick={e=>{e.stopPropagation();onEditEstab&&onEditEstab(act);}} style={{ background:'none',border:'none',cursor:'pointer',fontWeight:700,color:'var(--secondary)',padding:0,fontSize:'0.85rem',textAlign:'left',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',maxWidth:'100%' }} title="Editar parámetros">{act.establecimiento}</button>
                             {onEditEstab&&<Edit2 size={10} style={{ opacity:0.35,verticalAlign:'middle',flexShrink:0 }}/>}
                           </div>
                           <div style={{ fontSize:'0.73rem',color:'var(--text-muted)',marginBottom:'4px' }}>{act.auditor||'—'}</div>
