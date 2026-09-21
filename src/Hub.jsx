@@ -18,6 +18,11 @@ export default function Hub({ session, globalLab, setGlobalLab, onSelectModule, 
   const showUsers = role === 'admin';
   const showRRHH = ['admin', 'operations'].includes(role);
 
+  // Gestor documental: skip Hub, go directly to the documents module
+  React.useEffect(() => {
+    if (role === 'gestor_documental') onSelectModule('documentos');
+  }, [role, onSelectModule]);
+
   // Si el lab actual no está permitido para este usuario, forzar a Baleares
   React.useEffect(() => {
     if (!allowedLabs.includes(globalLab)) {

@@ -269,6 +269,7 @@ Por seguridad, te recomendamos cambiar tu contraseña tras el primer acceso.`}
                       <option value="admin">👑 Administrador</option>
                       <option value="lab">🧪 Laboratorio</option>
                       <option value="operations">👥 Operaciones</option>
+                      <option value="gestor_documental">📁 Gestor Documental</option>
                     </select>
                   </td>
                   <td style={{ padding: '16px 24px', color: '#64748b' }}>
@@ -332,6 +333,7 @@ Por seguridad, te recomendamos cambiar tu contraseña tras el primer acceso.`}
                   <option value="admin">Administrador de Sistemas</option>
                   <option value="lab">Analista de Laboratorio</option>
                   <option value="operations">Operaciones / Consultoría</option>
+                  <option value="gestor_documental">Gestor Documental</option>
                 </select>
               </div>
               <div style={{ display: 'flex', gap: '12px', marginTop: '32px' }}>
