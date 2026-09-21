@@ -111,10 +111,15 @@ function calcPromedio(h) {
   const v = [h.Q1, h.Q2, h.Q3, h.Q4].filter(x => x > 0);
   return v.length ? Math.round(v.reduce((a, b) => a + b, 0) / v.length) : 0;
 }
-function estimarMuestras(nombre, mes) {
+function estimarMuestras(nombre, mes, savedDB = {}) {
+  const q = MES_A_TRIMESTRE[(mes || '').toLowerCase()] || 'Q1';
+  // DB override (q1/q2/q3/q4) tiene prioridad sobre el histórico estático
+  const saved = savedDB[nombre];
+  const dbQ = saved ? saved[q.toLowerCase()] : null;
+  if (dbQ > 0) return { muestras: dbQ, estado: `OK (DB ${q})`, trimestre: q };
+  // Fallback: fichero histórico estático
   const h = buscarHistorico(nombre);
   if (!h) return { muestras: null, estado: 'SIN HISTÓRICO' };
-  const q = MES_A_TRIMESTRE[mes.toLowerCase()] || 'Q1';
   if (h[q] > 0) return { muestras: h[q], estado: 'OK', trimestre: q };
   const p = calcPromedio(h);
   return p > 0 ? { muestras: p, estado: 'OK (PROMEDIO)', trimestre: q } : { muestras: null, estado: 'SIN HISTÓRICO' };
@@ -201,7 +206,7 @@ function csvRowToRecord(row, savedDB) {
     }
   } else if (cat === 'd3' || cat === 'd3bis') {
     // D3 / D3bis — histórico + normativa
-    const { muestras, estado } = estimarMuestras(establecimiento, mes);
+    const { muestras, estado } = estimarMuestras(establecimiento, mes, savedDB);
     muestrasEst = muestras; estadoEst = estado;
     if (!muestrasEst) {
       const saved = savedDB[establecimiento];
@@ -496,7 +501,7 @@ function ResumenNodos({ actividades, allActs, sinFechaData, filters, onFiltersCh
 
 // ─── TablaActividades ─────────────────────────────────────────────────────────
 
-function TablaActividades({ actividades, savedDB, manualInputs, onInputChange, savingStates, onUpdateReal }) {
+function TablaActividades({ actividades, savedDB, manualInputs, onInputChange, savingStates, onUpdateReal, onEditEstab }) {
   const [sortField, setSortField] = useState('fecha_date');
   const [sortAsc, setSortAsc] = useState(true);
   const [editingReal, setEditingReal] = useState({});
@@ -542,7 +547,11 @@ function TablaActividades({ actividades, savedDB, manualInputs, onInputChange, s
                   <td style={{ padding:'8px 12px', whiteSpace:'nowrap' }}>
                     <span style={{ backgroundColor:c.bg,color:c.text,border:`1px solid ${c.border}`,borderRadius:'6px',padding:'2px 6px',fontSize:'0.7rem',fontWeight:600 }}>{act.nodo?.replace('Zona ','').replace('Islas ','')}</span>
                   </td>
-                  <td style={{ padding:'8px 12px', fontWeight:600, color:'var(--secondary)', maxWidth:'220px', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{act.establecimiento}</td>
+                  <td style={{ padding:'8px 12px', maxWidth:'220px', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
+                    <button onClick={() => onEditEstab && onEditEstab(act)} style={{ background:'none', border:'none', cursor:'pointer', fontWeight:600, color:'var(--primary)', padding:0, fontSize:'inherit', textAlign:'left', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', maxWidth:'100%' }} title="Editar parámetros">
+                      {act.establecimiento} <Edit2 size={10} style={{ opacity:0.45, verticalAlign:'middle' }}/>
+                    </button>
+                  </td>
                   <td style={{ padding:'8px 12px', whiteSpace:'nowrap', fontSize:'0.82rem' }}>{act.auditor}</td>
                   <td style={{ padding:'8px 12px', textAlign:'center', fontWeight:700, color:sinHist?'#D97706':'var(--secondary)' }}>
                     {sinHist?(preview?preview.total:'—'):act.muestras_estimadas}
@@ -622,7 +631,150 @@ function groupByDay(acts, mes, año) {
   return m;
 }
 
-function MonthlyCalendar({ actividades, año, mes, savedDB = {}, onSaveHabitaciones, onSavePiscinas, savingStates = {} }) {
+// ─── EstablecimientoModal ─────────────────────────────────────────────────────
+
+function EstablecimientoModal({ act, savedDB, onSave, onClose }) {
+  const estab  = act.establecimiento;
+  const saved  = savedDB[estab] || {};
+  const staticH = buscarHistorico(estab);
+
+  const [form, setForm] = useState({
+    q1: saved.q1 ?? '',
+    q2: saved.q2 ?? '',
+    q3: saved.q3 ?? '',
+    q4: saved.q4 ?? '',
+    habitaciones:  saved.habitaciones  ?? '',
+    zonas_comunes: saved.zonas_comunes ?? '',
+    piscinas:      saved.piscinas      ?? '',
+    muestras_override: '',
+  });
+  const [saving, setSaving] = useState(false);
+  const [saved_, setSaved_] = useState(false);
+
+  const set = (k, v) => setForm(p => ({ ...p, [k]: v }));
+  const num = v => v === '' ? null : parseInt(v) || null;
+
+  const normCalc = form.habitaciones
+    ? calcPorNormativa(form.habitaciones, form.zonas_comunes || 0)
+    : null;
+
+  const handleSave = async () => {
+    setSaving(true);
+    await onSave({
+      establecimiento: estab,
+      actId: act.id,
+      q1: num(form.q1), q2: num(form.q2), q3: num(form.q3), q4: num(form.q4),
+      habitaciones: num(form.habitaciones),
+      zonas_comunes: num(form.zonas_comunes),
+      piscinas: num(form.piscinas),
+      muestras_override: num(form.muestras_override),
+    });
+    setSaving(false);
+    setSaved_(true);
+    setTimeout(() => setSaved_(false), 2500);
+  };
+
+  const c = NODO_COLORS[act.nodo] || { bg: '#F8FAFC', border: '#E2E8F0', text: '#475569' };
+  const inp = { padding: '6px 10px', border: '1.5px solid #E2E8F0', borderRadius: '7px', fontSize: '0.88rem', outline: 'none', width: '100%', boxSizing: 'border-box' };
+  const lbl = { fontSize: '0.76rem', fontWeight: 700, color: '#475569', marginBottom: '3px', display: 'block' };
+  const sec = { fontSize: '0.7rem', fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '10px', paddingBottom: '6px', borderBottom: '1px solid #F1F5F9' };
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.45)', zIndex: 2000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+      onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
+      <div style={{ backgroundColor: 'white', borderRadius: '14px', width: '480px', maxHeight: '90vh', overflowY: 'auto', boxShadow: '0 20px 60px rgba(0,0,0,0.25)', display: 'flex', flexDirection: 'column' }}>
+
+        {/* Header */}
+        <div style={{ padding: '18px 20px 14px', borderBottom: '1px solid #F1F5F9', display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontWeight: 800, fontSize: '1rem', color: '#0F172A', marginBottom: '4px', wordBreak: 'break-word' }}>{estab}</div>
+            <span style={{ fontSize: '0.72rem', fontWeight: 600, color: c.text, backgroundColor: c.bg, border: `1px solid ${c.border}`, borderRadius: '5px', padding: '2px 7px' }}>{act.nodo}</span>
+          </div>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94A3B8', padding: '2px', flexShrink: 0 }}><X size={18} /></button>
+        </div>
+
+        {/* Body */}
+        <div style={{ padding: '18px 20px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+
+          {/* D3 — Muestras trimestrales */}
+          <div>
+            <div style={sec}>D3 Legionella — Muestras por trimestre</div>
+            {staticH && (
+              <div style={{ fontSize: '0.76rem', color: '#64748B', backgroundColor: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: '6px', padding: '7px 10px', marginBottom: '10px' }}>
+                Histórico estático: Q1={staticH.Q1||0} · Q2={staticH.Q2||0} · Q3={staticH.Q3||0} · Q4={staticH.Q4||0}
+                <span style={{ color: '#94A3B8' }}> (referencia, se aplica si no hay override)</span>
+              </div>
+            )}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: '8px' }}>
+              {['q1','q2','q3','q4'].map(q => (
+                <label key={q}>
+                  <span style={lbl}>{q.toUpperCase()}</span>
+                  <input type="number" min="0" placeholder={staticH?.[q.toUpperCase()]??'—'} value={form[q]}
+                    onChange={e => set(q, e.target.value)}
+                    style={{ ...inp, borderColor: form[q] !== '' ? '#6366F1' : '#E2E8F0' }} />
+                </label>
+              ))}
+            </div>
+            <p style={{ margin: '6px 0 0', fontSize: '0.73rem', color: '#94A3B8' }}>Override permanente para este hotel. Vacío = usa el fichero histórico.</p>
+          </div>
+
+          {/* RD 487/2022 */}
+          <div>
+            <div style={sec}>Habitaciones — RD 487/2022 (fallback D3)</div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '8px' }}>
+              <label>
+                <span style={lbl}>Habitaciones</span>
+                <input type="number" min="0" placeholder="Nº hab." value={form.habitaciones} onChange={e => set('habitaciones', e.target.value)} style={inp} />
+              </label>
+              <label>
+                <span style={lbl}>Zonas comunes</span>
+                <input type="number" min="0" placeholder="Extra" value={form.zonas_comunes} onChange={e => set('zonas_comunes', e.target.value)} style={inp} />
+              </label>
+            </div>
+            {normCalc && (
+              <div style={{ fontSize: '0.8rem', color: '#0369A1', backgroundColor: '#E0F2FE', border: '1px solid #7DD3FC', borderRadius: '6px', padding: '5px 10px', fontWeight: 600 }}>
+                {normCalc.puntos} pts → {normCalc.acs} ACS + {normCalc.afch} AFCH = <strong>{normCalc.total}</strong> muestras
+              </div>
+            )}
+          </div>
+
+          {/* Piscinas */}
+          <div>
+            <div style={sec}>D02 Piscinas</div>
+            <label style={{ display: 'block', maxWidth: '140px' }}>
+              <span style={lbl}>Nº piscinas muestreadas</span>
+              <input type="number" min="0" placeholder={saved.piscinas ?? 'Ej: 3'} value={form.piscinas} onChange={e => set('piscinas', e.target.value)} style={inp} />
+            </label>
+          </div>
+
+          {/* Override puntual */}
+          <div>
+            <div style={sec}>Override puntual — esta visita</div>
+            <label style={{ display: 'block', maxWidth: '140px' }}>
+              <span style={lbl}>Muestras para esta visita</span>
+              <input type="number" min="0" placeholder={act.muestras_estimadas ?? '—'} value={form.muestras_override}
+                onChange={e => set('muestras_override', e.target.value)}
+                style={{ ...inp, borderColor: form.muestras_override !== '' ? '#DC2626' : '#E2E8F0' }} />
+            </label>
+            <p style={{ margin: '5px 0 0', fontSize: '0.73rem', color: '#94A3B8' }}>Solo afecta a esta actividad concreta (no modifica parámetros del hotel).</p>
+          </div>
+
+        </div>
+
+        {/* Footer */}
+        <div style={{ padding: '14px 20px', borderTop: '1px solid #F1F5F9', display: 'flex', justifyContent: 'flex-end', gap: '10px', flexShrink: 0 }}>
+          <button onClick={onClose} style={{ padding: '8px 18px', border: '1px solid #E2E8F0', borderRadius: '8px', background: 'white', cursor: 'pointer', fontWeight: 600, color: '#64748B' }}>Cancelar</button>
+          <button onClick={handleSave} disabled={saving}
+            style={{ padding: '8px 20px', backgroundColor: saved_ ? '#16A34A' : '#1E3A5F', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '7px', minWidth: '120px', justifyContent: 'center' }}>
+            {saving ? <><Save size={14} /> Guardando…</> : saved_ ? <><CheckCircle size={14} /> Guardado</> : <><Save size={14} /> Guardar</>}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function MonthlyCalendar({ actividades, año, mes, savedDB = {}, onSaveHabitaciones, onSavePiscinas, savingStates = {}, onEditEstab }) {
   const [expandedDay, setExpandedDay] = useState(null);
   const [editingEstab, setEditingEstab] = useState(null);
   const [localInputs, setLocalInputs] = useState({ habitaciones: '', zonasComunes: '' });
@@ -676,7 +828,10 @@ function MonthlyCalendar({ actividades, año, mes, savedDB = {}, onSaveHabitacio
     return (
       <div onClick={() => openEdit(act)} style={{ backgroundColor: '#FFFBEB', border: '1px solid #FCD34D', borderRadius: '8px', padding: '10px 14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '10px', cursor: 'pointer', transition: 'border-color 0.15s' }} title="Clic para introducir habitaciones">
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontWeight: 700, color: 'var(--secondary)', fontSize: '0.85rem', marginBottom: '2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{act.establecimiento}</div>
+          <div style={{ fontWeight: 700, color: 'var(--secondary)', fontSize: '0.85rem', marginBottom: '2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: '4px' }}>
+            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{act.establecimiento}</span>
+            {onEditEstab && <button onClick={e => { e.stopPropagation(); onEditEstab(act); }} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '1px', flexShrink: 0, lineHeight: 1 }} title="Editar parámetros completos"><Edit2 size={11} style={{ opacity: 0.5, color: 'var(--primary)' }} /></button>}
+          </div>
           <div style={{ fontSize: '0.73rem', color: 'var(--text-muted)', marginBottom: '4px' }}>{act.auditor || '—'}</div>
           <span style={{ fontSize: '0.67rem', color: c.text, fontWeight: 600, border: `1px solid ${c.border}`, backgroundColor: 'white', borderRadius: '4px', padding: '1px 6px' }}>{act.nodo?.replace('Zona ', '').replace('Islas ', '')}</span>
         </div>
@@ -718,7 +873,10 @@ function MonthlyCalendar({ actividades, año, mes, savedDB = {}, onSaveHabitacio
       <div onClick={()=>{ setEditingPiscEstab(act.establecimiento); setPiscInput(current||''); }}
         style={{ backgroundColor:'#EFF6FF',border:'1px solid #7DD3FC',borderRadius:'8px',padding:'10px 14px',display:'flex',justifyContent:'space-between',alignItems:'center',gap:'10px',cursor:'pointer' }}>
         <div style={{ flex:1,minWidth:0 }}>
-          <div style={{ fontWeight:700,color:'var(--secondary)',fontSize:'0.85rem',marginBottom:'2px',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap' }}>{act.establecimiento}</div>
+          <div style={{ fontWeight:700,color:'var(--secondary)',fontSize:'0.85rem',marginBottom:'2px',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',display:'flex',alignItems:'center',gap:'4px' }}>
+            <span style={{ overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap' }}>{act.establecimiento}</span>
+            {onEditEstab && <button onClick={e=>{ e.stopPropagation(); onEditEstab(act); }} style={{ background:'none',border:'none',cursor:'pointer',padding:'1px',flexShrink:0,lineHeight:1 }} title="Editar parámetros completos"><Edit2 size={11} style={{ opacity:0.5,color:'var(--primary)' }}/></button>}
+          </div>
           <div style={{ fontSize:'0.73rem',color:'var(--text-muted)',marginBottom:'4px' }}>{act.auditor||'—'}</div>
         </div>
         <div style={{ textAlign:'right',flexShrink:0 }}>
@@ -847,7 +1005,10 @@ function MonthlyCalendar({ actividades, año, mes, savedDB = {}, onSaveHabitacio
                       return (
                         <div key={i} style={{ backgroundColor:c.bg,border:`1px solid ${c.border}`,borderRadius:'8px',padding:'10px 14px',display:'flex',justifyContent:'space-between',alignItems:'center',gap:'10px' }}>
                           <div style={{ flex:1,minWidth:0 }}>
-                            <div style={{ fontWeight:700,color:'var(--secondary)',fontSize:'0.85rem',marginBottom:'2px',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap' }}>{act.establecimiento}</div>
+                            <div style={{ fontWeight:700,color:'var(--secondary)',fontSize:'0.85rem',marginBottom:'2px',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',display:'flex',alignItems:'center',gap:'4px' }}>
+                              <button onClick={()=>onEditEstab&&onEditEstab(act)} style={{ background:'none',border:'none',cursor:'pointer',fontWeight:700,color:'var(--secondary)',padding:0,fontSize:'0.85rem',textAlign:'left',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',maxWidth:'100%' }} title="Editar parámetros">{act.establecimiento}</button>
+                              {onEditEstab&&<Edit2 size={10} style={{ opacity:0.35,verticalAlign:'middle',flexShrink:0 }}/>}
+                            </div>
                             <div style={{ fontSize:'0.73rem',color:'var(--text-muted)',marginBottom:'4px' }}>{act.auditor||'—'}</div>
                             <span style={{ fontSize:'0.67rem',color:c.text,fontWeight:600,border:`1px solid ${c.border}`,backgroundColor:'white',borderRadius:'4px',padding:'1px 6px' }}>{act.nodo?.replace('Zona ','').replace('Islas ','')}</span>
                           </div>
@@ -875,7 +1036,10 @@ function MonthlyCalendar({ actividades, año, mes, savedDB = {}, onSaveHabitacio
                     return (
                       <div key={i} style={{ backgroundColor:c.bg,border:`1px solid ${c.border}`,borderRadius:'8px',padding:'10px 14px',display:'flex',justifyContent:'space-between',alignItems:'center',gap:'10px' }}>
                         <div style={{ flex:1,minWidth:0 }}>
-                          <div style={{ fontWeight:700,color:'var(--secondary)',fontSize:'0.85rem',marginBottom:'2px',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap' }}>{act.establecimiento}</div>
+                          <div style={{ fontWeight:700,color:'var(--secondary)',fontSize:'0.85rem',marginBottom:'2px',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',display:'flex',alignItems:'center',gap:'4px' }}>
+                            <button onClick={()=>onEditEstab&&onEditEstab(act)} style={{ background:'none',border:'none',cursor:'pointer',fontWeight:700,color:'var(--secondary)',padding:0,fontSize:'0.85rem',textAlign:'left',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',maxWidth:'100%' }} title="Editar parámetros">{act.establecimiento}</button>
+                            {onEditEstab&&<Edit2 size={10} style={{ opacity:0.35,verticalAlign:'middle',flexShrink:0 }}/>}
+                          </div>
                           <div style={{ fontSize:'0.73rem',color:'var(--text-muted)',marginBottom:'4px' }}>{act.auditor||'—'}</div>
                           <span style={{ fontSize:'0.67rem',color:c.text,fontWeight:600,border:`1px solid ${c.border}`,backgroundColor:'white',borderRadius:'4px',padding:'1px 6px' }}>{act.nodo?.replace('Zona ','').replace('Islas ','')}</span>
                         </div>
@@ -1676,6 +1840,7 @@ export default function LegionellaForecastModule({ onBackToHub, globalLab }) {
   const [showImport, setShowImport] = useState(false);
   const [showPendientes, setShowPendientes] = useState(false);
   const [showWeekly, setShowWeekly] = useState(false);
+  const [editEstab, setEditEstab] = useState(null);
   const saveTimers = useRef({});
 
   // ── Carga ligera: lista de meses disponibles ───────────────────────────────
@@ -1727,7 +1892,7 @@ export default function LegionellaForecastModule({ onBackToHub, globalLab }) {
     setLoading(true);
     const [meses, { data: estabs }] = await Promise.all([
       loadMesesDisponibles(),
-      supabase.from('legionella_establecimientos').select('nombre, habitaciones, zonas_comunes, piscinas, solo_auditoria, excluir_d02'),
+      supabase.from('legionella_establecimientos').select('nombre, habitaciones, zonas_comunes, piscinas, solo_auditoria, excluir_d02, q1, q2, q3, q4'),
     ]);
     if (estabs) {
       const m = {};
@@ -1829,6 +1994,35 @@ export default function LegionellaForecastModule({ onBackToHub, globalLab }) {
       setTimeout(() => setSavingStates(s => ({ ...s, [establecimiento]: null })), 3000);
     }
   }, []);
+
+  const handleSaveEstab = useCallback(async ({ establecimiento, actId, q1, q2, q3, q4, habitaciones, zonas_comunes, piscinas, muestras_override }) => {
+    const upsertData = { nombre: establecimiento };
+    if (q1 != null) upsertData.q1 = q1;
+    if (q2 != null) upsertData.q2 = q2;
+    if (q3 != null) upsertData.q3 = q3;
+    if (q4 != null) upsertData.q4 = q4;
+    if (habitaciones != null) upsertData.habitaciones = habitaciones;
+    if (zonas_comunes != null) upsertData.zonas_comunes = zonas_comunes;
+    if (piscinas != null) upsertData.piscinas = piscinas;
+
+    await supabase.from('legionella_establecimientos').upsert(upsertData, { onConflict: 'nombre' });
+
+    const newSaved = { ...(savedDB[establecimiento] || {}), ...upsertData };
+    delete newSaved.nombre;
+    setSavedDB(prev => ({ ...prev, [establecimiento]: newSaved }));
+
+    if (muestras_override != null && actId) {
+      await supabase.from('legionella_actividades').update({ muestras_estimadas: muestras_override, estado_estimacion: 'Override manual' }).eq('id', actId);
+      setActividades(prev => prev.map(a => a.id === actId ? { ...a, muestras_estimadas: muestras_override, estado_estimacion: 'Override manual' } : a));
+    } else {
+      // Recalculate muestras_estimadas for all activities of this establishment in the current month
+      setActividades(prev => prev.map(a => {
+        if (a.establecimiento !== establecimiento) return a;
+        const { muestras, estado } = estimarMuestras(establecimiento, a.mes, { ...savedDB, [establecimiento]: newSaved });
+        return muestras != null ? { ...a, muestras_estimadas: muestras, estado_estimacion: estado } : a;
+      }));
+    }
+  }, [savedDB]);
 
   const handleBorrarProgramacion = useCallback(async () => {
     if (!selectedMes) return;
@@ -1994,9 +2188,10 @@ export default function LegionellaForecastModule({ onBackToHub, globalLab }) {
                 onInputChange={handleInputChange}
                 savingStates={savingStates}
                 onUpdateReal={handleUpdateReal}
+                onEditEstab={act => setEditEstab(act)}
               />
             ):calMesAno&&(
-              <MonthlyCalendar actividades={filteredActs} año={calMesAno.año} mes={calMesAno.mes} savedDB={savedDB} onSaveHabitaciones={handleSaveHabitacionesManual} onSavePiscinas={handleSavePiscinas} savingStates={savingStates}/>
+              <MonthlyCalendar actividades={filteredActs} año={calMesAno.año} mes={calMesAno.mes} savedDB={savedDB} onSaveHabitaciones={handleSaveHabitacionesManual} onSavePiscinas={handleSavePiscinas} savingStates={savingStates} onEditEstab={act => setEditEstab(act)}/>
             )}
           </div>
         )}
@@ -2013,6 +2208,7 @@ export default function LegionellaForecastModule({ onBackToHub, globalLab }) {
         savedDB={savedDB}
       />}
       {showPendientes&&<PendientesModal actividades={tabActs} savedDB={savedDB} onSave={handleSaveHabitacionesManual} onClose={()=>{ setShowPendientes(false); loadData(); }}/>}
+      {editEstab&&<EstablecimientoModal act={editEstab} savedDB={savedDB} onSave={handleSaveEstab} onClose={()=>setEditEstab(null)}/>}
     </div>
   );
 }
