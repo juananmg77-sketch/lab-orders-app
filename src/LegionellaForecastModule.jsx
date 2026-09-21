@@ -2015,14 +2015,29 @@ export default function LegionellaForecastModule({ onBackToHub, globalLab }) {
       await supabase.from('legionella_actividades').update({ muestras_estimadas: muestras_override, estado_estimacion: 'Override manual' }).eq('id', actId);
       setActividades(prev => prev.map(a => a.id === actId ? { ...a, muestras_estimadas: muestras_override, estado_estimacion: 'Override manual' } : a));
     } else {
-      // Recalculate muestras_estimadas for all activities of this establishment in the current month
+      // Recalculate and persist muestras_estimadas for all current-month activities of this hotel
+      const mergedDB = { ...savedDB, [establecimiento]: newSaved };
+      const dbUpdates = actividades
+        .filter(a => a.establecimiento === establecimiento)
+        .map(a => {
+          const { muestras, estado } = estimarMuestras(establecimiento, a.mes, mergedDB);
+          return muestras != null ? { id: a.id, muestras_estimadas: muestras, estado_estimacion: estado } : null;
+        })
+        .filter(Boolean);
+
       setActividades(prev => prev.map(a => {
         if (a.establecimiento !== establecimiento) return a;
-        const { muestras, estado } = estimarMuestras(establecimiento, a.mes, { ...savedDB, [establecimiento]: newSaved });
-        return muestras != null ? { ...a, muestras_estimadas: muestras, estado_estimacion: estado } : a;
+        const upd = dbUpdates.find(u => u.id === a.id);
+        return upd ? { ...a, muestras_estimadas: upd.muestras_estimadas, estado_estimacion: upd.estado_estimacion } : a;
       }));
+
+      await Promise.all(dbUpdates.map(upd =>
+        supabase.from('legionella_actividades')
+          .update({ muestras_estimadas: upd.muestras_estimadas, estado_estimacion: upd.estado_estimacion })
+          .eq('id', upd.id)
+      ));
     }
-  }, [savedDB]);
+  }, [savedDB, actividades]);
 
   const handleBorrarProgramacion = useCallback(async () => {
     if (!selectedMes) return;
