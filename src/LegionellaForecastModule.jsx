@@ -133,6 +133,16 @@ function parseFecha(s) {
 }
 function semanaDelMes(d) { return Math.ceil(d.getDate() / 7); }
 
+function isoMonday(date) {
+  const d = new Date(date);
+  const day = d.getDay();
+  d.setDate(d.getDate() - (day === 0 ? 6 : day - 1));
+  d.setHours(0, 0, 0, 0);
+  return d;
+}
+function addDays(d, n) { const r = new Date(d); r.setDate(r.getDate() + n); return r; }
+function fmtShortDate(d) { return d.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit' }); }
+
 function parsearCSV(texto) {
   const lineas = texto.split('\n').filter(l => l.trim());
   if (lineas.length < 2) return [];
@@ -1394,6 +1404,220 @@ function ImportModal({ onClose, onImported, savedDB }) {
   );
 }
 
+// ─── WeeklySummary ────────────────────────────────────────────────────────────
+
+const WEEK_DISC_ORDER = ['d3','d3bis','d02','d01','d04'];
+const WEEK_DISC_LABELS = {
+  d3:'D3 Legionella', d3bis:'D3bis Remuestreo',
+  d02:'D02 Piscinas', d01:'D01 Alimentos', d04:'D04 Agua Potable',
+};
+const DAY_INITIALS = ['L','M','X','J','V'];
+
+function WeeklySummary({ actividades, onClose }) {
+  const [weekOffset, setWeekOffset] = useState(0);
+
+  const monday = useMemo(() => addDays(isoMonday(new Date()), weekOffset * 7), [weekOffset]);
+  const weekDays = useMemo(() => [0,1,2,3,4].map(i => addDays(monday, i)), [monday]);
+  const weekLabel = `${fmtShortDate(weekDays[0])} – ${fmtShortDate(weekDays[4])}`;
+
+  const weekActs = useMemo(() => {
+    const t0 = weekDays[0].getTime();
+    const t4 = weekDays[4].getTime() + 86399999;
+    return actividades.filter(a => {
+      if (!a.fechaDate) return false;
+      const t = a.fechaDate.getTime();
+      return t >= t0 && t <= t4;
+    });
+  }, [actividades, weekDays]);
+
+  const balearsActs  = weekActs.filter(a => a.nodo !== 'Islas Canarias');
+  const canariasActs = weekActs.filter(a => a.nodo === 'Islas Canarias');
+
+  function buildSummary(acts) {
+    const m = {};
+    WEEK_DISC_ORDER.forEach(d => { m[d] = [0,0,0,0,0]; });
+    acts.forEach(a => {
+      const disc = getDisciplinaCategoria(a.disciplina);
+      if (!m[disc]) return;
+      const di = weekDays.findIndex(wd =>
+        wd.getFullYear() === a.fechaDate.getFullYear() &&
+        wd.getMonth()    === a.fechaDate.getMonth()    &&
+        wd.getDate()     === a.fechaDate.getDate()
+      );
+      if (di >= 0) m[disc][di] += (a.muestras_estimadas || 0);
+    });
+    return m;
+  }
+
+  function SummaryTable({ summary, acts }) {
+    const colTotals = [0,0,0,0,0]; let grand = 0;
+    WEEK_DISC_ORDER.forEach(d => summary[d].forEach((v,i) => { colTotals[i]+=v; grand+=v; }));
+    return (
+      <table style={{ width:'100%', borderCollapse:'collapse', fontSize:'0.8rem', marginBottom:'10px' }}>
+        <thead>
+          <tr>
+            <th style={{ padding:'5px 8px', textAlign:'left', backgroundColor:'#1E3A5F', color:'white', fontWeight:600 }}>Tipología</th>
+            {weekDays.map((d,i) => (
+              <th key={i} style={{ padding:'5px 8px', textAlign:'center', backgroundColor:'#1E3A5F', color:'white', fontWeight:600, minWidth:'44px' }}>
+                {DAY_INITIALS[i]}<br/><span style={{ fontSize:'0.66rem', opacity:0.8 }}>{fmtShortDate(d)}</span>
+              </th>
+            ))}
+            <th style={{ padding:'5px 8px', textAlign:'center', backgroundColor:'#0F2040', color:'white', fontWeight:700 }}>Tot.</th>
+          </tr>
+        </thead>
+        <tbody>
+          {WEEK_DISC_ORDER.map((disc, ri) => {
+            const rowTotal = summary[disc].reduce((s,v)=>s+v,0);
+            const hasRow = acts.some(a => getDisciplinaCategoria(a.disciplina) === disc) || rowTotal > 0;
+            if (!hasRow) return null;
+            return (
+              <tr key={disc} style={{ backgroundColor:ri%2===0?'#F8FAFC':'white', borderBottom:'1px solid #E9EEF4' }}>
+                <td style={{ padding:'4px 8px', fontWeight:600, color:'#334155' }}>
+                  <span style={{ display:'inline-block', width:'7px', height:'7px', borderRadius:'50%', backgroundColor:TABS_CONFIG[disc].color, marginRight:'5px', verticalAlign:'middle' }}/>
+                  {WEEK_DISC_LABELS[disc]}
+                </td>
+                {summary[disc].map((v,i) => (
+                  <td key={i} style={{ padding:'4px 8px', textAlign:'center', color:v>0?'#1E3A5F':'#CBD5E1', fontWeight:v>0?700:400 }}>
+                    {v>0?v:'–'}
+                  </td>
+                ))}
+                <td style={{ padding:'4px 8px', textAlign:'center', fontWeight:700, color:'#1E3A5F', borderLeft:'2px solid #D1D5DB' }}>
+                  {rowTotal>0?rowTotal:'–'}
+                </td>
+              </tr>
+            );
+          })}
+          <tr style={{ backgroundColor:'#DBEAFE', borderTop:'2px solid #3B82F6' }}>
+            <td style={{ padding:'5px 8px', fontWeight:700, color:'#1E3A5F' }}>TOTAL</td>
+            {colTotals.map((v,i) => (
+              <td key={i} style={{ padding:'5px 8px', textAlign:'center', fontWeight:700, color:'#1E3A5F' }}>{v>0?v:'–'}</td>
+            ))}
+            <td style={{ padding:'5px 8px', textAlign:'center', fontWeight:800, color:'#1E3A5F', fontSize:'0.95rem', borderLeft:'2px solid #3B82F6' }}>{grand>0?grand:'–'}</td>
+          </tr>
+        </tbody>
+      </table>
+    );
+  }
+
+  function DetailTable({ acts }) {
+    if (acts.length === 0) return (
+      <p style={{ color:'#94A3B8', fontSize:'0.78rem', textAlign:'center', padding:'8px' }}>Sin actividades programadas esta semana</p>
+    );
+    const sorted = [...acts].sort((a,b) => {
+      const ta = a.fechaDate ? a.fechaDate.getTime() : Infinity;
+      const tb = b.fechaDate ? b.fechaDate.getTime() : Infinity;
+      return ta !== tb ? ta-tb : (a.establecimiento||'').localeCompare(b.establecimiento||'');
+    });
+    return (
+      <table style={{ width:'100%', borderCollapse:'collapse', fontSize:'0.72rem' }}>
+        <thead>
+          <tr style={{ backgroundColor:'#334155', color:'white' }}>
+            {['Fecha','Establecimiento','Zona','Tipología','Muest.'].map((h,i) => (
+              <th key={h} style={{ padding:'4px 6px', textAlign:i===4?'center':'left', fontWeight:600 }}>{h}</th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {sorted.map((a,i) => (
+            <tr key={a.id||i} style={{ backgroundColor:i%2===0?'#F8FAFC':'white', borderBottom:'1px solid #E9EEF4' }}>
+              <td style={{ padding:'3px 6px', color:'#475569', whiteSpace:'nowrap' }}>{a.fechaDate?fmtShortDate(a.fechaDate):'–'}</td>
+              <td style={{ padding:'3px 6px', color:'#1E293B', fontWeight:500, maxWidth:'160px', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{a.establecimiento||'–'}</td>
+              <td style={{ padding:'3px 6px', color:'#64748B', whiteSpace:'nowrap' }}>{a.nodo||'–'}</td>
+              <td style={{ padding:'3px 6px', color:'#64748B', whiteSpace:'nowrap' }}>{WEEK_DISC_LABELS[getDisciplinaCategoria(a.disciplina)]||a.disciplina||'–'}</td>
+              <td style={{ padding:'3px 6px', textAlign:'center', fontWeight:700, color:'#1E3A5F' }}>{a.muestras_estimadas||0}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    );
+  }
+
+  const bSummary = buildSummary(balearsActs);
+  const cSummary = buildSummary(canariasActs);
+  const totalSemana = weekActs.reduce((s,a)=>s+(a.muestras_estimadas||0),0);
+
+  return (
+    <div style={{ display:'flex', flexDirection:'column', height:'100vh', backgroundColor:'#F1F5F9' }}>
+      <style>{`
+        @media print {
+          .weekly-toolbar { display: none !important; }
+          .weekly-scroll-area { padding: 0 !important; overflow: visible !important; background: white !important; display: block !important; }
+          .weekly-page { box-shadow: none !important; border-radius: 0 !important; width: 100% !important; }
+          @page { size: A4 landscape; margin: 10mm; }
+        }
+      `}</style>
+
+      {/* Toolbar */}
+      <header className="weekly-toolbar" style={{ height:'56px', backgroundColor:'white', borderBottom:'1px solid #E2E8F0', display:'flex', alignItems:'center', padding:'0 24px', gap:'16px', flexShrink:0, boxShadow:'0 1px 4px rgba(0,0,0,0.06)' }}>
+        <button onClick={onClose} style={{ background:'none', border:'none', cursor:'pointer', color:'#64748B', display:'flex', alignItems:'center', gap:'6px', fontWeight:600, fontSize:'0.9rem' }}>
+          <ArrowLeft size={16}/> Volver
+        </button>
+        <div style={{ width:'1px', height:'28px', backgroundColor:'#E2E8F0' }}/>
+        <span style={{ fontWeight:700, color:'#1E3A5F', fontSize:'1rem' }}>Previsión Semanal — Laboratorios</span>
+        <div style={{ marginLeft:'auto', display:'flex', alignItems:'center', gap:'8px' }}>
+          <button onClick={()=>setWeekOffset(o=>o-1)} style={{ width:'32px', height:'32px', border:'1px solid #E2E8F0', borderRadius:'8px', background:'white', cursor:'pointer', fontSize:'1.1rem', display:'flex', alignItems:'center', justifyContent:'center', color:'#334155' }}>‹</button>
+          <span style={{ fontWeight:600, color:'#334155', minWidth:'176px', textAlign:'center', fontSize:'0.9rem' }}>{weekLabel}</span>
+          <button onClick={()=>setWeekOffset(o=>o+1)} style={{ width:'32px', height:'32px', border:'1px solid #E2E8F0', borderRadius:'8px', background:'white', cursor:'pointer', fontSize:'1.1rem', display:'flex', alignItems:'center', justifyContent:'center', color:'#334155' }}>›</button>
+          <button onClick={()=>setWeekOffset(0)} style={{ padding:'6px 12px', border:'1px solid #E2E8F0', borderRadius:'8px', background:'white', cursor:'pointer', fontSize:'0.82rem', color:'#64748B' }}>Esta semana</button>
+          <button onClick={()=>window.print()} style={{ display:'flex', alignItems:'center', gap:'6px', padding:'8px 18px', backgroundColor:'#1E3A5F', color:'white', border:'none', borderRadius:'8px', cursor:'pointer', fontWeight:700, fontSize:'0.88rem' }}>
+            🖨 Imprimir A4
+          </button>
+        </div>
+      </header>
+
+      {/* Scrollable preview */}
+      <div className="weekly-scroll-area" style={{ flex:1, overflowY:'auto', padding:'24px', display:'flex', justifyContent:'center', alignItems:'flex-start' }}>
+        <div className="weekly-page" style={{ backgroundColor:'white', width:'270mm', padding:'12mm', boxShadow:'0 4px 24px rgba(0,0,0,0.12)', borderRadius:'4px' }}>
+
+          {/* Page header */}
+          <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-end', marginBottom:'14px', paddingBottom:'10px', borderBottom:'2px solid #1E3A5F' }}>
+            <div>
+              <h2 style={{ margin:0, fontSize:'1.1rem', fontWeight:800, color:'#1E3A5F' }}>Previsión Semanal de Muestras</h2>
+              <p style={{ margin:'2px 0 0', fontSize:'0.82rem', color:'#64748B' }}>{weekLabel} · Lun–Vie</p>
+            </div>
+            <div style={{ textAlign:'right', fontSize:'0.75rem', color:'#94A3B8' }}>
+              HS Consulting · Laboratorio<br/>
+              {totalSemana} muestras previstas
+            </div>
+          </div>
+
+          {/* Two-column grid */}
+          <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'20px' }}>
+
+            {/* HSLAB Baleares */}
+            <div>
+              <h3 style={{ margin:'0 0 8px', fontSize:'0.88rem', fontWeight:700, color:'#1D4ED8', backgroundColor:'#EFF6FF', padding:'6px 10px', borderRadius:'6px', borderLeft:'3px solid #3B82F6' }}>
+                HSLAB Baleares &nbsp;<span style={{ fontWeight:400, color:'#3B82F6', fontSize:'0.78rem' }}>({balearsActs.reduce((s,a)=>s+(a.muestras_estimadas||0),0)} muestras)</span>
+              </h3>
+              <SummaryTable summary={bSummary} acts={balearsActs} />
+              <h4 style={{ margin:'10px 0 5px', fontSize:'0.74rem', fontWeight:700, color:'#475569', textTransform:'uppercase', letterSpacing:'0.04em' }}>Detalle de establecimientos</h4>
+              <DetailTable acts={balearsActs} />
+            </div>
+
+            {/* HSLAB Canarias */}
+            <div>
+              <h3 style={{ margin:'0 0 8px', fontSize:'0.88rem', fontWeight:700, color:'#C2410C', backgroundColor:'#FFF7ED', padding:'6px 10px', borderRadius:'6px', borderLeft:'3px solid #F97316' }}>
+                HSLAB Canarias &nbsp;<span style={{ fontWeight:400, color:'#F97316', fontSize:'0.78rem' }}>({canariasActs.reduce((s,a)=>s+(a.muestras_estimadas||0),0)} muestras)</span>
+              </h3>
+              <SummaryTable summary={cSummary} acts={canariasActs} />
+              <h4 style={{ margin:'10px 0 5px', fontSize:'0.74rem', fontWeight:700, color:'#475569', textTransform:'uppercase', letterSpacing:'0.04em' }}>Detalle de establecimientos</h4>
+              <DetailTable acts={canariasActs} />
+            </div>
+
+          </div>
+
+          {/* Page footer */}
+          <div style={{ marginTop:'16px', paddingTop:'8px', borderTop:'1px solid #E2E8F0', display:'flex', justifyContent:'space-between', fontSize:'0.7rem', color:'#94A3B8' }}>
+            <span>Datos del módulo de Previsión Mensual Legionella · HS Consulting</span>
+            <span>Generado el {new Date().toLocaleDateString('es-ES', { day:'2-digit', month:'2-digit', year:'numeric' })}</span>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 export default function LegionellaForecastModule({ onBackToHub, globalLab }) {
@@ -1419,6 +1643,7 @@ export default function LegionellaForecastModule({ onBackToHub, globalLab }) {
   const [selectedMes, setSelectedMes] = useState(null); // { mes, año }
   const [showImport, setShowImport] = useState(false);
   const [showPendientes, setShowPendientes] = useState(false);
+  const [showWeekly, setShowWeekly] = useState(false);
   const saveTimers = useRef({});
 
   // ── Carga ligera: lista de meses disponibles ───────────────────────────────
@@ -1635,6 +1860,8 @@ export default function LegionellaForecastModule({ onBackToHub, globalLab }) {
   );
   const mesLabel = selectedMes ? `${selectedMes.mes.charAt(0).toUpperCase()+selectedMes.mes.slice(1)} ${selectedMes.año}` : '';
 
+  if (showWeekly) return <WeeklySummary actividades={actividades} onClose={() => setShowWeekly(false)} />;
+
   return (
     <div style={{ display:'flex',flexDirection:'column',height:'100vh',backgroundColor:'var(--background)' }}>
       {/* Header */}
@@ -1655,6 +1882,9 @@ export default function LegionellaForecastModule({ onBackToHub, globalLab }) {
           )}
           <button onClick={()=>setShowImport(true)} style={{ display:'flex',alignItems:'center',gap:'6px',padding:'8px 16px',backgroundColor:'white',border:'1px solid var(--primary)',borderRadius:'8px',cursor:'pointer',fontSize:'0.88rem',fontWeight:600,color:'var(--primary)' }}>
             <Plus size={14}/> Importar CSV
+          </button>
+          <button onClick={()=>setShowWeekly(true)} style={{ display:'flex',alignItems:'center',gap:'6px',padding:'8px 16px',backgroundColor:'white',border:'1px solid #3B82F6',borderRadius:'8px',cursor:'pointer',fontSize:'0.88rem',fontWeight:600,color:'#1D4ED8' }}>
+            📅 Previsión Semanal
           </button>
           {filteredActs.length>0&&<button onClick={()=>exportarExcel(filteredActs,mesLabel)} style={{ display:'flex',alignItems:'center',gap:'6px',padding:'8px 18px',backgroundColor:'var(--primary)',color:'white',border:'none',borderRadius:'8px',cursor:'pointer',fontSize:'0.88rem',fontWeight:700 }}>
             <Download size={14}/> Exportar Excel
