@@ -1413,10 +1413,38 @@ const WEEK_DISC_LABELS = {
 };
 const DAY_INITIALS = ['L','M','X','J','V'];
 
+const LAB_CONFIG = {
+  baleares: {
+    label: 'HSLAB Baleares',
+    subtitle: 'Baleares · Cataluña · Levante · Andalucía · Madrid y resto',
+    accentColor: '#1D4ED8',
+    accentBg: '#EFF6FF',
+    accentBorder: '#3B82F6',
+    totalRowBg: '#DBEAFE',
+    totalBorder: '#3B82F6',
+    headerBg: '#1E3A5F',
+    filter: a => a.nodo !== 'Islas Canarias',
+  },
+  canarias: {
+    label: 'HSLAB Canarias',
+    subtitle: 'Islas Canarias',
+    accentColor: '#C2410C',
+    accentBg: '#FFF7ED',
+    accentBorder: '#F97316',
+    totalRowBg: '#FFEDD5',
+    totalBorder: '#F97316',
+    headerBg: '#7C2D12',
+    filter: a => a.nodo === 'Islas Canarias',
+  },
+};
+
+const DAY_NAMES_FULL = ['Lunes','Martes','Miércoles','Jueves','Viernes'];
+
 function WeeklySummary({ actividades, onClose }) {
   const [weekOffset, setWeekOffset] = useState(0);
+  const [activeLab, setActiveLab] = useState('baleares');
 
-  const monday = useMemo(() => addDays(isoMonday(new Date()), weekOffset * 7), [weekOffset]);
+  const monday  = useMemo(() => addDays(isoMonday(new Date()), weekOffset * 7), [weekOffset]);
   const weekDays = useMemo(() => [0,1,2,3,4].map(i => addDays(monday, i)), [monday]);
   const weekLabel = `${fmtShortDate(weekDays[0])} – ${fmtShortDate(weekDays[4])}`;
 
@@ -1429,9 +1457,6 @@ function WeeklySummary({ actividades, onClose }) {
       return t >= t0 && t <= t4;
     });
   }, [actividades, weekDays]);
-
-  const balearsActs  = weekActs.filter(a => a.nodo !== 'Islas Canarias');
-  const canariasActs = weekActs.filter(a => a.nodo === 'Islas Canarias');
 
   function buildSummary(acts) {
     const m = {};
@@ -1449,20 +1474,20 @@ function WeeklySummary({ actividades, onClose }) {
     return m;
   }
 
-  function SummaryTable({ summary, acts }) {
+  function SummaryTable({ summary, acts, cfg }) {
     const colTotals = [0,0,0,0,0]; let grand = 0;
     WEEK_DISC_ORDER.forEach(d => summary[d].forEach((v,i) => { colTotals[i]+=v; grand+=v; }));
     return (
-      <table style={{ width:'100%', borderCollapse:'collapse', fontSize:'0.8rem', marginBottom:'10px' }}>
+      <table style={{ width:'100%', borderCollapse:'collapse', fontSize:'0.88rem', marginBottom:'14px' }}>
         <thead>
           <tr>
-            <th style={{ padding:'5px 8px', textAlign:'left', backgroundColor:'#1E3A5F', color:'white', fontWeight:600 }}>Tipología</th>
+            <th style={{ padding:'7px 12px', textAlign:'left', backgroundColor:cfg.headerBg, color:'white', fontWeight:600, width:'30%' }}>Tipología</th>
             {weekDays.map((d,i) => (
-              <th key={i} style={{ padding:'5px 8px', textAlign:'center', backgroundColor:'#1E3A5F', color:'white', fontWeight:600, minWidth:'44px' }}>
-                {DAY_INITIALS[i]}<br/><span style={{ fontSize:'0.66rem', opacity:0.8 }}>{fmtShortDate(d)}</span>
+              <th key={i} style={{ padding:'7px 10px', textAlign:'center', backgroundColor:cfg.headerBg, color:'white', fontWeight:600 }}>
+                {DAY_NAMES_FULL[i]}<br/><span style={{ fontSize:'0.72rem', opacity:0.8, fontWeight:400 }}>{fmtShortDate(d)}</span>
               </th>
             ))}
-            <th style={{ padding:'5px 8px', textAlign:'center', backgroundColor:'#0F2040', color:'white', fontWeight:700 }}>Tot.</th>
+            <th style={{ padding:'7px 10px', textAlign:'center', backgroundColor:'#0A1628', color:'white', fontWeight:700, borderLeft:'2px solid rgba(255,255,255,0.2)' }}>Total</th>
           </tr>
         </thead>
         <tbody>
@@ -1472,36 +1497,36 @@ function WeeklySummary({ actividades, onClose }) {
             if (!hasRow) return null;
             return (
               <tr key={disc} style={{ backgroundColor:ri%2===0?'#F8FAFC':'white', borderBottom:'1px solid #E9EEF4' }}>
-                <td style={{ padding:'4px 8px', fontWeight:600, color:'#334155' }}>
-                  <span style={{ display:'inline-block', width:'7px', height:'7px', borderRadius:'50%', backgroundColor:TABS_CONFIG[disc].color, marginRight:'5px', verticalAlign:'middle' }}/>
+                <td style={{ padding:'6px 12px', fontWeight:600, color:'#334155' }}>
+                  <span style={{ display:'inline-block', width:'8px', height:'8px', borderRadius:'50%', backgroundColor:TABS_CONFIG[disc].color, marginRight:'7px', verticalAlign:'middle' }}/>
                   {WEEK_DISC_LABELS[disc]}
                 </td>
                 {summary[disc].map((v,i) => (
-                  <td key={i} style={{ padding:'4px 8px', textAlign:'center', color:v>0?'#1E3A5F':'#CBD5E1', fontWeight:v>0?700:400 }}>
+                  <td key={i} style={{ padding:'6px 10px', textAlign:'center', color:v>0?cfg.accentColor:'#CBD5E1', fontWeight:v>0?700:400, fontSize:v>0?'0.95rem':'0.88rem' }}>
                     {v>0?v:'–'}
                   </td>
                 ))}
-                <td style={{ padding:'4px 8px', textAlign:'center', fontWeight:700, color:'#1E3A5F', borderLeft:'2px solid #D1D5DB' }}>
+                <td style={{ padding:'6px 10px', textAlign:'center', fontWeight:700, color:cfg.accentColor, borderLeft:'2px solid #D1D5DB', fontSize:'0.95rem' }}>
                   {rowTotal>0?rowTotal:'–'}
                 </td>
               </tr>
             );
           })}
-          <tr style={{ backgroundColor:'#DBEAFE', borderTop:'2px solid #3B82F6' }}>
-            <td style={{ padding:'5px 8px', fontWeight:700, color:'#1E3A5F' }}>TOTAL</td>
+          <tr style={{ backgroundColor:cfg.totalRowBg, borderTop:`2px solid ${cfg.totalBorder}` }}>
+            <td style={{ padding:'7px 12px', fontWeight:800, color:cfg.accentColor }}>TOTAL SEMANA</td>
             {colTotals.map((v,i) => (
-              <td key={i} style={{ padding:'5px 8px', textAlign:'center', fontWeight:700, color:'#1E3A5F' }}>{v>0?v:'–'}</td>
+              <td key={i} style={{ padding:'7px 10px', textAlign:'center', fontWeight:700, color:cfg.accentColor, fontSize:'0.95rem' }}>{v>0?v:'–'}</td>
             ))}
-            <td style={{ padding:'5px 8px', textAlign:'center', fontWeight:800, color:'#1E3A5F', fontSize:'0.95rem', borderLeft:'2px solid #3B82F6' }}>{grand>0?grand:'–'}</td>
+            <td style={{ padding:'7px 10px', textAlign:'center', fontWeight:900, color:cfg.accentColor, fontSize:'1.05rem', borderLeft:`2px solid ${cfg.totalBorder}` }}>{grand>0?grand:'–'}</td>
           </tr>
         </tbody>
       </table>
     );
   }
 
-  function DetailTable({ acts }) {
+  function DetailTable({ acts, cfg }) {
     if (acts.length === 0) return (
-      <p style={{ color:'#94A3B8', fontSize:'0.78rem', textAlign:'center', padding:'8px' }}>Sin actividades programadas esta semana</p>
+      <p style={{ color:'#94A3B8', fontSize:'0.82rem', textAlign:'center', padding:'12px', fontStyle:'italic' }}>Sin actividades programadas esta semana</p>
     );
     const sorted = [...acts].sort((a,b) => {
       const ta = a.fechaDate ? a.fechaDate.getTime() : Infinity;
@@ -1509,22 +1534,24 @@ function WeeklySummary({ actividades, onClose }) {
       return ta !== tb ? ta-tb : (a.establecimiento||'').localeCompare(b.establecimiento||'');
     });
     return (
-      <table style={{ width:'100%', borderCollapse:'collapse', fontSize:'0.72rem' }}>
+      <table style={{ width:'100%', borderCollapse:'collapse', fontSize:'0.8rem' }}>
         <thead>
           <tr style={{ backgroundColor:'#334155', color:'white' }}>
-            {['Fecha','Establecimiento','Zona','Tipología','Muest.'].map((h,i) => (
-              <th key={h} style={{ padding:'4px 6px', textAlign:i===4?'center':'left', fontWeight:600 }}>{h}</th>
-            ))}
+            <th style={{ padding:'6px 10px', textAlign:'left', fontWeight:600, width:'9%' }}>Fecha</th>
+            <th style={{ padding:'6px 10px', textAlign:'left', fontWeight:600, width:'35%' }}>Establecimiento</th>
+            <th style={{ padding:'6px 10px', textAlign:'left', fontWeight:600, width:'22%' }}>Zona</th>
+            <th style={{ padding:'6px 10px', textAlign:'left', fontWeight:600, width:'22%' }}>Tipología</th>
+            <th style={{ padding:'6px 10px', textAlign:'center', fontWeight:600, width:'12%' }}>Muestras</th>
           </tr>
         </thead>
         <tbody>
           {sorted.map((a,i) => (
             <tr key={a.id||i} style={{ backgroundColor:i%2===0?'#F8FAFC':'white', borderBottom:'1px solid #E9EEF4' }}>
-              <td style={{ padding:'3px 6px', color:'#475569', whiteSpace:'nowrap' }}>{a.fechaDate?fmtShortDate(a.fechaDate):'–'}</td>
-              <td style={{ padding:'3px 6px', color:'#1E293B', fontWeight:500, maxWidth:'160px', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{a.establecimiento||'–'}</td>
-              <td style={{ padding:'3px 6px', color:'#64748B', whiteSpace:'nowrap' }}>{a.nodo||'–'}</td>
-              <td style={{ padding:'3px 6px', color:'#64748B', whiteSpace:'nowrap' }}>{WEEK_DISC_LABELS[getDisciplinaCategoria(a.disciplina)]||a.disciplina||'–'}</td>
-              <td style={{ padding:'3px 6px', textAlign:'center', fontWeight:700, color:'#1E3A5F' }}>{a.muestras_estimadas||0}</td>
+              <td style={{ padding:'5px 10px', color:'#475569', whiteSpace:'nowrap', fontVariantNumeric:'tabular-nums' }}>{a.fechaDate?fmtShortDate(a.fechaDate):'–'}</td>
+              <td style={{ padding:'5px 10px', color:'#1E293B', fontWeight:500 }}>{a.establecimiento||'–'}</td>
+              <td style={{ padding:'5px 10px', color:'#64748B' }}>{a.nodo||'–'}</td>
+              <td style={{ padding:'5px 10px', color:'#64748B' }}>{WEEK_DISC_LABELS[getDisciplinaCategoria(a.disciplina)]||a.disciplina||'–'}</td>
+              <td style={{ padding:'5px 10px', textAlign:'center', fontWeight:700, color:cfg.accentColor }}>{a.muestras_estimadas||0}</td>
             </tr>
           ))}
         </tbody>
@@ -1532,9 +1559,10 @@ function WeeklySummary({ actividades, onClose }) {
     );
   }
 
-  const bSummary = buildSummary(balearsActs);
-  const cSummary = buildSummary(canariasActs);
-  const totalSemana = weekActs.reduce((s,a)=>s+(a.muestras_estimadas||0),0);
+  const cfg  = LAB_CONFIG[activeLab];
+  const acts = weekActs.filter(cfg.filter);
+  const summary = buildSummary(acts);
+  const totalMuestras = acts.reduce((s,a)=>s+(a.muestras_estimadas||0),0);
 
   return (
     <div style={{ display:'flex', flexDirection:'column', height:'100vh', backgroundColor:'#F1F5F9' }}>
@@ -1542,24 +1570,38 @@ function WeeklySummary({ actividades, onClose }) {
         @media print {
           .weekly-toolbar { display: none !important; }
           .weekly-scroll-area { padding: 0 !important; overflow: visible !important; background: white !important; display: block !important; }
-          .weekly-page { box-shadow: none !important; border-radius: 0 !important; width: 100% !important; }
+          .weekly-page { box-shadow: none !important; border-radius: 0 !important; width: 100% !important; padding: 8mm !important; }
           @page { size: A4 landscape; margin: 10mm; }
         }
       `}</style>
 
       {/* Toolbar */}
-      <header className="weekly-toolbar" style={{ height:'56px', backgroundColor:'white', borderBottom:'1px solid #E2E8F0', display:'flex', alignItems:'center', padding:'0 24px', gap:'16px', flexShrink:0, boxShadow:'0 1px 4px rgba(0,0,0,0.06)' }}>
+      <header className="weekly-toolbar" style={{ height:'60px', backgroundColor:'white', borderBottom:'1px solid #E2E8F0', display:'flex', alignItems:'center', padding:'0 24px', gap:'14px', flexShrink:0, boxShadow:'0 1px 4px rgba(0,0,0,0.06)' }}>
         <button onClick={onClose} style={{ background:'none', border:'none', cursor:'pointer', color:'#64748B', display:'flex', alignItems:'center', gap:'6px', fontWeight:600, fontSize:'0.9rem' }}>
           <ArrowLeft size={16}/> Volver
         </button>
         <div style={{ width:'1px', height:'28px', backgroundColor:'#E2E8F0' }}/>
-        <span style={{ fontWeight:700, color:'#1E3A5F', fontSize:'1rem' }}>Previsión Semanal — Laboratorios</span>
+        <span style={{ fontWeight:700, color:'#1E3A5F', fontSize:'1rem' }}>Previsión Semanal</span>
+
+        {/* Lab selector */}
+        <div style={{ display:'flex', gap:'0', borderRadius:'8px', overflow:'hidden', border:'1px solid #E2E8F0' }}>
+          {Object.entries(LAB_CONFIG).map(([key, lc]) => (
+            <button key={key} onClick={()=>setActiveLab(key)} style={{
+              padding:'7px 16px', border:'none', cursor:'pointer', fontWeight:600, fontSize:'0.85rem',
+              backgroundColor: activeLab===key ? lc.accentColor : 'white',
+              color: activeLab===key ? 'white' : '#64748B',
+              borderRight: key==='baleares' ? '1px solid #E2E8F0' : 'none',
+              transition:'all 0.15s',
+            }}>{lc.label}</button>
+          ))}
+        </div>
+
         <div style={{ marginLeft:'auto', display:'flex', alignItems:'center', gap:'8px' }}>
           <button onClick={()=>setWeekOffset(o=>o-1)} style={{ width:'32px', height:'32px', border:'1px solid #E2E8F0', borderRadius:'8px', background:'white', cursor:'pointer', fontSize:'1.1rem', display:'flex', alignItems:'center', justifyContent:'center', color:'#334155' }}>‹</button>
-          <span style={{ fontWeight:600, color:'#334155', minWidth:'176px', textAlign:'center', fontSize:'0.9rem' }}>{weekLabel}</span>
+          <span style={{ fontWeight:600, color:'#334155', minWidth:'170px', textAlign:'center', fontSize:'0.9rem' }}>{weekLabel}</span>
           <button onClick={()=>setWeekOffset(o=>o+1)} style={{ width:'32px', height:'32px', border:'1px solid #E2E8F0', borderRadius:'8px', background:'white', cursor:'pointer', fontSize:'1.1rem', display:'flex', alignItems:'center', justifyContent:'center', color:'#334155' }}>›</button>
-          <button onClick={()=>setWeekOffset(0)} style={{ padding:'6px 12px', border:'1px solid #E2E8F0', borderRadius:'8px', background:'white', cursor:'pointer', fontSize:'0.82rem', color:'#64748B' }}>Esta semana</button>
-          <button onClick={()=>window.print()} style={{ display:'flex', alignItems:'center', gap:'6px', padding:'8px 18px', backgroundColor:'#1E3A5F', color:'white', border:'none', borderRadius:'8px', cursor:'pointer', fontWeight:700, fontSize:'0.88rem' }}>
+          <button onClick={()=>setWeekOffset(0)} style={{ padding:'6px 12px', border:'1px solid #E2E8F0', borderRadius:'8px', background:'white', cursor:'pointer', fontSize:'0.82rem', color:'#64748B' }}>Hoy</button>
+          <button onClick={()=>window.print()} style={{ display:'flex', alignItems:'center', gap:'6px', padding:'8px 18px', backgroundColor:cfg.accentColor, color:'white', border:'none', borderRadius:'8px', cursor:'pointer', fontWeight:700, fontSize:'0.88rem' }}>
             🖨 Imprimir A4
           </button>
         </div>
@@ -1567,48 +1609,38 @@ function WeeklySummary({ actividades, onClose }) {
 
       {/* Scrollable preview */}
       <div className="weekly-scroll-area" style={{ flex:1, overflowY:'auto', padding:'24px', display:'flex', justifyContent:'center', alignItems:'flex-start' }}>
-        <div className="weekly-page" style={{ backgroundColor:'white', width:'270mm', padding:'12mm', boxShadow:'0 4px 24px rgba(0,0,0,0.12)', borderRadius:'4px' }}>
+        <div className="weekly-page" style={{ backgroundColor:'white', width:'257mm', padding:'12mm', boxShadow:'0 4px 24px rgba(0,0,0,0.12)', borderRadius:'4px' }}>
 
           {/* Page header */}
-          <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-end', marginBottom:'14px', paddingBottom:'10px', borderBottom:'2px solid #1E3A5F' }}>
+          <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:'16px', paddingBottom:'12px', borderBottom:`3px solid ${cfg.accentColor}` }}>
             <div>
-              <h2 style={{ margin:0, fontSize:'1.1rem', fontWeight:800, color:'#1E3A5F' }}>Previsión Semanal de Muestras</h2>
-              <p style={{ margin:'2px 0 0', fontSize:'0.82rem', color:'#64748B' }}>{weekLabel} · Lun–Vie</p>
+              <div style={{ display:'flex', alignItems:'center', gap:'10px', marginBottom:'4px' }}>
+                <span style={{ fontSize:'0.7rem', fontWeight:700, textTransform:'uppercase', letterSpacing:'0.08em', color:'white', backgroundColor:cfg.accentColor, padding:'2px 8px', borderRadius:'4px' }}>
+                  {cfg.label}
+                </span>
+              </div>
+              <h2 style={{ margin:0, fontSize:'1.2rem', fontWeight:800, color:'#0F172A' }}>Previsión Semanal de Muestras</h2>
+              <p style={{ margin:'3px 0 0', fontSize:'0.82rem', color:'#64748B' }}>
+                Semana {weekLabel} · Lun–Vie &nbsp;·&nbsp; {cfg.subtitle}
+              </p>
             </div>
-            <div style={{ textAlign:'right', fontSize:'0.75rem', color:'#94A3B8' }}>
+            <div style={{ textAlign:'right', fontSize:'0.75rem', color:'#94A3B8', lineHeight:1.6 }}>
               HS Consulting · Laboratorio<br/>
-              {totalSemana} muestras previstas
+              <strong style={{ color:cfg.accentColor, fontSize:'1rem' }}>{totalMuestras}</strong> muestras previstas
             </div>
           </div>
 
-          {/* Two-column grid */}
-          <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'20px' }}>
+          {/* Summary table */}
+          <h3 style={{ margin:'0 0 8px', fontSize:'0.78rem', fontWeight:700, color:'#475569', textTransform:'uppercase', letterSpacing:'0.05em' }}>Resumen por tipología</h3>
+          <SummaryTable summary={summary} acts={acts} cfg={cfg} />
 
-            {/* HSLAB Baleares */}
-            <div>
-              <h3 style={{ margin:'0 0 8px', fontSize:'0.88rem', fontWeight:700, color:'#1D4ED8', backgroundColor:'#EFF6FF', padding:'6px 10px', borderRadius:'6px', borderLeft:'3px solid #3B82F6' }}>
-                HSLAB Baleares &nbsp;<span style={{ fontWeight:400, color:'#3B82F6', fontSize:'0.78rem' }}>({balearsActs.reduce((s,a)=>s+(a.muestras_estimadas||0),0)} muestras)</span>
-              </h3>
-              <SummaryTable summary={bSummary} acts={balearsActs} />
-              <h4 style={{ margin:'10px 0 5px', fontSize:'0.74rem', fontWeight:700, color:'#475569', textTransform:'uppercase', letterSpacing:'0.04em' }}>Detalle de establecimientos</h4>
-              <DetailTable acts={balearsActs} />
-            </div>
-
-            {/* HSLAB Canarias */}
-            <div>
-              <h3 style={{ margin:'0 0 8px', fontSize:'0.88rem', fontWeight:700, color:'#C2410C', backgroundColor:'#FFF7ED', padding:'6px 10px', borderRadius:'6px', borderLeft:'3px solid #F97316' }}>
-                HSLAB Canarias &nbsp;<span style={{ fontWeight:400, color:'#F97316', fontSize:'0.78rem' }}>({canariasActs.reduce((s,a)=>s+(a.muestras_estimadas||0),0)} muestras)</span>
-              </h3>
-              <SummaryTable summary={cSummary} acts={canariasActs} />
-              <h4 style={{ margin:'10px 0 5px', fontSize:'0.74rem', fontWeight:700, color:'#475569', textTransform:'uppercase', letterSpacing:'0.04em' }}>Detalle de establecimientos</h4>
-              <DetailTable acts={canariasActs} />
-            </div>
-
-          </div>
+          {/* Detail table */}
+          <h3 style={{ margin:'14px 0 8px', fontSize:'0.78rem', fontWeight:700, color:'#475569', textTransform:'uppercase', letterSpacing:'0.05em' }}>Detalle de establecimientos</h3>
+          <DetailTable acts={acts} cfg={cfg} />
 
           {/* Page footer */}
-          <div style={{ marginTop:'16px', paddingTop:'8px', borderTop:'1px solid #E2E8F0', display:'flex', justifyContent:'space-between', fontSize:'0.7rem', color:'#94A3B8' }}>
-            <span>Datos del módulo de Previsión Mensual Legionella · HS Consulting</span>
+          <div style={{ marginTop:'14px', paddingTop:'8px', borderTop:'1px solid #E2E8F0', display:'flex', justifyContent:'space-between', fontSize:'0.7rem', color:'#94A3B8' }}>
+            <span>Previsión Mensual Legionella · HS Consulting · {cfg.label}</span>
             <span>Generado el {new Date().toLocaleDateString('es-ES', { day:'2-digit', month:'2-digit', year:'numeric' })}</span>
           </div>
 
