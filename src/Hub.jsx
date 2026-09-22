@@ -221,8 +221,8 @@ export default function Hub({ session, globalLab, setGlobalLab, onSelectModule, 
             </div>
           )}
 
-          {/* Module 3: Certificados de Formación */}
-          {showRRHH && (
+          {/* Module 3: Certificados de Formación (Admin only, no operations) */}
+          {role === 'admin' && (
             <div
               onClick={() => onSelectModule('certificados')}
               style={{
@@ -308,8 +308,8 @@ export default function Hub({ session, globalLab, setGlobalLab, onSelectModule, 
             </div>
           )}
 
-          {/* Module: Generador de Etiquetas (Admin + Lab + Operations) */}
-          {['admin', 'lab', 'operations'].includes(role) && (
+          {/* Module: Generador de Etiquetas (Admin + Lab) */}
+          {['admin', 'lab'].includes(role) && (
             <div
               onClick={() => onSelectModule('etiquetas')}
               style={{
@@ -358,8 +358,8 @@ export default function Hub({ session, globalLab, setGlobalLab, onSelectModule, 
             </div>
           )}
 
-          {/* Module: Alertas Patógenos (Admin + Lab + Operations) */}
-          {['admin', 'lab', 'operations'].includes(role) && (
+          {/* Module: Alertas Patógenos (Admin + Lab) */}
+          {['admin', 'lab'].includes(role) && (
             <div
               onClick={() => onSelectModule('alertas-patogenos')}
               style={{
@@ -408,8 +408,8 @@ export default function Hub({ session, globalLab, setGlobalLab, onSelectModule, 
             </div>
           )}
 
-          {/* Module: KPI Analíticas (admin only) */}
-          {role === 'admin' && (
+          {/* Module: KPI Analíticas (Admin + Operations) */}
+          {['admin', 'operations'].includes(role) && (
             <div
               onClick={() => onSelectModule('kpi')}
               style={{
@@ -471,8 +471,8 @@ export default function Hub({ session, globalLab, setGlobalLab, onSelectModule, 
             </div>
           )}
 
-          {/* Module: Gestión Documental */}
-          <div
+          {/* Module: Gestión Documental (Admin + Lab) */}
+          {['admin', 'lab', 'gestor_documental'].includes(role) && <div
             onClick={() => onSelectModule('documentos')}
             style={{
               width: '320px', backgroundColor: 'white', borderRadius: '20px',
@@ -492,7 +492,7 @@ export default function Hub({ session, globalLab, setGlobalLab, onSelectModule, 
             <p style={{ color: 'var(--text-muted)', margin: 0, lineHeight: 1.5 }}>
               PNTs, instrucciones técnicas, registros y certificados accesibles para todo el equipo.
             </p>
-          </div>
+          </div>}
 
         </div>
       </main>
