@@ -1,15 +1,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { supabase } from './supabaseClient';
-import { createClient } from '@supabase/supabase-js';
 import {
   ArrowLeft, Plus, Package, Search, X, Clock, Truck, Ban,
   ChevronRight, Warehouse, Calendar, Trash2,
 } from 'lucide-react';
-
-const supabaseHS = createClient(
-  import.meta.env.VITE_HS_URL,
-  import.meta.env.VITE_HS_ANON_KEY,
-);
 
 // ── Constants ───────────────────────────────────────────────────────────────
 
@@ -88,9 +82,8 @@ function NuevoPedidoModal({ onClose, onCreated }) {
   const [err, setErr] = useState('');
 
   useEffect(() => {
-    supabaseHS.from('hoteles')
-      .select('id,nombre_hotel,cadena_hotelera,ccaa,isla')
-      .eq('activo', true)
+    supabase.from('hoteles_destino')
+      .select('id,nombre_hotel,cadena_hotelera,ccaa')
       .order('nombre_hotel')
       .then(({ data }) => setHotels(data || []));
   }, []);
