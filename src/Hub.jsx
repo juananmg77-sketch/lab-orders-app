@@ -1,5 +1,5 @@
 import React from 'react';
-import { ShoppingCart, LogOut, Settings, Bell, Microscope, Users, FlaskConical, Tag, GraduationCap, UserCog, TestTube2, FolderOpen, Droplets, AlertTriangle, FileInput, BarChart2 } from 'lucide-react';
+import { ShoppingCart, LogOut, Settings, Bell, Microscope, Users, FlaskConical, Tag, GraduationCap, UserCog, TestTube2, FolderOpen, Droplets, AlertTriangle, FileInput, BarChart2, Package } from 'lucide-react';
 import logo from './assets/logo.png';
 
 export default function Hub({ session, globalLab, setGlobalLab, onSelectModule, onLogout, role = 'operations' }) {
@@ -21,6 +21,11 @@ export default function Hub({ session, globalLab, setGlobalLab, onSelectModule, 
   // Gestor documental: skip Hub, go directly to the documents module
   React.useEffect(() => {
     if (role === 'gestor_documental') onSelectModule('documentos');
+  }, [role, onSelectModule]);
+
+  // Consultor: skip Hub, go directly to pedidos internos
+  React.useEffect(() => {
+    if (role === 'consultor') onSelectModule('pedidos-internos');
   }, [role, onSelectModule]);
 
   // Si el lab actual no está permitido para este usuario, forzar a Baleares
@@ -412,6 +417,31 @@ export default function Hub({ session, globalLab, setGlobalLab, onSelectModule, 
               <h2 style={{ fontSize: '1.5rem', color: 'var(--secondary)', margin: '0 0 12px 0' }}>KPI Analíticas</h2>
               <p style={{ color: 'var(--text-muted)', margin: 0, lineHeight: 1.5 }}>
                 Monitor de plazos en tiempo real. Alertas de retraso por tipo de analítica con SLA configurado.
+              </p>
+            </div>
+          )}
+
+          {/* Module: Pedidos Internos (Admin + Operations) */}
+          {['admin', 'operations'].includes(role) && (
+            <div
+              onClick={() => onSelectModule('pedidos-internos')}
+              style={{
+                width: '320px', backgroundColor: 'white', borderRadius: '20px',
+                padding: '40px 30px', boxShadow: '0 10px 30px rgba(0,0,0,0.08)',
+                cursor: 'pointer', display: 'flex', flexDirection: 'column',
+                alignItems: 'center', textAlign: 'center',
+                borderTop: '6px solid #D97706',
+                transition: 'transform 0.3s ease, box-shadow 0.3s ease',
+              }}
+              onMouseOver={(e) => e.currentTarget.style.transform = 'translateY(-10px)'}
+              onMouseOut={(e) => e.currentTarget.style.transform = 'translateY(0)'}
+            >
+              <div style={{ width: '80px', height: '80px', borderRadius: '40px', backgroundColor: '#FFFBEB', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '24px' }}>
+                <Package size={40} color="#D97706" />
+              </div>
+              <h2 style={{ fontSize: '1.5rem', color: 'var(--secondary)', margin: '0 0 12px 0' }}>Pedidos Internos</h2>
+              <p style={{ color: 'var(--text-muted)', margin: 0, lineHeight: 1.5 }}>
+                Solicitudes de material de laboratorio a almacenes o hoteles. Gestión por Operaciones.
               </p>
             </div>
           )}

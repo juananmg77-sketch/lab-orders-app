@@ -15,6 +15,7 @@ import DocumentsModule from './DocumentsModule';
 import AlertasPatogenosModule from './AlertasPatogenosModule';
 import ImportadorPDFModule from './ImportadorPDFModule';
 import KPIModule from './KPIModule';
+import PedidosInternosModule from './PedidosInternosModule';
 
 export default function App() {
   const [session, setSession] = useState(null);
@@ -253,6 +254,16 @@ export default function App() {
     return (
       <KPIModule
         onBackToHub={() => setActiveModule(null)}
+      />
+    );
+  }
+
+  if (activeModule === 'pedidos-internos' && ['admin', 'operations', 'consultor'].includes(role)) {
+    return (
+      <PedidosInternosModule
+        session={session}
+        onBackToHub={() => setActiveModule(null)}
+        role={role}
       />
     );
   }
