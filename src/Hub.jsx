@@ -1,6 +1,7 @@
 import React from 'react';
 import { ShoppingCart, LogOut, Settings, Bell, Microscope, Users, FlaskConical, Tag, GraduationCap, UserCog, TestTube2, FolderOpen, Droplets, AlertTriangle, FileInput, BarChart2, Package } from 'lucide-react';
 import logo from './assets/logo.png';
+import { supabase } from './supabaseClient';
 
 export default function Hub({ session, globalLab, setGlobalLab, onSelectModule, onLogout, role = 'operations' }) {
   const userEmail = session?.user?.email;
@@ -12,6 +13,17 @@ export default function Hub({ session, globalLab, setGlobalLab, onSelectModule, 
       : ['HSLAB Baleares', 'HSLAB Canarias'],
     [userEmail]
   );
+
+  const [pedidosPendientes, setPedidosPendientes] = React.useState(0);
+
+  React.useEffect(() => {
+    if (!['admin', 'operations'].includes(role)) return;
+    supabase
+      .from('pedidos_internos')
+      .select('id', { count: 'exact', head: true })
+      .in('estado', ['pendiente', 'en_preparacion'])
+      .then(({ count }) => setPedidosPendientes(count || 0));
+  }, [role]);
 
   const showPurchasing = ['admin', 'lab', 'operations'].includes(role);
   const showEquipment = ['admin', 'lab'].includes(role);
@@ -426,6 +438,7 @@ export default function Hub({ session, globalLab, setGlobalLab, onSelectModule, 
             <div
               onClick={() => onSelectModule('pedidos-internos')}
               style={{
+                position: 'relative',
                 width: '320px', backgroundColor: 'white', borderRadius: '20px',
                 padding: '40px 30px', boxShadow: '0 10px 30px rgba(0,0,0,0.08)',
                 cursor: 'pointer', display: 'flex', flexDirection: 'column',
@@ -436,6 +449,18 @@ export default function Hub({ session, globalLab, setGlobalLab, onSelectModule, 
               onMouseOver={(e) => e.currentTarget.style.transform = 'translateY(-10px)'}
               onMouseOut={(e) => e.currentTarget.style.transform = 'translateY(0)'}
             >
+              {pedidosPendientes > 0 && (
+                <div style={{
+                  position: 'absolute', top: 16, right: 18,
+                  background: '#EF4444', color: 'white',
+                  borderRadius: 20, padding: '4px 11px',
+                  fontSize: '0.82rem', fontWeight: 700, lineHeight: 1.4,
+                  boxShadow: '0 2px 8px rgba(239,68,68,0.35)',
+                  letterSpacing: '0.02em',
+                }}>
+                  {pedidosPendientes > 99 ? '99+' : pedidosPendientes}
+                </div>
+              )}
               <div style={{ width: '80px', height: '80px', borderRadius: '40px', backgroundColor: '#FFFBEB', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '24px' }}>
                 <Package size={40} color="#D97706" />
               </div>
