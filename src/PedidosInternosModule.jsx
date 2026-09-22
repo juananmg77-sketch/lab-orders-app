@@ -1,9 +1,15 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { supabase } from './supabaseClient';
+import { createClient } from '@supabase/supabase-js';
 import {
   ArrowLeft, Plus, Package, Search, X, Clock, Truck, Ban,
   ChevronRight, Warehouse, Calendar, Trash2,
 } from 'lucide-react';
+
+const supabaseHS = createClient(
+  import.meta.env.VITE_HS_URL,
+  import.meta.env.VITE_HS_ANON_KEY,
+);
 
 // ── Constants ───────────────────────────────────────────────────────────────
 
@@ -82,8 +88,9 @@ function NuevoPedidoModal({ onClose, onCreated }) {
   const [err, setErr] = useState('');
 
   useEffect(() => {
-    supabase.from('hoteles_destino')
-      .select('id,nombre_hotel,cadena_hotelera,ccaa')
+    supabaseHS.from('hoteles')
+      .select('id,nombre_hotel,cadena_hotelera,ccaa,isla')
+      .eq('activo', true)
       .order('nombre_hotel')
       .then(({ data }) => setHotels(data || []));
   }, []);
@@ -499,12 +506,13 @@ function ConsultorView({ onBack }) {
 
 // ── Operaciones View ──────────────────────────────────────────────────────────
 
-function OperacionesView({ onBack }) {
+function OperacionesView({ onBack, canCreate = false }) {
   const [pedidos, setPedidos] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filtro, setFiltro] = useState('todos');
   const [sel, setSel] = useState(null);
   const [selLineas, setSelLineas] = useState([]);
+  const [showNew, setShowNew] = useState(false);
 
   const load = useCallback(async () => {
     const { data } = await supabase.from('pedidos_internos').select('*').order('created_at', { ascending: false });
@@ -533,6 +541,12 @@ function OperacionesView({ onBack }) {
         <span style={{ color: '#D1D5DB' }}>|</span>
         <Package size={17} color="var(--primary)" />
         <h1 style={{ margin: 0, fontSize: '0.95rem', fontWeight: 700, color: '#111827' }}>Gestión de pedidos internos</h1>
+        <div style={{ flex: 1 }} />
+        {canCreate && (
+          <button onClick={() => setShowNew(true)} style={{ ...btnPri, padding: '7px 14px', fontSize: '0.83rem' }}>
+            <Plus size={15} /> Nuevo pedido
+          </button>
+        )}
       </header>
 
       <div style={{ maxWidth: 860, margin: '0 auto', padding: '28px 16px' }}>
@@ -607,6 +621,12 @@ function OperacionesView({ onBack }) {
           onUpdated={(u) => { setPedidos(prev => prev.map(p => p.id === u.id ? u : p)); setSel(u); }}
         />
       )}
+      {showNew && (
+        <NuevoPedidoModal
+          onClose={() => setShowNew(false)}
+          onCreated={(p) => { setPedidos(prev => [p, ...prev]); setShowNew(false); }}
+        />
+      )}
     </div>
   );
 }
@@ -615,5 +635,5 @@ function OperacionesView({ onBack }) {
 
 export default function PedidosInternosModule({ onBackToHub, role }) {
   if (role === 'consultor') return <ConsultorView onBack={onBackToHub} />;
-  return <OperacionesView onBack={onBackToHub} />;
+  return <OperacionesView onBack={onBackToHub} canCreate={role === 'admin'} />;
 }
