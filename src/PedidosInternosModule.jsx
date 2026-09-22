@@ -81,12 +81,18 @@ function NuevoPedidoModal({ onClose, onCreated }) {
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState('');
 
+  // Búsqueda de hoteles debounced contra el Edge Function api-hoteles (via Netlify proxy)
   useEffect(() => {
-    supabase.from('hoteles_destino')
-      .select('id,nombre_hotel,cadena_hotelera,ccaa')
-      .order('nombre_hotel')
-      .then(({ data }) => setHotels(data || []));
-  }, []);
+    if (!hotelQ.trim()) { setHotels([]); return; }
+    const t = setTimeout(async () => {
+      try {
+        const res = await fetch(`/.netlify/functions/hotels-list?q=${encodeURIComponent(hotelQ)}&limit=40`);
+        const data = await res.json();
+        setHotels(Array.isArray(data) ? data : []);
+      } catch { setHotels([]); }
+    }, 300);
+    return () => clearTimeout(t);
+  }, [hotelQ]);
 
   useEffect(() => {
     if (!artQ.trim()) { setArts([]); return; }
@@ -111,10 +117,7 @@ function NuevoPedidoModal({ onClose, onCreated }) {
   const updLinea = (i, k, v) => setLineas(p => p.map((l, j) => j === i ? { ...l, [k]: v } : l));
   const delLinea = (i) => setLineas(p => p.filter((_, j) => j !== i));
 
-  const filtH = hotels.filter(h =>
-    !hotelQ || h.nombre_hotel.toLowerCase().includes(hotelQ.toLowerCase()) ||
-    (h.cadena_hotelera || '').toLowerCase().includes(hotelQ.toLowerCase())
-  ).slice(0, 60);
+  const filtH = hotels.slice(0, 60);
 
   const handleSubmit = async () => {
     if (lineas.length === 0) { setErr('Añade al menos un artículo.'); return; }
@@ -167,7 +170,7 @@ function NuevoPedidoModal({ onClose, onCreated }) {
               </select>
             ) : (
               <div style={{ position: 'relative' }}>
-                <input placeholder="Buscar hotel..." value={hotelQ}
+                <input placeholder="Escribe el nombre del hotel..." value={hotelQ}
                   onChange={e => { setHotelQ(e.target.value); setHotelSel(null); setDropOpen(true); }}
                   onFocus={() => setDropOpen(true)} style={inputS} />
                 {hotelSel && (
@@ -292,13 +295,31 @@ function NuevoPedidoModal({ onClose, onCreated }) {
 function DetallePedidoModal({ pedido, lineas, isOps, onClose, onUpdated }) {
   const [estado, setEstado] = useState(pedido.estado);
   const [notasOps, setNotasOps] = useState(pedido.notas_operaciones || '');
+  const [codigoMens, setCodigoMens] = useState(pedido.codigo_mensajeria || '');
+  const [fechaEnvio, setFechaEnvio] = useState(
+    pedido.fecha_envio ? pedido.fecha_envio.slice(0, 10) : ''
+  );
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
 
+  React.useEffect(() => {
+    if (estado === 'enviado' && !fechaEnvio) {
+      setFechaEnvio(new Date().toISOString().slice(0, 10));
+    }
+  }, [estado]);
+
   const handleSave = async () => {
     setSaving(true);
-    const upd = { estado, notas_operaciones: notasOps };
-    if (estado === 'enviado' && pedido.estado !== 'enviado') upd.fecha_envio = new Date().toISOString();
+    const upd = {
+      estado,
+      notas_operaciones: notasOps || null,
+      codigo_mensajeria: codigoMens || null,
+    };
+    if (estado === 'enviado') {
+      upd.fecha_envio = fechaEnvio
+        ? new Date(fechaEnvio + 'T12:00:00').toISOString()
+        : new Date().toISOString();
+    }
     await supabase.from('pedidos_internos').update(upd).eq('id', pedido.id);
     setSaving(false); setSaved(true);
     setTimeout(() => setSaved(false), 2000);
@@ -366,6 +387,32 @@ function DetallePedidoModal({ pedido, lineas, isOps, onClose, onUpdated }) {
             </div>
           )}
 
+          {/* Info de envío (visible para consultor cuando está enviado) */}
+          {!isOps && pedido.estado === 'enviado' && (pedido.fecha_envio || pedido.codigo_mensajeria) && (
+            <div style={{ padding: '12px 14px', background: '#F0FDF4', borderRadius: 8, border: '1px solid #BBF7D0' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
+                <Truck size={15} color="#15803D" />
+                <span style={{ fontSize: '0.72rem', fontWeight: 700, color: '#15803D', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Información de envío</span>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                {pedido.fecha_envio && (
+                  <div style={{ fontSize: '0.85rem', color: '#166534' }}>
+                    <span style={{ color: '#6B7280' }}>Fecha de envío: </span>
+                    <strong>{fmt(pedido.fecha_envio)}</strong>
+                  </div>
+                )}
+                {pedido.codigo_mensajeria && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 2 }}>
+                    <span style={{ fontSize: '0.85rem', color: '#6B7280' }}>Código de seguimiento:</span>
+                    <code style={{ fontSize: '0.9rem', fontWeight: 700, color: '#15803D', background: '#DCFCE7', padding: '2px 10px', borderRadius: 6, letterSpacing: '0.04em' }}>
+                      {pedido.codigo_mensajeria}
+                    </code>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
           {/* Controles ops */}
           {isOps ? (
             <div style={{ borderTop: '1px solid #E5E7EB', paddingTop: 14, display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -375,6 +422,30 @@ function DetallePedidoModal({ pedido, lineas, isOps, onClose, onUpdated }) {
                   {Object.entries(ESTADOS).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
                 </select>
               </div>
+
+              {/* Campos de envío — solo visibles cuando estado = enviado */}
+              {estado === 'enviado' && (
+                <div style={{ padding: '12px 14px', background: '#F0FDF4', borderRadius: 8, border: '1px solid #BBF7D0', display: 'flex', flexDirection: 'column', gap: 10 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <Truck size={14} color="#15803D" />
+                    <span style={{ fontSize: '0.72rem', fontWeight: 700, color: '#15803D', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Datos de envío</span>
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                    <div>
+                      <label style={{ ...labelS, color: '#166534' }}>Fecha de envío</label>
+                      <input type="date" value={fechaEnvio} onChange={e => setFechaEnvio(e.target.value)}
+                        style={{ ...inputS, borderColor: '#86EFAC' }} />
+                    </div>
+                    <div>
+                      <label style={{ ...labelS, color: '#166534' }}>Código de mensajería</label>
+                      <input value={codigoMens} onChange={e => setCodigoMens(e.target.value)}
+                        placeholder="Ej: MRW-12345678"
+                        style={{ ...inputS, borderColor: '#86EFAC', fontFamily: 'monospace' }} />
+                    </div>
+                  </div>
+                </div>
+              )}
+
               <div>
                 <label style={labelS}>Notas de operaciones</label>
                 <textarea value={notasOps} onChange={e => setNotasOps(e.target.value)} rows={2}
