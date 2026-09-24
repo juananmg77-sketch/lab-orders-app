@@ -8,7 +8,7 @@ import {
 
 const CANDIDATE_STATUSES = ['Nuevo', 'Contactado', 'En proceso', 'Descartado', 'Contratado'];
 
-const DELEGACIONES = ['Baleares', 'Canarias (Tenerife)', 'Canarias (Gran Canaria)', 'Madrid', 'Barcelona', 'Andalucía', 'Valencia'];
+const DELEGACIONES = ['Baleares', 'Canarias (Tenerife)', 'Canarias (Gran Canaria)', 'Canarias (Lanzarote)', 'Madrid', 'Barcelona', 'Andalucía', 'Valencia'];
 
 const PUESTOS = [
   'Consultor Junior', 'Consultor Senior', 'Jefe de Consultores',
