@@ -12,8 +12,8 @@ import CandidatesView from './CandidatesView';
 import VacationCalendar from './VacationCalendar';
 
 // ── Constantes ────────────────────────────────────────────────────────────────
-const DELEGACIONES = ['Baleares', 'Canarias (Tenerife)', 'Canarias (Gran Canaria)', 'Madrid', 'Barcelona', 'Andalucía', 'Valencia'];
-const CANARIAS_DELEG = ['Canarias (Tenerife)', 'Canarias (Gran Canaria)'];
+const DELEGACIONES = ['Baleares', 'Canarias (Tenerife)', 'Canarias (Gran Canaria)', 'Canarias (Lanzarote)', 'Madrid', 'Barcelona', 'Andalucía', 'Valencia'];
+const CANARIAS_DELEG = ['Canarias (Tenerife)', 'Canarias (Gran Canaria)', 'Canarias (Lanzarote)'];
 const PENINSULA_DELEG = ['Madrid', 'Barcelona', 'Andalucía', 'Valencia'];
 const DEPARTMENTS = ['Consultoría', 'Laboratorio', 'Dirección', 'Financiero', 'Operaciones', 'Marketing'];
 const CONTRACT_TYPES = ['Indefinido', 'Temporal', 'Prácticas', 'Obra y servicio', 'Otro'];
