@@ -1,7 +1,9 @@
 import https from 'https';
 
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
-const SUPABASE_KEY = process.env.VITE_SUPABASE_ANON_KEY;
+// Solo la clave service_role (secreta, solo en servidor) puede leer la caché del token.
+// Si no está configurada, se omite la caché y se refresca el token con Zoho.
+const SUPABASE_KEY = process.env.SUPABASE_SERVICE_KEY;
 
 let _cachedToken = null;
 let _tokenExpiry = 0;
