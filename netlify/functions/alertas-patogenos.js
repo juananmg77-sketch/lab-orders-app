@@ -2,7 +2,25 @@ import { zohoAPI } from './utils/zoho-auth.js';
 import https from 'https';
 
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
-const SUPABASE_KEY = process.env.SUPABASE_SERVICE_KEY || process.env.VITE_SUPABASE_ANON_KEY;
+const SUPABASE_ANON = process.env.VITE_SUPABASE_ANON_KEY;
+// Las consultas se hacen con el token del usuario que ha iniciado sesión (rol authenticated),
+// nunca con la clave pública anónima.
+let USER_TOKEN = null;
+const ROLES_PERMITIDOS = ['admin', 'lab', 'operations'];
+
+async function verificarUsuario(event) {
+  const auth = event.headers?.authorization || event.headers?.Authorization || '';
+  const token = auth.startsWith('Bearer ') ? auth.slice(7) : null;
+  if (!token) return null;
+  const base = SUPABASE_URL.replace(/\/$/, '');
+  const u = await fetch(`${base}/auth/v1/user`, { headers: { apikey: SUPABASE_ANON, Authorization: `Bearer ${token}` } });
+  if (!u.ok) return null;
+  const user = await u.json();
+  const p = await fetch(`${base}/rest/v1/profiles?id=eq.${user.id}&select=role`, { headers: { apikey: SUPABASE_ANON, Authorization: `Bearer ${token}` } });
+  const rows = p.ok ? await p.json() : [];
+  if (!rows[0] || !ROLES_PERMITIDOS.includes(rows[0].role)) return null;
+  return token;
+}
 const ZOHO_ACCOUNT_ID = process.env.ZOHO_ACCOUNT_ID;
 const ZOHO_USER = process.env.ZOHO_USER;
 const CC_DEFAULT = process.env.CC_ALERTAS || 'jamunoz@hsconsulting.es';
@@ -16,8 +34,8 @@ function supabaseRequest(path, method = 'GET', body = null) {
       path: `/rest/v1${path}`,
       method,
       headers: {
-        apikey: SUPABASE_KEY,
-        Authorization: `Bearer ${SUPABASE_KEY}`,
+        apikey: SUPABASE_ANON,
+        Authorization: `Bearer ${USER_TOKEN}`,
         'Content-Type': 'application/json',
         ...(method === 'POST' ? { Prefer: 'return=minimal' } : {}),
         ...(bodyStr ? { 'Content-Length': Buffer.byteLength(bodyStr) } : {}),
@@ -107,8 +125,8 @@ function buildEmailHtml(consultor, muestras, fecha) {
 function corsHeaders() {
   return {
     'Content-Type': 'application/json',
-    'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Headers': 'Content-Type',
+    'Access-Control-Allow-Origin': 'https://lab-orders.netlify.app',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
     'Access-Control-Allow-Methods': 'POST, OPTIONS',
   };
 }
@@ -116,6 +134,9 @@ function corsHeaders() {
 export const handler = async (event) => {
   if (event.httpMethod === 'OPTIONS') return { statusCode: 200, headers: corsHeaders(), body: '' };
   if (event.httpMethod !== 'POST') return { statusCode: 405, headers: corsHeaders(), body: JSON.stringify({ ok: false, error: 'Método no permitido' }) };
+
+  USER_TOKEN = await verificarUsuario(event);
+  if (!USER_TOKEN) return { statusCode: 401, headers: corsHeaders(), body: JSON.stringify({ ok: false, error: 'No autorizado' }) };
 
   let samples;
   try {

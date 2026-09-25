@@ -455,9 +455,10 @@ export default function AlertasPatogenosModule({ onBackToHub }) {
 
   // Enviar email para un consultor concreto — devuelve el resultado para que el bloque detecte fallos
   const handleSendEmail = async (consultor, muestras) => {
+    const { data: { session } } = await supabase.auth.getSession();
     const resp = await fetch('/.netlify/functions/alertas-patogenos', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token || ''}` },
       body: JSON.stringify({ samples: muestras }),
     });
     const data = await resp.json();
