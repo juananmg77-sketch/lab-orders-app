@@ -25,10 +25,10 @@ export default function Hub({ session, globalLab, setGlobalLab, onSelectModule, 
       .then(({ count }) => setPedidosPendientes(count || 0));
   }, [role]);
 
-  const showPurchasing = ['admin', 'lab', 'operations'].includes(role);
+  const showPurchasing = false; // migrado a HS Suite
   const showEquipment = ['admin', 'lab'].includes(role);
   const showUsers = role === 'admin';
-  const showRRHH = ['admin', 'operations'].includes(role);
+  const showRRHH = false; // migrado a HS Suite
 
   // Gestor documental: skip Hub, go directly to the documents module
   React.useEffect(() => {
