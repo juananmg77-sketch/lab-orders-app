@@ -25,7 +25,7 @@ const SHEET_CONFIG = {
       const r = new Array(26).fill('');
       r[0]=s.codigo; r[1]=s.establecimiento; r[2]=s.lugar||s.punto; r[3]=s.descripcion;
       r[4]=s.fecha_recogida; r[5]=s.hora_recogida; r[6]=s.fecha_entrada;
-      r[7]=s.fecha_inicio; r[8]=s.fecha_fin; r[9]=s.resultado||'APTO'; r[11]=s.comentarios;
+      r[7]=s.fecha_inicio; r[8]=s.fecha_fin; r[9]=s.resultado||'APTO'; r[10]=s.apto_revisar||''; r[11]=s.comentarios;
       r[12]=s.cloro_libre; r[14]=s.temperatura; r[15]=s.ph; r[17]=s.hierro; r[19]=s.aerobios_22;
       r[20]=s.legionella_spp;
       return r.map(v => v || '');
@@ -45,7 +45,7 @@ const SHEET_CONFIG = {
       const r = new Array(19).fill('');
       r[0]=s.codigo; r[1]=s.establecimiento; r[2]=s.lugar||s.punto; r[3]=s.descripcion;
       r[4]=s.fecha_recogida; r[5]=s.hora_recogida; r[6]=s.fecha_entrada;
-      r[7]=s.fecha_inicio; r[8]=s.fecha_fin; r[9]=s.resultado||'APTO'; r[11]=s.comentarios;
+      r[7]=s.fecha_inicio; r[8]=s.fecha_fin; r[9]=s.resultado||'APTO'; r[10]=s.apto_revisar||''; r[11]=s.comentarios;
       r[12]=s.cloro_libre; r[13]=s.temperatura; r[14]=s.ph; r[16]=s.aerobios_22;
       r[17]=s.legionella_pneumo; r[18]=s.legionella_spp;
       return r.map(v => v || '');
@@ -65,7 +65,7 @@ const SHEET_CONFIG = {
       const r = new Array(18).fill('');
       r[0]=s.codigo; r[1]=s.establecimiento; r[2]=s.lugar||s.punto; r[3]=s.descripcion;
       r[4]=s.fecha_recogida; r[5]=s.hora_recogida; r[6]=s.fecha_entrada;
-      r[7]=s.fecha_inicio; r[8]=s.fecha_fin; r[9]=s.resultado||'APTO'; r[11]=s.comentarios;
+      r[7]=s.fecha_inicio; r[8]=s.fecha_fin; r[9]=s.resultado||'APTO'; r[10]=s.apto_revisar||''; r[11]=s.comentarios;
       r[12]=s.cloro_libre; r[13]=s.aerobios_22; r[16]=s.legionella_spp;
       return r.map(v => v || '');
     },
@@ -90,7 +90,7 @@ const SHEET_CONFIG = {
       const r = new Array(38).fill('');
       r[0]=s.codigo; r[1]=s.establecimiento; r[2]=s.lugar||s.punto; r[3]=s.descripcion;
       r[4]=s.fecha_recogida; r[5]=s.hora_recogida; r[6]=s.fecha_entrada;
-      r[7]=s.fecha_inicio; r[8]=s.fecha_fin; r[9]=s.resultado||'APTO'; r[11]=s.comentarios;
+      r[7]=s.fecha_inicio; r[8]=s.fecha_fin; r[9]=s.resultado||'APTO'; r[10]=s.apto_revisar||''; r[11]=s.comentarios;
       r[12]=s.ph; r[13]=s.cloro_libre; r[15]=s.cloro_combinado; r[16]=s.temperatura;
       r[30]=s.aerobios_22; r[37]=s.legionella_spp;
       return r.map(v => v || '');
@@ -120,7 +120,7 @@ const SHEET_CONFIG = {
       const r = new Array(43).fill('');
       r[0]=s.codigo; r[1]=s.establecimiento; r[2]=s.lugar||s.punto; r[3]=s.descripcion;
       r[4]=s.fecha_recogida; r[5]=s.hora_recogida; r[6]=s.fecha_entrada;
-      r[7]=s.fecha_inicio; r[8]=s.fecha_fin; r[9]=s.resultado||'APTO'; r[11]=s.comentarios;
+      r[7]=s.fecha_inicio; r[8]=s.fecha_fin; r[9]=s.resultado||'APTO'; r[10]=s.apto_revisar||''; r[11]=s.comentarios;
       r[12]=s.ph; r[13]=s.cloro_libre; r[15]=s.cloro_combinado; r[16]=s.temperatura;
       r[36]=s.legionella_spp; r[37]=s.hierro; r[38]=s.aerobios_22; r[39]=s.legionella_spp; r[41]=s.legionella_pneumo;
       return r.map(v => v || '');
@@ -150,7 +150,7 @@ const SHEET_CONFIG = {
       const r = new Array(43).fill('');
       r[0]=s.codigo; r[1]=s.establecimiento; r[2]=s.lugar||s.punto; r[3]=s.descripcion;
       r[4]=s.fecha_recogida; r[5]=s.hora_recogida; r[6]=s.fecha_entrada;
-      r[7]=s.fecha_inicio; r[8]=s.fecha_fin; r[9]=s.resultado||'APTO'; r[11]=s.comentarios;
+      r[7]=s.fecha_inicio; r[8]=s.fecha_fin; r[9]=s.resultado||'APTO'; r[10]=s.apto_revisar||''; r[11]=s.comentarios;
       r[12]=s.ph; r[13]=s.cloro_libre; r[15]=s.cloro_combinado; r[16]=s.temperatura;
       r[36]=s.legionella_spp; r[37]=s.hierro; r[38]=s.aerobios_22; r[39]=s.legionella_spp; r[41]=s.legionella_pneumo;
       return r.map(v => v || '');
@@ -181,7 +181,7 @@ const SHEET_CONFIG = {
       const r = new Array(48).fill('');
       r[0]=s.codigo; r[1]=s.establecimiento; r[2]=s.lugar||s.punto; r[3]=s.descripcion;
       r[4]=s.fecha_recogida; r[5]=s.hora_recogida; r[6]=s.fecha_entrada;
-      r[7]=s.fecha_inicio; r[8]=s.fecha_fin; r[9]=s.resultado||'APTO'; r[11]=s.comentarios;
+      r[7]=s.fecha_inicio; r[8]=s.fecha_fin; r[9]=s.resultado||'APTO'; r[10]=s.apto_revisar||''; r[11]=s.comentarios;
       r[12]=s.ph; r[13]=s.cloro_libre; r[14]=s.cloro_combinado; r[21]=s.temperatura;
       r[41]=s.legionella_spp; r[43]=s.legionella_pneumo; r[47]=s.legionella_spp;
       return r.map(v => v || '');
@@ -211,7 +211,7 @@ const SHEET_CONFIG = {
       const r = new Array(44).fill('');
       r[0]=s.codigo; r[1]=s.establecimiento; r[2]=s.lugar||s.punto; r[3]=s.descripcion;
       r[4]=s.fecha_recogida; r[5]=s.hora_recogida; r[6]=s.fecha_entrada;
-      r[7]=s.fecha_inicio; r[8]=s.fecha_fin; r[9]=s.resultado||'APTO'; r[11]=s.comentarios;
+      r[7]=s.fecha_inicio; r[8]=s.fecha_fin; r[9]=s.resultado||'APTO'; r[10]=s.apto_revisar||''; r[11]=s.comentarios;
       r[12]=s.ph; r[13]=s.cloro_libre; r[14]=s.cloro_combinado; r[19]=s.temperatura;
       r[37]=s.legionella_spp; r[38]=s.legionella_pneumo; r[42]=s.legionella_spp;
       return r.map(v => v || '');
@@ -235,7 +235,7 @@ const SHEET_CONFIG = {
       const r = new Array(27).fill('');
       r[0]=s.codigo; r[1]=s.establecimiento; r[2]=s.lugar||s.punto; r[3]=s.descripcion;
       r[4]=s.fecha_recogida; r[5]=s.hora_recogida; r[6]=s.fecha_entrada;
-      r[7]=s.fecha_inicio; r[8]=s.fecha_fin; r[9]=s.resultado||'APTO'; r[11]=s.comentarios;
+      r[7]=s.fecha_inicio; r[8]=s.fecha_fin; r[9]=s.resultado||'APTO'; r[10]=s.apto_revisar||''; r[11]=s.comentarios;
       r[12]=s.ph; r[15]=s.temperatura; r[26]=s.legionella_spp;
       return r.map(v => v || '');
     },
@@ -259,7 +259,7 @@ const SHEET_CONFIG = {
       const r = new Array(22).fill('');
       r[0]=s.codigo; r[1]=s.establecimiento; r[2]=s.lugar||s.punto; r[3]=s.descripcion;
       r[4]=s.fecha_recogida; r[5]=s.hora_recogida; r[6]=s.fecha_entrada;
-      r[7]=s.fecha_inicio; r[8]=s.fecha_fin; r[9]=s.resultado||'APTO'; r[11]=s.comentarios;
+      r[7]=s.fecha_inicio; r[8]=s.fecha_fin; r[9]=s.resultado||'APTO'; r[10]=s.apto_revisar||''; r[11]=s.comentarios;
       r[12]=s.temperatura; r[13]=s.cloro_libre; r[14]=s.legionella_spp;
       r[15]=s.legionella_pneumo; r[16]=s.legionella_spp; r[17]=s.hierro;
       return r.map(v => v || '');
@@ -334,6 +334,81 @@ function buildPendingMap(text) {
     };
   }
   return map;
+}
+
+// ─── Nilsson Laboratorios post-processing ────────────────────────────────────
+// Detecta por nombre de archivo: 2026XXXXX_EC26XXXXX_establecimiento_descripcion_DD_MM_YYYY_R.pdf
+function isNilssonFilename(filename) {
+  return /^20\d{2}[^_]*_EC\d+_/i.test(filename);
+}
+
+// Convierte "No detectado" → 0, "4,5x10e1" → 45, etc.
+function parseNilssonValue(str) {
+  if (!str) return '';
+  const s = str.trim();
+  if (/^no\s*detectado$/i.test(s)) return '0';
+  const m = s.match(/^([\d]+[,.]?[\d]*)\s*[xX×]\s*10[eE\^]?(\d+)$/);
+  if (m) {
+    const mantissa = parseFloat(m[1].replace(',', '.'));
+    const exp = parseInt(m[2], 10);
+    return String(Math.round(mantissa * Math.pow(10, exp)));
+  }
+  const n = parseFloat(s.replace(',', '.'));
+  if (!isNaN(n)) return String(n);
+  return s;
+}
+
+function postProcessNilsson(filename, rawFields) {
+  if (!isNilssonFilename(filename)) return rawFields;
+
+  const out = { ...rawFields };
+
+  // Parseo del nombre: [0]=2026ref [1]=EC [2]=establecimiento [3]=descripcion [4]=DD [5]=MM [6]=YYYY [7]=R
+  const base = filename.replace(/\.pdf$/i, '');
+  const parts = base.split('_');
+  const descFromName = parts[3] || '';
+  const dd = parts[4] || '';
+  const mm = parts[5] || '';
+  const yyyy = parts[6] || '';
+
+  // Punto muestreo = descripcion del nombre de archivo
+  if (descFromName) out.punto = descFromName;
+
+  // Fecha recogida si el backend no la extrajo
+  if (!out.fecha_recogida && dd && mm && yyyy) {
+    out.fecha_recogida = `${dd.padStart(2, '0')}/${mm.padStart(2, '0')}/${yyyy}`;
+  }
+
+  // Descripcion siempre vacío (regla Nilsson)
+  out.descripcion = '';
+
+  // Lugar: no tocar (queda vacío si el backend no lo rellenó)
+
+  // Convertir notación científica en campos numéricos clave
+  if (out.legionella_spp !== undefined) out.legionella_spp = parseNilssonValue(out.legionella_spp);
+  if (out.aerobios_22   !== undefined) out.aerobios_22   = parseNilssonValue(out.aerobios_22);
+  if (out.hierro        !== undefined) out.hierro        = parseNilssonValue(out.hierro);
+
+  // Apto / No Apto
+  const legVal      = parseFloat(out.legionella_spp);
+  const hierroVal   = parseFloat((out.hierro || '').replace(',', '.'));
+  const aerobiosVal = parseFloat(out.aerobios_22);
+
+  if (!isNaN(legVal) && legVal >= 100) {
+    out.resultado = 'NO APTO';
+  } else if (!out.resultado) {
+    out.resultado = 'APTO';
+  }
+
+  const needsReview =
+    (!isNaN(hierroVal)   && hierroVal   > 0.2) ||
+    (!isNaN(aerobiosVal) && aerobiosVal > 100);
+  if (needsReview) out.apto_revisar = 'X';
+
+  // Comentario fijo acreditación ISO 17025
+  out.comentarios = 'El informe oficial acreditado ISO 17025 de ensayo de Legionella sp. lo puede descargar aquí. ';
+
+  return out;
 }
 
 // ─── Componente principal ─────────────────────────────────────────────────────
@@ -414,7 +489,7 @@ export default function ImportadorPDFModule({ onBackToHub }) {
         const data = await resp.json();
         if (!data.ok) throw new Error(data.error);
 
-        const fields = data.fields;
+        const fields = postProcessNilsson(file.name, data.fields);
 
         let matchStatus = Object.keys(pendingMapRef.current).length > 0 ? 'unmatched' : null;
         let matchedPending = null;
