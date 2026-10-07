@@ -7,8 +7,8 @@ import { supabase } from './supabaseClient';
 
 // ── Constantes ──────────────────────────────────────────────────────────────
 
-const LABEL_TIPOS = ['TAB', 'TAG', 'TTB', 'TTG', 'STB', 'STG', null];
-// null en posición 6 → se reemplaza por "Matriz A" o "Matriz B"
+const LABEL_TIPOS = ['TAB', 'TAG', 'TTB', 'TTG', 'STB', 'STG', null, 'RING'];
+// null → se reemplaza por "Matriz A" o "Matriz B"; RING aplica a todas las matrices
 
 const MATRIZ_B_KEYWORDS = [
   'piscina', 'spa', 'jacuzzi', 'hidromasaje',
@@ -397,7 +397,7 @@ const PTOUCH_STEPS = [
   { n: 1, title: 'Abrir plantilla en P-touch Editor 5.4', desc: 'Abre la plantilla configurada para la QL-810WC. Los campos de texto deben llamarse: Date · Number · Region · Tipo de análisis.' },
   { n: 2, title: 'Conectar base de datos', desc: 'Menú Archivo → Base de datos → Conectar. Selecciona el XLS de etiquetas. Marca "La primera fila contiene nombres de campo".' },
   { n: 3, title: 'Verificar mapeo de campos', desc: 'P-touch Editor detectará los 4 campos automáticamente. Comprueba que Date→Fecha, Number→Número, Region→Región, Tipo de análisis→Tipo.' },
-  { n: 4, title: 'Imprimir todo', desc: 'Archivo → Imprimir → Imprimir todo (Ctrl+Shift+P). Selecciona QL-810WC. Se imprimen 7 etiquetas × N muestras en secuencia.' },
+  { n: 4, title: 'Imprimir todo', desc: 'Archivo → Imprimir → Imprimir todo (Ctrl+Shift+P). Selecciona QL-810WC. Se imprimen 8 etiquetas × N muestras en secuencia (TAB, TAG, TTB, TTG, STB, STG, Matriz A/B, RING).' },
 ];
 
 function PtouchGuide() {
@@ -634,7 +634,7 @@ export default function LabelGeneratorModule({ onBackToHub }) {
               <StatCard label="Muestras" value={registros.length} color="var(--primary)" />
               <StatCard label="Matriz A" value={nA} color="#16A34A" />
               <StatCard label="Matriz B" value={nB} color="#0891B2" />
-              <StatCard label="Etiquetas" value={registros.length * 7} color="#7C3AED" />
+              <StatCard label="Etiquetas" value={registros.length * LABEL_TIPOS.length} color="#7C3AED" />
               <StatCard label="Regiones" value={regiones.length} color="#D97706" />
               <div style={{ marginLeft: 'auto', fontSize: '0.78rem', color: 'var(--text-muted)', lineHeight: 1.6, textAlign: 'right' }}>
                 <div>✏️ <strong>Haz clic en A/B</strong> para cambiar la Matriz</div>
@@ -771,7 +771,7 @@ export default function LabelGeneratorModule({ onBackToHub }) {
                 onClick={() => exportarEtiquetas(registros, fechaCSV)}
                 style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '11px 22px', borderRadius: '10px', border: 'none', cursor: 'pointer', backgroundColor: '#16A34A', color: 'white', fontWeight: 700, fontSize: '0.9rem', boxShadow: '0 2px 8px rgba(22,163,74,0.3)' }}
               >
-                <Download size={17} /> XLS Etiquetas ({registros.length * 7} filas)
+                <Download size={17} /> XLS Etiquetas ({registros.length * LABEL_TIPOS.length} filas)
               </button>
             </div>
           </>
