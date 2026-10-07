@@ -133,7 +133,7 @@ import logo from './assets/logo.png';
 
 
 
-function PurchasingModule({ session, onLogout, globalLab, onBackToHub, role = 'operations', canApprove = true, onSelectModule, onRegisterEquipment, initialTab }) {
+function PurchasingModule({ session, onLogout, globalLab, setGlobalLab, onBackToHub, role = 'operations', canApprove = true, onSelectModule, onRegisterEquipment, initialTab }) {
   const [activeTab, setActiveTab] = useState(initialTab || 'pedidos');
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const selectedLab = globalLab;
@@ -3350,14 +3350,14 @@ function PurchasingModule({ session, onLogout, globalLab, onBackToHub, role = 'o
             <X size={20} />
           </button>
         </div>
-        <div style={{ padding: '16px', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
-          <button 
-            className="btn btn-secondary" 
+        <div style={{ padding: '16px', borderBottom: '1px solid rgba(255,255,255,0.1)', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+          <button
+            className="btn btn-secondary"
             onClick={onBackToHub}
-            style={{ 
-              width: '100%', 
-              backgroundColor: 'rgba(0,0,0,0.2)', 
-              color: 'white', 
+            style={{
+              width: '100%',
+              backgroundColor: 'rgba(0,0,0,0.2)',
+              color: 'white',
               border: '1px solid rgba(255,255,255,0.1)',
               display: 'flex',
               justifyContent: 'center'
@@ -3365,6 +3365,32 @@ function PurchasingModule({ session, onLogout, globalLab, onBackToHub, role = 'o
           >
             ← Volver al Hub
           </button>
+          {setGlobalLab && (
+            <div style={{ position: 'relative' }}>
+              <select
+                value={selectedLab}
+                onChange={e => setGlobalLab(e.target.value)}
+                style={{
+                  width: '100%',
+                  padding: '7px 32px 7px 12px',
+                  borderRadius: '8px',
+                  backgroundColor: selectedLab === 'HSLAB Canarias' ? '#16A34A' : '#0076CE',
+                  color: 'white',
+                  border: 'none',
+                  fontSize: '0.85rem',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  outline: 'none',
+                  appearance: 'none',
+                  WebkitAppearance: 'none',
+                }}
+              >
+                <option value="HSLAB Baleares">HSLAB Baleares</option>
+                <option value="HSLAB Canarias">HSLAB Canarias</option>
+              </select>
+              <span style={{ position: 'absolute', right: '10px', top: '8px', pointerEvents: 'none', color: 'white', fontSize: '0.7rem' }}>▼</span>
+            </div>
+          )}
         </div>
         <nav className="nav-links" style={{ marginTop: '12px' }}>
           <div

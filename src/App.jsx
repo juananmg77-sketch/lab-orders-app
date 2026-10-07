@@ -124,6 +124,7 @@ export default function App() {
       <PurchasingModule
         session={session}
         globalLab={globalLab}
+        setGlobalLab={setGlobalLab}
         onLogout={handleLogout}
         onBackToHub={() => setActiveModule(null)}
         role={role}
@@ -142,6 +143,7 @@ export default function App() {
       <PurchasingModule
         session={session}
         globalLab={globalLab}
+        setGlobalLab={setGlobalLab}
         onLogout={handleLogout}
         onBackToHub={() => setActiveModule(null)}
         role={role}

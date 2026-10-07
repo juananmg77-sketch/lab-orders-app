@@ -6,13 +6,7 @@ import { supabase } from './supabaseClient';
 export default function Hub({ session, globalLab, setGlobalLab, onSelectModule, onLogout, role = 'operations' }) {
   const userEmail = session?.user?.email;
 
-  // Regla específica: lab@hsconsulting.es solo accede a Baleares
-  const allowedLabs = React.useMemo(() =>
-    userEmail === 'lab@hsconsulting.es'
-      ? ['HSLAB Baleares']
-      : ['HSLAB Baleares', 'HSLAB Canarias'],
-    [userEmail]
-  );
+  const allowedLabs = ['HSLAB Baleares', 'HSLAB Canarias'];
 
   const [pedidosPendientes, setPedidosPendientes] = React.useState(0);
 
