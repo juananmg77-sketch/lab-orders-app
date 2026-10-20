@@ -760,6 +760,7 @@ export default function RRHHModule({ onBackToHub, role = 'operations' }) {
     if (zone === 'Caribe')   return list.filter(e => CARIBE_DELEG.includes(e.delegacion));
     if (zone === 'MX')       return list.filter(e => e.delegacion === 'MX');
     if (zone === 'RD')       return list.filter(e => e.delegacion === 'RD');
+    if (zone === 'Jamaica')  return list.filter(e => e.delegacion === 'Caribe');
     return list;
   };
 
@@ -1897,20 +1898,19 @@ export default function RRHHModule({ onBackToHub, role = 'operations' }) {
             {/* Filtro zona */}
             <div style={{ padding: '10px 18px', borderBottom: '1px solid var(--border)', display: 'flex', gap: '6px', flexWrap: 'wrap', alignItems: 'center' }}>
               {[
-                { z: 'Todos',     label: 'Todos',     ac: '#185FA5', ab: '#e6f1fb', count: byDept('Consultoría').length },
-                { z: 'EMEA',      label: 'EMEA',      ac: '#185FA5', ab: '#e6f1fb', count: byDept('Consultoría').filter(e => EMEA_DELEG.includes(e.delegacion)).length },
-                { z: 'Baleares',  label: 'Baleares',  ac: '#185FA5', ab: '#e6f1fb', count: byDept('Consultoría').filter(e => e.delegacion === 'Baleares').length },
-                { z: 'Canarias',  label: 'Canarias',  ac: '#185FA5', ab: '#e6f1fb', count: byDept('Consultoría').filter(e => CANARIAS_DELEG.includes(e.delegacion)).length },
-                { z: 'Península', label: 'Península', ac: '#185FA5', ab: '#e6f1fb', count: byDept('Consultoría').filter(e => PENINSULA_DELEG.includes(e.delegacion)).length },
+                { z: 'Todos',     ac: '#185FA5', ab: '#e6f1fb', count: byDept('Consultoría').length },
+                { z: 'Baleares',  ac: '#185FA5', ab: '#e6f1fb', count: byDept('Consultoría').filter(e => e.delegacion === 'Baleares').length },
+                { z: 'Canarias',  ac: '#185FA5', ab: '#e6f1fb', count: byDept('Consultoría').filter(e => CANARIAS_DELEG.includes(e.delegacion)).length },
+                { z: 'Península', ac: '#185FA5', ab: '#e6f1fb', count: byDept('Consultoría').filter(e => PENINSULA_DELEG.includes(e.delegacion)).length },
                 null,
-                { z: 'Caribe',    label: 'Caribe',    ac: '#0E7490', ab: '#ecfeff', count: byDept('Consultoría').filter(e => CARIBE_DELEG.includes(e.delegacion)).length },
-                { z: 'MX',        label: 'MX',        ac: '#16A34A', ab: '#dcfce7', count: byDept('Consultoría').filter(e => e.delegacion === 'MX').length },
-                { z: 'RD',        label: 'RD',        ac: '#B91C1C', ab: '#fee2e2', count: byDept('Consultoría').filter(e => e.delegacion === 'RD').length },
+                { z: 'MX',       ac: '#16A34A', ab: '#dcfce7', count: byDept('Consultoría').filter(e => e.delegacion === 'MX').length },
+                { z: 'RD',       ac: '#B91C1C', ab: '#fee2e2', count: byDept('Consultoría').filter(e => e.delegacion === 'RD').length },
+                { z: 'Jamaica',  ac: '#7C3AED', ab: '#ede9fe', count: byDept('Consultoría').filter(e => e.delegacion === 'Caribe').length },
               ].map((item, i) => item === null
                 ? <span key={`sep-${i}`} style={{ width: '1px', height: '16px', backgroundColor: 'var(--border)', alignSelf: 'center', flexShrink: 0 }} />
                 : <button key={item.z} onClick={() => setConsultZone(item.z)}
                     style={{ padding: '4px 10px', borderRadius: '999px', fontSize: '0.75rem', fontWeight: 600, cursor: 'pointer', border: consultZone === item.z ? `1.5px solid ${item.ac}` : '1px solid var(--border)', backgroundColor: consultZone === item.z ? item.ab : 'transparent', color: consultZone === item.z ? item.ac : 'var(--text-muted)', whiteSpace: 'nowrap' }}>
-                    {item.label} · {item.count}
+                    {item.z} · {item.count}
                   </button>
               )}
             </div>
@@ -1945,12 +1945,12 @@ export default function RRHHModule({ onBackToHub, role = 'operations' }) {
               <div style={{ padding: '10px 18px', borderBottom: '1px solid var(--border)', display: 'flex', gap: '6px', flexWrap: 'wrap', alignItems: 'center' }}>
                 {[
                   { z: 'Todos',    ac: '#534AB7', ab: '#eeedfe', count: byDept('Laboratorio').length },
-                  { z: 'EMEA',     ac: '#534AB7', ab: '#eeedfe', count: byDept('Laboratorio').filter(e => EMEA_DELEG.includes(e.delegacion)).length },
                   { z: 'Baleares', ac: '#534AB7', ab: '#eeedfe', count: byDept('Laboratorio').filter(e => e.delegacion === 'Baleares').length },
                   { z: 'Canarias', ac: '#534AB7', ab: '#eeedfe', count: byDept('Laboratorio').filter(e => CANARIAS_DELEG.includes(e.delegacion)).length },
                   null,
-                  { z: 'Caribe',   ac: '#0E7490', ab: '#ecfeff', count: byDept('Laboratorio').filter(e => CARIBE_DELEG.includes(e.delegacion)).length },
-                  { z: 'MX',       ac: '#16A34A', ab: '#dcfce7', count: byDept('Laboratorio').filter(e => e.delegacion === 'MX').length },
+                  { z: 'MX',      ac: '#16A34A', ab: '#dcfce7', count: byDept('Laboratorio').filter(e => e.delegacion === 'MX').length },
+                  { z: 'RD',      ac: '#B91C1C', ab: '#fee2e2', count: byDept('Laboratorio').filter(e => e.delegacion === 'RD').length },
+                  { z: 'Jamaica', ac: '#7C3AED', ab: '#ede9fe', count: byDept('Laboratorio').filter(e => e.delegacion === 'Caribe').length },
                 ].map((item, i) => item === null
                   ? <span key={`sep-${i}`} style={{ width: '1px', height: '16px', backgroundColor: 'var(--border)', alignSelf: 'center', flexShrink: 0 }} />
                   : <button key={item.z} onClick={() => setLabZone(item.z)}
@@ -1985,12 +1985,12 @@ export default function RRHHModule({ onBackToHub, role = 'operations' }) {
               </div>
               <div style={{ padding: '8px 18px 8px', borderBottom: '1px solid var(--border)', display: 'flex', gap: '6px', flexWrap: 'wrap', alignItems: 'center' }}>
                 {[
-                  { z: 'Todos',  ac: '#993C1D', ab: '#faece7', count: byDept('Dirección').length },
-                  { z: 'EMEA',   ac: '#993C1D', ab: '#faece7', count: byDept('Dirección').filter(e => EMEA_DELEG.includes(e.delegacion)).length },
+                  { z: 'Todos',   ac: '#993C1D', ab: '#faece7', count: byDept('Dirección').length },
+                  { z: 'EMEA',    ac: '#993C1D', ab: '#faece7', count: byDept('Dirección').filter(e => EMEA_DELEG.includes(e.delegacion)).length },
                   null,
-                  { z: 'Caribe', ac: '#0E7490', ab: '#ecfeff', count: byDept('Dirección').filter(e => CARIBE_DELEG.includes(e.delegacion)).length },
-                  { z: 'MX',     ac: '#16A34A', ab: '#dcfce7', count: byDept('Dirección').filter(e => e.delegacion === 'MX').length },
-                  { z: 'RD',     ac: '#B91C1C', ab: '#fee2e2', count: byDept('Dirección').filter(e => e.delegacion === 'RD').length },
+                  { z: 'MX',      ac: '#16A34A', ab: '#dcfce7', count: byDept('Dirección').filter(e => e.delegacion === 'MX').length },
+                  { z: 'RD',      ac: '#B91C1C', ab: '#fee2e2', count: byDept('Dirección').filter(e => e.delegacion === 'RD').length },
+                  { z: 'Jamaica', ac: '#7C3AED', ab: '#ede9fe', count: byDept('Dirección').filter(e => e.delegacion === 'Caribe').length },
                 ].map((item, i) => item === null
                   ? <span key={`sep-${i}`} style={{ width: '1px', height: '16px', backgroundColor: 'var(--border)', alignSelf: 'center', flexShrink: 0 }} />
                   : <button key={item.z} onClick={() => setDirZone(item.z)}
@@ -2025,12 +2025,12 @@ export default function RRHHModule({ onBackToHub, role = 'operations' }) {
               </div>
               <div style={{ padding: '8px 18px 8px', borderBottom: '1px solid var(--border)', display: 'flex', gap: '6px', flexWrap: 'wrap', alignItems: 'center' }}>
                 {[
-                  { z: 'Todos',  ac: '#0E7490', ab: '#ecfeff', count: byDept('Operaciones').length },
-                  { z: 'EMEA',   ac: '#0E7490', ab: '#ecfeff', count: byDept('Operaciones').filter(e => EMEA_DELEG.includes(e.delegacion)).length },
+                  { z: 'Todos',   ac: '#0E7490', ab: '#ecfeff', count: byDept('Operaciones').length },
+                  { z: 'EMEA',    ac: '#0E7490', ab: '#ecfeff', count: byDept('Operaciones').filter(e => EMEA_DELEG.includes(e.delegacion)).length },
                   null,
-                  { z: 'Caribe', ac: '#0E7490', ab: '#ecfeff', count: byDept('Operaciones').filter(e => CARIBE_DELEG.includes(e.delegacion)).length },
-                  { z: 'MX',     ac: '#16A34A', ab: '#dcfce7', count: byDept('Operaciones').filter(e => e.delegacion === 'MX').length },
-                  { z: 'RD',     ac: '#B91C1C', ab: '#fee2e2', count: byDept('Operaciones').filter(e => e.delegacion === 'RD').length },
+                  { z: 'MX',      ac: '#16A34A', ab: '#dcfce7', count: byDept('Operaciones').filter(e => e.delegacion === 'MX').length },
+                  { z: 'RD',      ac: '#B91C1C', ab: '#fee2e2', count: byDept('Operaciones').filter(e => e.delegacion === 'RD').length },
+                  { z: 'Jamaica', ac: '#7C3AED', ab: '#ede9fe', count: byDept('Operaciones').filter(e => e.delegacion === 'Caribe').length },
                 ].map((item, i) => item === null
                   ? <span key={`sep-${i}`} style={{ width: '1px', height: '16px', backgroundColor: 'var(--border)', alignSelf: 'center', flexShrink: 0 }} />
                   : <button key={item.z} onClick={() => setOpZone(item.z)}
