@@ -12,9 +12,11 @@ import CandidatesView from './CandidatesView';
 import VacationCalendar from './VacationCalendar';
 
 // ── Constantes ────────────────────────────────────────────────────────────────
-const DELEGACIONES = ['Baleares', 'Canarias (Tenerife)', 'Canarias (Gran Canaria)', 'Canarias (Lanzarote)', 'Madrid', 'Barcelona', 'Andalucía', 'Valencia'];
+const DELEGACIONES = ['Baleares', 'Canarias (Tenerife)', 'Canarias (Gran Canaria)', 'Canarias (Lanzarote)', 'Madrid', 'Barcelona', 'Andalucía', 'Valencia', 'MX', 'RD', 'Caribe'];
 const CANARIAS_DELEG = ['Canarias (Tenerife)', 'Canarias (Gran Canaria)', 'Canarias (Lanzarote)'];
 const PENINSULA_DELEG = ['Madrid', 'Barcelona', 'Andalucía', 'Valencia'];
+const EMEA_DELEG = ['Baleares', 'Canarias (Tenerife)', 'Canarias (Gran Canaria)', 'Canarias (Lanzarote)', 'Madrid', 'Barcelona', 'Andalucía', 'Valencia'];
+const CARIBE_DELEG = ['MX', 'RD', 'Caribe'];
 const DEPARTMENTS = ['Consultoría', 'Laboratorio', 'Dirección', 'Financiero', 'Operaciones', 'Marketing'];
 const CONTRACT_TYPES = ['Indefinido', 'Temporal', 'Prácticas', 'Obra y servicio', 'Otro'];
 const STATUSES = ['Activo', 'Baja', 'Excedencia', 'Pendiente'];
@@ -160,6 +162,8 @@ export default function RRHHModule({ onBackToHub, role = 'operations' }) {
   // Dashboard: filtros zona
   const [consultZone, setConsultZone] = useState('Todos');
   const [labZone, setLabZone] = useState('Todos');
+  const [dirZone, setDirZone] = useState('Todos');
+  const [opZone, setOpZone] = useState('Todos');
   const [showBajas, setShowBajas] = useState({ Consultoría: false, Laboratorio: false, Dirección: false, Operaciones: false });
 
   // Empleado seleccionado (detalle)
@@ -748,13 +752,19 @@ export default function RRHHModule({ onBackToHub, role = 'operations' }) {
   // ── Helpers de filtrado ────────────────────────────────────────────────────
   const byDept = (dept) => employees.filter(e => e.department === dept);
 
-  const consultByZone = (zone) => {
-    const base = byDept('Consultoría');
-    if (zone === 'Baleares') return base.filter(e => e.delegacion === 'Baleares');
-    if (zone === 'Canarias') return base.filter(e => CANARIAS_DELEG.includes(e.delegacion));
-    if (zone === 'Península') return base.filter(e => PENINSULA_DELEG.includes(e.delegacion));
-    return base;
+  const filterByZone = (list, zone) => {
+    if (zone === 'EMEA')     return list.filter(e => EMEA_DELEG.includes(e.delegacion));
+    if (zone === 'Baleares') return list.filter(e => e.delegacion === 'Baleares');
+    if (zone === 'Canarias') return list.filter(e => CANARIAS_DELEG.includes(e.delegacion));
+    if (zone === 'Península')return list.filter(e => PENINSULA_DELEG.includes(e.delegacion));
+    if (zone === 'Caribe')   return list.filter(e => CARIBE_DELEG.includes(e.delegacion));
+    if (zone === 'MX')       return list.filter(e => e.delegacion === 'MX');
+    if (zone === 'RD')       return list.filter(e => e.delegacion === 'RD');
+    if (zone === 'Jamaica')  return list.filter(e => e.delegacion === 'Caribe');
+    return list;
   };
+
+  const consultByZone = (zone) => filterByZone(byDept('Consultoría'), zone);
 
   const filteredEmployees = employees.filter(e => {
     const matchDel = filterDelegacion === 'Todos' || e.delegacion === filterDelegacion;
@@ -781,9 +791,10 @@ export default function RRHHModule({ onBackToHub, role = 'operations' }) {
   };
 
   const delagDist = DELEGACIONES.map(d => ({
-    label: d === 'Canarias (Tenerife)' ? 'CAN Tfe' : d === 'Canarias (Gran Canaria)' ? 'CAN GC' : d,
+    label: d === 'Canarias (Tenerife)' ? 'CAN Tfe' : d === 'Canarias (Gran Canaria)' ? 'CAN GC' : d === 'Canarias (Lanzarote)' ? 'CAN LZ' : d,
     count: employees.filter(e => e.delegacion === d).length,
     deleg: d,
+    isCaribe: CARIBE_DELEG.includes(d),
   })).filter(d => d.count > 0);
 
   // ── RENDER: Ficha empleado ─────────────────────────────────────────────────
@@ -1705,20 +1716,15 @@ export default function RRHHModule({ onBackToHub, role = 'operations' }) {
   const consultBajas = consultZoneAll.filter(e => e.status === 'Baja');
   const consultList = showBajas['Consultoría'] ? consultZoneAll : consultZoneAll.filter(e => e.status !== 'Baja');
 
-  const labZoneAll = (() => {
-    const base = byDept('Laboratorio');
-    if (labZone === 'Baleares') return base.filter(e => e.delegacion === 'Baleares');
-    if (labZone === 'Canarias') return base.filter(e => CANARIAS_DELEG.includes(e.delegacion));
-    return base;
-  })();
+  const labZoneAll = filterByZone(byDept('Laboratorio'), labZone);
   const labBajas = labZoneAll.filter(e => e.status === 'Baja');
   const labList = showBajas['Laboratorio'] ? labZoneAll : labZoneAll.filter(e => e.status !== 'Baja');
 
-  const dirAll = byDept('Dirección');
+  const dirAll = filterByZone(byDept('Dirección'), dirZone);
   const dirBajas = dirAll.filter(e => e.status === 'Baja');
   const dirList = showBajas['Dirección'] ? dirAll : dirAll.filter(e => e.status !== 'Baja');
 
-  const opAll = byDept('Operaciones');
+  const opAll = filterByZone(byDept('Operaciones'), opZone);
   const opBajas = opAll.filter(e => e.status === 'Baja');
   const opList = showBajas['Operaciones'] ? opAll : opAll.filter(e => e.status !== 'Baja');
 
@@ -1890,13 +1896,23 @@ export default function RRHHModule({ onBackToHub, role = 'operations' }) {
             </div>
 
             {/* Filtro zona */}
-            <div style={{ padding: '10px 18px', borderBottom: '1px solid var(--border)', display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-              {['Todos', 'Baleares', 'Canarias', 'Península'].map(z => (
-                <button key={z} onClick={() => setConsultZone(z)}
-                  style={{ padding: '4px 12px', borderRadius: '999px', fontSize: '0.78rem', fontWeight: 600, cursor: 'pointer', border: consultZone === z ? '1.5px solid #185FA5' : '1px solid var(--border)', backgroundColor: consultZone === z ? '#e6f1fb' : 'transparent', color: consultZone === z ? '#185FA5' : 'var(--text-muted)' }}>
-                  {z === 'Todos' ? `Todos · ${byDept('Consultoría').length}` : z === 'Baleares' ? `Baleares · ${byDept('Consultoría').filter(e => e.delegacion === 'Baleares').length}` : z === 'Canarias' ? `Canarias · ${byDept('Consultoría').filter(e => CANARIAS_DELEG.includes(e.delegacion)).length}` : `Península · ${byDept('Consultoría').filter(e => PENINSULA_DELEG.includes(e.delegacion)).length}`}
-                </button>
-              ))}
+            <div style={{ padding: '10px 18px', borderBottom: '1px solid var(--border)', display: 'flex', gap: '6px', flexWrap: 'wrap', alignItems: 'center' }}>
+              {[
+                { z: 'Todos',     ac: '#185FA5', ab: '#e6f1fb', count: byDept('Consultoría').length },
+                { z: 'Baleares',  ac: '#185FA5', ab: '#e6f1fb', count: byDept('Consultoría').filter(e => e.delegacion === 'Baleares').length },
+                { z: 'Canarias',  ac: '#185FA5', ab: '#e6f1fb', count: byDept('Consultoría').filter(e => CANARIAS_DELEG.includes(e.delegacion)).length },
+                { z: 'Península', ac: '#185FA5', ab: '#e6f1fb', count: byDept('Consultoría').filter(e => PENINSULA_DELEG.includes(e.delegacion)).length },
+                null,
+                { z: 'MX',       ac: '#16A34A', ab: '#dcfce7', count: byDept('Consultoría').filter(e => e.delegacion === 'MX').length },
+                { z: 'RD',       ac: '#B91C1C', ab: '#fee2e2', count: byDept('Consultoría').filter(e => e.delegacion === 'RD').length },
+                { z: 'Jamaica',  ac: '#7C3AED', ab: '#ede9fe', count: byDept('Consultoría').filter(e => e.delegacion === 'Caribe').length },
+              ].map((item, i) => item === null
+                ? <span key={`sep-${i}`} style={{ width: '1px', height: '16px', backgroundColor: 'var(--border)', alignSelf: 'center', flexShrink: 0 }} />
+                : <button key={item.z} onClick={() => setConsultZone(item.z)}
+                    style={{ padding: '4px 10px', borderRadius: '999px', fontSize: '0.75rem', fontWeight: 600, cursor: 'pointer', border: consultZone === item.z ? `1.5px solid ${item.ac}` : '1px solid var(--border)', backgroundColor: consultZone === item.z ? item.ab : 'transparent', color: consultZone === item.z ? item.ac : 'var(--text-muted)', whiteSpace: 'nowrap' }}>
+                    {item.z} · {item.count}
+                  </button>
+              )}
             </div>
 
             <div style={{ padding: '8px', overflowY: 'auto', flex: 1 }}>
@@ -1926,17 +1942,22 @@ export default function RRHHModule({ onBackToHub, role = 'operations' }) {
                   </button>
                 )}
               </div>
-              <div style={{ padding: '10px 18px', borderBottom: '1px solid var(--border)', display: 'flex', gap: '8px' }}>
+              <div style={{ padding: '10px 18px', borderBottom: '1px solid var(--border)', display: 'flex', gap: '6px', flexWrap: 'wrap', alignItems: 'center' }}>
                 {[
-                  { z: 'Todos',    label: `Todos · ${byDept('Laboratorio').length}` },
-                  { z: 'Baleares', label: `Baleares · ${byDept('Laboratorio').filter(e => e.delegacion === 'Baleares').length}` },
-                  { z: 'Canarias', label: `Canarias · ${byDept('Laboratorio').filter(e => CANARIAS_DELEG.includes(e.delegacion)).length}` },
-                ].map(({ z, label }) => (
-                  <button key={z} onClick={() => setLabZone(z)}
-                    style={{ padding: '4px 12px', borderRadius: '999px', fontSize: '0.78rem', fontWeight: 600, cursor: 'pointer', border: labZone === z ? '1.5px solid #534AB7' : '1px solid var(--border)', backgroundColor: labZone === z ? '#eeedfe' : 'transparent', color: labZone === z ? '#534AB7' : 'var(--text-muted)' }}>
-                    {label}
-                  </button>
-                ))}
+                  { z: 'Todos',    ac: '#534AB7', ab: '#eeedfe', count: byDept('Laboratorio').length },
+                  { z: 'Baleares', ac: '#534AB7', ab: '#eeedfe', count: byDept('Laboratorio').filter(e => e.delegacion === 'Baleares').length },
+                  { z: 'Canarias', ac: '#534AB7', ab: '#eeedfe', count: byDept('Laboratorio').filter(e => CANARIAS_DELEG.includes(e.delegacion)).length },
+                  null,
+                  { z: 'MX',      ac: '#16A34A', ab: '#dcfce7', count: byDept('Laboratorio').filter(e => e.delegacion === 'MX').length },
+                  { z: 'RD',      ac: '#B91C1C', ab: '#fee2e2', count: byDept('Laboratorio').filter(e => e.delegacion === 'RD').length },
+                  { z: 'Jamaica', ac: '#7C3AED', ab: '#ede9fe', count: byDept('Laboratorio').filter(e => e.delegacion === 'Caribe').length },
+                ].map((item, i) => item === null
+                  ? <span key={`sep-${i}`} style={{ width: '1px', height: '16px', backgroundColor: 'var(--border)', alignSelf: 'center', flexShrink: 0 }} />
+                  : <button key={item.z} onClick={() => setLabZone(item.z)}
+                      style={{ padding: '4px 10px', borderRadius: '999px', fontSize: '0.75rem', fontWeight: 600, cursor: 'pointer', border: labZone === item.z ? `1.5px solid ${item.ac}` : '1px solid var(--border)', backgroundColor: labZone === item.z ? item.ab : 'transparent', color: labZone === item.z ? item.ac : 'var(--text-muted)', whiteSpace: 'nowrap' }}>
+                      {item.z} · {item.count}
+                    </button>
+                )}
               </div>
               <div style={{ padding: '8px', overflowY: 'auto', maxHeight: '260px' }}>
                 {labList.map(emp => (
@@ -1962,6 +1983,22 @@ export default function RRHHModule({ onBackToHub, role = 'operations' }) {
                   </button>
                 )}
               </div>
+              <div style={{ padding: '8px 18px 8px', borderBottom: '1px solid var(--border)', display: 'flex', gap: '6px', flexWrap: 'wrap', alignItems: 'center' }}>
+                {[
+                  { z: 'Todos',   ac: '#993C1D', ab: '#faece7', count: byDept('Dirección').length },
+                  { z: 'EMEA',    ac: '#993C1D', ab: '#faece7', count: byDept('Dirección').filter(e => EMEA_DELEG.includes(e.delegacion)).length },
+                  null,
+                  { z: 'MX',      ac: '#16A34A', ab: '#dcfce7', count: byDept('Dirección').filter(e => e.delegacion === 'MX').length },
+                  { z: 'RD',      ac: '#B91C1C', ab: '#fee2e2', count: byDept('Dirección').filter(e => e.delegacion === 'RD').length },
+                  { z: 'Jamaica', ac: '#7C3AED', ab: '#ede9fe', count: byDept('Dirección').filter(e => e.delegacion === 'Caribe').length },
+                ].map((item, i) => item === null
+                  ? <span key={`sep-${i}`} style={{ width: '1px', height: '16px', backgroundColor: 'var(--border)', alignSelf: 'center', flexShrink: 0 }} />
+                  : <button key={item.z} onClick={() => setDirZone(item.z)}
+                      style={{ padding: '4px 10px', borderRadius: '999px', fontSize: '0.75rem', fontWeight: 600, cursor: 'pointer', border: dirZone === item.z ? `1.5px solid ${item.ac}` : '1px solid var(--border)', backgroundColor: dirZone === item.z ? item.ab : 'transparent', color: dirZone === item.z ? item.ac : 'var(--text-muted)', whiteSpace: 'nowrap' }}>
+                      {item.z} · {item.count}
+                    </button>
+                )}
+              </div>
               <div style={{ padding: '8px', overflowY: 'auto', maxHeight: '200px' }}>
                 {dirList.map(emp => (
                   <EmpRow key={emp.id} emp={emp} onClick={() => openEmployee(emp)} />
@@ -1984,6 +2021,22 @@ export default function RRHHModule({ onBackToHub, role = 'operations' }) {
                     <MinusCircle size={12} />
                     {showBajas['Operaciones'] ? 'Ocultar bajas' : `Ver bajas (${opBajas.length})`}
                   </button>
+                )}
+              </div>
+              <div style={{ padding: '8px 18px 8px', borderBottom: '1px solid var(--border)', display: 'flex', gap: '6px', flexWrap: 'wrap', alignItems: 'center' }}>
+                {[
+                  { z: 'Todos',   ac: '#0E7490', ab: '#ecfeff', count: byDept('Operaciones').length },
+                  { z: 'EMEA',    ac: '#0E7490', ab: '#ecfeff', count: byDept('Operaciones').filter(e => EMEA_DELEG.includes(e.delegacion)).length },
+                  null,
+                  { z: 'MX',      ac: '#16A34A', ab: '#dcfce7', count: byDept('Operaciones').filter(e => e.delegacion === 'MX').length },
+                  { z: 'RD',      ac: '#B91C1C', ab: '#fee2e2', count: byDept('Operaciones').filter(e => e.delegacion === 'RD').length },
+                  { z: 'Jamaica', ac: '#7C3AED', ab: '#ede9fe', count: byDept('Operaciones').filter(e => e.delegacion === 'Caribe').length },
+                ].map((item, i) => item === null
+                  ? <span key={`sep-${i}`} style={{ width: '1px', height: '16px', backgroundColor: 'var(--border)', alignSelf: 'center', flexShrink: 0 }} />
+                  : <button key={item.z} onClick={() => setOpZone(item.z)}
+                      style={{ padding: '4px 10px', borderRadius: '999px', fontSize: '0.75rem', fontWeight: 600, cursor: 'pointer', border: opZone === item.z ? `1.5px solid ${item.ac}` : '1px solid var(--border)', backgroundColor: opZone === item.z ? item.ab : 'transparent', color: opZone === item.z ? item.ac : 'var(--text-muted)', whiteSpace: 'nowrap' }}>
+                      {item.z} · {item.count}
+                    </button>
                 )}
               </div>
               <div style={{ padding: '8px', overflowY: 'auto', maxHeight: '200px' }}>
